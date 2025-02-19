@@ -30,7 +30,7 @@ import numpy as np
 import threading
 
 # %%% Internal Function Imports
-from image_functions import compress_images, plot_image
+from image_functions import compress_image, plot_image, composite_image, cloud_mask_image
 from calculation_functions import get_indices
 from satellite_functions import get_l7_bands, get_l8_bands, get_l9_bands
 from earth_engine_functions import authenticate_and_initialise
@@ -58,7 +58,7 @@ save_images = False
 
 # main parent path where all image files are stored
 home = 'C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads'
-compression = 1 # 1 for full-sized images, bigger integer for smaller images
+compression = 10 # 1 for full-sized images, bigger integer for smaller images
 dpi = 1000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 
@@ -69,7 +69,7 @@ print(f'computing indices for landsat 7: {do_l7}, '
       f'landsat 9: {do_l9}')
 print(f'saving images: {save_images}')
 
-def get_landsat(landsat_number, folder, show_landsat):
+def get_landsat(landsat_number, folder, do_landsat):
     print('===================')
     print(f'||LANDSAT {landsat_number} START||')
     print('===================')
@@ -113,7 +113,7 @@ def get_landsat(landsat_number, folder, show_landsat):
     
     width, height = images[1].size
     
-    images, image_arrays, size = compress_images(compression, width, height, images)
+    images, image_arrays, size = compress_image(compression, width, height, images)
     
     time_taken = time.monotonic() - start_time
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
@@ -126,17 +126,14 @@ def get_landsat(landsat_number, folder, show_landsat):
     blue, green, nir, swir1, swir2 = image_arrays
     np.seterr(divide='ignore', invalid='ignore')
 
-    minimum = -2.5
+    minimum = -1
     maximum = 1
     
     ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
     
     ndwi = np.maximum(np.minimum(ndwi, maximum), minimum) # 'cleaning'
-    
     mndwi = np.maximum(np.minimum(mndwi, maximum), minimum) # 'cleaning'
-    
     awei_sh = np.maximum(np.minimum(awei_sh, maximum), minimum) # 'cleaning'
-    
     awei_nsh = np.maximum(np.minimum(awei_nsh, maximum), minimum) # 'cleaning'
     
     indices = [ndwi, mndwi, awei_sh, awei_nsh]
@@ -145,7 +142,7 @@ def get_landsat(landsat_number, folder, show_landsat):
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
     
     # %%% Showing Images
-    if show_landsat:
+    if do_landsat:
         print('displaying and saving water index images...')
         start_time = time.monotonic()
         plot_image(indices, landsat_number, plot_size, 
@@ -166,7 +163,7 @@ aced with the Mid-Wave Infrared (MIR) band.
 if do_l7:
     l7_indices = get_landsat(landsat_number=7, 
                              folder='LE07_L2SP_201023_20000619_20200918_02_T1', 
-                             show_landsat=do_l7)
+                             do_landsat=do_l7)
 
 """
 Landsat 8 has no Mid-Wave Infrared (MIR) band. This may have effects on calcul-
@@ -175,7 +172,7 @@ ating the Modified Normalised Water Index (MNDWI). (must check)
 if do_l8:
     l8_indices = get_landsat(landsat_number=8, 
                              folder='LC08_L2SP_201024_20241120_20241203_02_T1', 
-                             show_landsat=do_l8)
+                             do_landsat=do_l8)
 
 """
 Landsat 9 has the same band imagers as Landsat 8, meaning that it lacks the MIR
@@ -184,7 +181,7 @@ band.
 if do_l9:
     l9_indices = get_landsat(landsat_number=9, 
                              folder='LC09_L1TP_201023_20241011_20241011_02_T1', 
-                             show_landsat=do_l9)
+                             do_landsat=do_l9)
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
 print(f'total time taken for all processes: {round(TOTAL_TIME, 2)} seconds')
