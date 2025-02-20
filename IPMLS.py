@@ -20,6 +20,12 @@
 - compositing (nothing yet)
 - separating general water and reservoir water (nothing yet)
 """
+# =============================================================================
+# - to install a conda library
+#     - %UserProfile%\miniconda3\condabin\activate
+#     - conda activate ee
+#     - conda install WhateverLibraryYouWant
+# =============================================================================
 # %% Start
 # %%% External Library Imports
 import time
@@ -30,9 +36,9 @@ import numpy as np
 import threading
 
 # %%% Internal Function Imports
-from image_functions import compress_image, plot_image, composite_image, cloud_mask_image
+from image_functions import compress_image, plot_image, composite, cloud_mask
 from calculation_functions import get_indices
-from satellite_functions import get_l7_bands, get_l8_bands, get_l9_bands
+from satellite_functions import get_landsat_bands
 from earth_engine_functions import authenticate_and_initialise
 
 # %%% Connect with Earth Engine project (ee)
@@ -52,13 +58,13 @@ else:
     print('will not connect to Google Earth Engine')
 # %% General Landsat Function
 do_l7 = False
-do_l8 = False
-do_l9 = True
+do_l8 = True
+do_l9 = False
 save_images = False
 
 # main parent path where all image files are stored
 home = 'C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads'
-compression = 10 # 1 for full-sized images, bigger integer for smaller images
+compression = 30 # 1 for full-sized images, bigger integer for smaller images
 dpi = 1000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 
@@ -85,26 +91,20 @@ def get_landsat(landsat_number, folder, do_landsat):
     PATH = home + satellite + folder
     os.chdir(PATH)
     
-    (landsat_and_sensor, proccessing_correction_level,
+    (landsat_and_sensor, processing_correction_level,
     wrs_path_row, acquisition_date,
-    proccessing_date, collection_number,
+    processing_date, collection_number,
     collection_category) = folder.split('_')
     
-    if landsat_number == 9:
+    if processing_correction_level[1] == '1':
         PREFIX = folder + '_B'
     else:
-        if proccessing_correction_level[2] == 'S':
+        if processing_correction_level[2] == 'S':
             PREFIX = folder + '_SR_B'
         else:
             PREFIX = folder + '_B'
     
-    if landsat_number == 7:
-        bands = get_l7_bands()
-    elif landsat_number == 8:
-        bands = get_l8_bands()
-    else:
-        bands = get_l9_bands()
-
+    bands = get_landsat_bands(landsat_number)
     for band in bands:
         file_paths.append(PREFIX + band + '.TIF')
     
@@ -114,7 +114,7 @@ def get_landsat(landsat_number, folder, do_landsat):
     width, height = images[1].size
     
     images, image_arrays, size = compress_image(compression, width, height, images)
-    
+
     time_taken = time.monotonic() - start_time
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
     
