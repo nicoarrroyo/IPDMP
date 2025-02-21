@@ -47,8 +47,8 @@ do_l9 = True
 save_images = False
 
 # main parent path where all image files are stored
-home = 'P:\\Individual Project'
-compression = 30 # 1 for full-sized images, bigger integer for smaller images
+home = 'C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project'
+compression = 3 # 1 for full-sized images, bigger integer for smaller images
 dpi = 1000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 
@@ -99,6 +99,58 @@ def get_landsat(landsat_number, folder, do_landsat):
     
     images, image_arrays, size = compress_image(compression, width, height, images)
 
+    time_taken = time.monotonic() - start_time
+    print(f'complete! time taken: {round(time_taken, 2)} seconds')
+    
+    # %%% Masking Clouds, Compositing Images
+    print('masking clouds, compositing images', end='... ')
+    start_time = time.monotonic()
+    
+    # LC08_L2SP_201024_20241120_20241203_02_T1_QA_PIXEL
+    # LC08_L2SP_201024_20241120_20241203_02_T1_SR_B6
+    import numpy as np
+    qa = Image.open(folder + '_QA_PIXEL.TIF')
+    qa_array = np.array(qa)
+    print('1')
+    np.where(qa_array == 1, -1, qa_array / 2**16)
+    print('2')
+    np.maximum(np.minimum(qa_array, 1), -1)
+    print('3')
+    # cloud_confidence = np.where((green + nir) == 0, -1, -(green - nir) / (green + nir))
+    import matplotlib.pyplot as plt
+    
+    # Assuming `attribute` is a 2D array with attribute values.
+    # Let's create a color map for visualization.
+    color_map = {
+        'clear': (0, 0, 0.1),  # Black
+        'water': (0, 0, 0.1),  # Black
+        'cloud shadow': (0.5, 0.5, 0.5),  # Gray
+        'cloud': (1, 1, 1),  # White
+        'low confidence cloud': (1, 0.5, 0),  # Orange
+        'medium confidence cloud': (1, 1, 0),  # Yellow
+        'high confidence cloud': (1, 0, 0),  # Magenta
+        'ternary occlusion': (1, 0.5, 0.5)  # Light Red
+    }
+    
+    # Create an array for the colors
+    attribute = np.zeros(np.shape(qa_array))
+    color_array = np.zeros((attribute.shape[0], attribute.shape[1], 3))
+    
+    # Map attributes to colors
+    for attribute_value, color in color_map.items():
+        mask = (attribute == attribute_value)
+        color_array[mask] = color
+    
+    # Plotting
+    plt.imshow(color_array, aspect='auto')
+    plt.axis('off')  # Turn off axis
+    plt.title('Attribute Visualization')
+    plt.show()
+    
+    import matplotlib.pyplot as plt
+    plt.imshow(qa_array)
+    plt.show()
+    
     time_taken = time.monotonic() - start_time
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
     
@@ -164,7 +216,7 @@ band.
 """
 if do_l9:
     l9_indices = get_landsat(landsat_number=9, 
-                             folder='LC09_L2SP_201023_20241011_20241012_02_T1', 
+                             folder='LC09_L2SP_201023_20241128_20241129_02_T1', 
                              do_landsat=do_l9)
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
