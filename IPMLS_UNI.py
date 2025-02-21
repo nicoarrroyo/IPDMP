@@ -164,7 +164,7 @@ band.
 """
 if do_l9:
     l9_indices = get_landsat(landsat_number=9, 
-                             folder='LC09_L1TP_201023_20241011_20241011_02_T1', 
+                             folder='LC09_L2SP_201023_20241011_20241012_02_T1', 
                              do_landsat=do_l9)
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
