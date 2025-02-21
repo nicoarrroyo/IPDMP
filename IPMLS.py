@@ -36,7 +36,7 @@ import numpy as np
 import threading
 
 # %%% Internal Function Imports
-from image_functions import compress_image, plot_image, composite, cloud_mask
+from image_functions import compress_image, plot_image
 from calculation_functions import get_indices
 from satellite_functions import get_landsat_bands
 from earth_engine_functions import authenticate_and_initialise
@@ -122,41 +122,10 @@ def get_landsat(landsat_number, folder, do_landsat):
     print('masking clouds, compositing images', end='... ')
     start_time = time.monotonic()
     
-    # LC08_L2SP_201024_20241120_20241203_02_T1_QA_PIXEL
-    # LC08_L2SP_201024_20241120_20241203_02_T1_SR_B6
     qa = Image.open(folder + '_QA_PIXEL.TIF')
     qa_array = np.array(qa)
-    # cloud_confidence = np.where((green + nir) == 0, -1, -(green - nir) / (green + nir))
-    import numpy as np
-    import matplotlib.pyplot as plt
-    
-    # Assuming `attribute` is a 2D array with attribute values.
-    # Let's create a color map for visualization.
-    color_map = {
-        'clear': (0, 0, 0.1),  # Black
-        'water': (0, 0, 0.1),  # Black
-        'cloud shadow': (0.5, 0.5, 0.5),  # Gray
-        'cloud': (1, 1, 1),  # White
-        'low confidence cloud': (1, 0.5, 0),  # Orange
-        'medium confidence cloud': (1, 1, 0),  # Yellow
-        'high confidence cloud': (1, 0, 0),  # Magenta
-        'ternary occlusion': (1, 0.5, 0.5)  # Light Red
-    }
-    
-    # Create an array for the colors
-    attribute = np.zeros(np.shape(qa_array))
-    color_array = np.zeros((attribute.shape[0], attribute.shape[1], 3))
-    
-    # Map attributes to colors
-    for attribute_value, color in color_map.items():
-        mask = (attribute == attribute_value)
-        color_array[mask] = color
-    
-    # Plotting
-    plt.imshow(color_array, aspect='auto')
-    plt.axis('off')  # Turn off axis
-    plt.title('Attribute Visualization')
-    plt.show()
+    np.where(qa_array != 1, qa_array / 2**16, qa_array)
+    qa_array = np.maximum(qa_array, 1) # limiting to max value of 1
     
     import matplotlib.pyplot as plt
     plt.imshow(qa_array)
@@ -177,10 +146,10 @@ def get_landsat(landsat_number, folder, do_landsat):
     
     ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
     
-    ndwi = np.maximum(np.minimum(ndwi, maximum), minimum) # 'cleaning'
-    mndwi = np.maximum(np.minimum(mndwi, maximum), minimum) # 'cleaning'
-    awei_sh = np.maximum(np.minimum(awei_sh, maximum), minimum) # 'cleaning'
-    awei_nsh = np.maximum(np.minimum(awei_nsh, maximum), minimum) # 'cleaning'
+    ndwi = np.clip(ndwi, minimum, maximum)  # 'cleaning'
+    mndwi = np.clip(mndwi, minimum, maximum)  # 'cleaning'
+    awei_sh = np.clip(awei_sh, minimum, maximum)  # 'cleaning'
+    awei_nsh = np.clip(awei_nsh, minimum, maximum)  # 'cleaning'
     
     indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
