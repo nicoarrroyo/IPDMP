@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import os
 
-def compress_images(factor, width, height, images):
+def compress_image(factor, width, height, images):
     image_arrays = []
     if factor != 1:
         new_size = (width//factor, height//factor)
@@ -56,21 +56,13 @@ def plot_image(data, landsat_n, size,  minimum, maximum, comp, dpi, save_image):
         print(f'displaying {indices[i]} image', end='... ')
         plt.show()
 
-def rotate_image(show_images, im):
-    if show_images:
-        black = {}
-        print('opening image')
-        for rotation_angle in range(0, 3):
-            print(f'Rotation: {rotation_angle}')
-            black_pixel_count = 0
-            img = im.rotate(rotation_angle, expand=0)
-            img_array = np.array(img)
-            for pixel_row in img_array:
-                for pixel in pixel_row:
-                    if pixel == 0:
-                        black_pixel_count += 1
-            black[rotation_angle] = black_pixel_count
-            
-        im.show()
-        print('image open')
-        print(black)
+def cloud_mask(image_array):
+    print('hi')
+
+def composite():
+    print('cannot composite yet')
+
+
+
+
+
