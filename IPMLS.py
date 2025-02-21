@@ -158,7 +158,10 @@ def get_landsat(landsat_number, folder, do_landsat):
     
     # %%% Showing Images
     if do_landsat:
-        print('displaying and saving water index images...')
+        if save_images:
+            print('displaying and saving water index images...')
+        else:
+            print('displaying water index images...')
         start_time = time.monotonic()
         plot_image(indices, landsat_number, plot_size, 
                    minimum, maximum, compression, dpi, save_images)
