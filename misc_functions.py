@@ -1,18 +1,20 @@
 def table_print(**kwargs):
-    # Prepare the variables from the keyword arguments
-    variables = [(key, value) for key, value in kwargs.items()]
+    if not kwargs:
+        print("No data to display.")
+        return
     
-    # Determine the maximum lengths for formatting
-    max_var_length = max(len(var[0]) for var in variables)
-    max_value_length = max(len(str(var[1])) for var in variables)
+    # Compute max lengths efficiently
+    max_var_length = max(map(len, kwargs.keys()), default=8)  # Default for "Variable"
+    max_value_length = max(map(lambda v: len(str(v)), kwargs.values()), default=5)  # Default for "Value"
 
-    # Print the header
+    # Format the header and separator dynamically
     header = f"| {'Variable'.ljust(max_var_length)} | {'Value'.ljust(max_value_length)} |"
-    separator = '|' + '-' * (max_var_length + 2) + '|' + '-' * (max_value_length + 2) + '|'
-    
+    separator = "-" * len(header)
+
+    # Print table
+    print(separator)
     print(header)
     print(separator)
-    
-    # Print each variable row
-    for var_name, value in variables:
-        print(f"| {var_name.ljust(max_var_length)} | {str(value).ljust(max_value_length)} |")
+    for key, value in kwargs.items():
+        print(f"| {key.ljust(max_var_length)} | {str(value).ljust(max_value_length)} |")
+    print(separator)
