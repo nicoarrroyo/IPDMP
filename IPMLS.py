@@ -58,7 +58,7 @@ if gee_connect:
 # %% General Landsat Function
 do_l7 = False
 do_l8 = False
-do_l9 = False
+do_l9 = True
 save_images = False
 
 # main parent path where all image files are stored
@@ -118,7 +118,8 @@ def get_landsat(landsat_number, folder, do_landsat):
     
     qa = Image.open(folder + '_QA_PIXEL.TIF')
     qa_array = np.array(qa)
-    qa_array = np.where(qa_array != 1, qa_array / 2**16, qa_array)
+    qa_array = np.where(qa_array != 1, qa_array / 2**16, 0) # FLAG div 2**16 because 
+    # it is being shown not with the gradient plot but with regular imshow pltshow
     
     import matplotlib.pyplot as plt
     plt.imshow(qa_array)
@@ -134,15 +135,16 @@ def get_landsat(landsat_number, folder, do_landsat):
     blue, green, nir, swir1, swir2 = image_arrays
     
     ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
-    indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
+    indices = [ndwi, mndwi, awei_sh, awei_nsh]
+        
     time_taken = time.monotonic() - start_time
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
     
     # %%% Showing Images
-    minimum = -1
-    maximum = 1
     if do_landsat:
+        minimum = -1
+        maximum = 1
         if save_images:
             print('displaying and saving water index images...')
         else:
