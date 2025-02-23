@@ -40,6 +40,7 @@ from image_functions import compress_image, plot_image
 from calculation_functions import get_indices
 from satellite_functions import get_landsat_bands
 from earth_engine_functions import authenticate_and_initialise
+from misc_functions import table_print
 
 # %%% Connect with Earth Engine project (ee)
 gee_connect = False
@@ -54,11 +55,9 @@ if gee_connect:
         print('Operation timed out after 5 seconds') # prevents slow network connection
     time_taken = time.monotonic() - start_time
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
-else:
-    print('will not connect to Google Earth Engine')
 # %% General Landsat Function
 do_l7 = False
-do_l8 = True
+do_l8 = False
 do_l9 = False
 save_images = False
 
@@ -67,13 +66,8 @@ home = 'C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads'
 compression = 15 # 1 for full-sized images, bigger integer for smaller images
 dpi = 1000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
-
-print('compression factor:', compression)
-print('dots per inch (dpi):', dpi)
-print(f'computing indices for landsat 7: {do_l7}, '
-      f'landsat 8: {do_l8}, '
-      f'landsat 9: {do_l9}')
-print(f'saving images: {save_images}')
+table_print(compression=compression, dpi=dpi, do_l7=do_l7, do_l8=do_l8, do_l9=do_l9, 
+            save_images=save_images, plot_size=plot_size, gee_connect=gee_connect)
 
 def get_landsat(landsat_number, folder, do_landsat):
     print('===================')
