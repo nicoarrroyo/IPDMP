@@ -64,7 +64,7 @@ save_images = False
 
 # main parent path where all image files are stored
 home = 'C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads'
-compression = 30 # 1 for full-sized images, bigger integer for smaller images
+compression = 15 # 1 for full-sized images, bigger integer for smaller images
 dpi = 1000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 
@@ -118,14 +118,13 @@ def get_landsat(landsat_number, folder, do_landsat):
     time_taken = time.monotonic() - start_time
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
     
-    # %%% Masking Clouds, Compositing Images
-    print('masking clouds, compositing images', end='... ')
+    # %%% Masking Clouds
+    print('masking clouds', end='... ')
     start_time = time.monotonic()
     
     qa = Image.open(folder + '_QA_PIXEL.TIF')
     qa_array = np.array(qa)
-    np.where(qa_array != 1, qa_array / 2**16, qa_array)
-    qa_array = np.maximum(qa_array, 1) # limiting to max value of 1
+    qa_array = np.where(qa_array != 1, qa_array / 2**16, qa_array)
     
     import matplotlib.pyplot as plt
     plt.imshow(qa_array)
@@ -139,24 +138,16 @@ def get_landsat(landsat_number, folder, do_landsat):
     start_time = time.monotonic()
     
     blue, green, nir, swir1, swir2 = image_arrays
-    np.seterr(divide='ignore', invalid='ignore')
-
-    minimum = -1
-    maximum = 1
     
     ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
-    
-    ndwi = np.clip(ndwi, minimum, maximum)  # 'cleaning'
-    mndwi = np.clip(mndwi, minimum, maximum)  # 'cleaning'
-    awei_sh = np.clip(awei_sh, minimum, maximum)  # 'cleaning'
-    awei_nsh = np.clip(awei_nsh, minimum, maximum)  # 'cleaning'
-    
     indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
     time_taken = time.monotonic() - start_time
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
     
     # %%% Showing Images
+    minimum = -1
+    maximum = 1
     if do_landsat:
         if save_images:
             print('displaying and saving water index images...')
