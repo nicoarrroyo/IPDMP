@@ -39,12 +39,12 @@ import threading
 from image_functions import compress_image, plot_image
 from calculation_functions import get_indices
 from satellite_functions import get_landsat_bands
-from earth_engine_functions import authenticate_and_initialise
 from misc_functions import table_print
 
 # %%% Connect with Earth Engine project (ee)
 gee_connect = False
 if gee_connect:
+    from earth_engine_functions import authenticate_and_initialise
     print('connecting to google earth engine', end='... ')
     start_time = time.monotonic()
     thread = threading.Thread(target=authenticate_and_initialise)
@@ -57,7 +57,7 @@ if gee_connect:
     print(f'complete! time taken: {round(time_taken, 2)} seconds')
 # %% General Landsat Function
 do_l7 = False
-do_l8 = False
+do_l8 = True
 do_l9 = True
 save_images = False
 
@@ -118,7 +118,7 @@ def get_landsat(landsat_number, folder, do_landsat):
     
     qa = Image.open(folder + '_QA_PIXEL.TIF')
     qa_array = np.array(qa)
-    qa_array = np.where(qa_array != 1, qa_array / 2**16, 0) # FLAG div 2**16 because 
+    qa_array = np.where(qa_array == 1, 0, qa_array / 2**16) # FLAG div 2**16 because 
     # it is being shown not with the gradient plot but with regular imshow pltshow
     
     import matplotlib.pyplot as plt
