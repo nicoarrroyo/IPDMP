@@ -42,16 +42,16 @@ if gee_connect:
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
 
 # %%% General Image and Plot Properties
-compression = 1 # 1 for full-sized images, bigger integer for smaller images
+compression = 15 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
-save_images = True
+save_images = False
 # main parent path where all image files are stored
 HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 # %% General Mega Giga Function
-do_l7 = False
+do_l7 = True
 do_l8 = True
-do_l9 = False
+do_l9 = True
 
 do_s2 = True
 
@@ -115,7 +115,8 @@ def get_sat(sat_name, sat_number, folder, do_sat):
             print("Too many subdirectories in 'GRANULE':", len(subdirs))
             return
         
-        path = (path + "\\IMG_DATA\\R20m\\")
+        path_10 = (path + "\\IMG_DATA\\R10m\\") # finer resolution for bands 2, 3, 8
+        path_20 = (path + "\\IMG_DATA\\R20m\\") # regular resolution for bands 11, 12
         
         (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
          processing_baseline_number, relative_orbit_number, tile_number_field, 
@@ -124,7 +125,10 @@ def get_sat(sat_name, sat_number, folder, do_sat):
         bands = get_sentinel_bands(sat_number)
         
         for band in bands:
-            file_paths.append(path + prefix + band + "_20m.jp2")
+            if band == "02" or band == "03" or band == "08":
+                file_paths.append(path_10 + prefix + band + "_10m.jp2")
+            else:
+                file_paths.append(path_20 + prefix + band + "_20m.jp2")
     # %%% 1. Continued
     for file_path in file_paths:
         images.append(Image.open(file_path))
@@ -201,7 +205,7 @@ aced with the Mid-Wave Infrared (MIR) band.
 """
 if do_l7:
     l7_indices = get_sat(sat_name="Landsat", sat_number=7, 
-                             folder="LE07_L2SP_201023_20000619_20200918_02_T1", 
+                             folder="LE07_L1TP_201023_20230820_20230915_02_T1", 
                              do_sat=do_l7)
 
 """
