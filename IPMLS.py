@@ -7,7 +7,6 @@
     - functional index calculation and plots
 - machine learning
 - cloud masking
-    - output plot for sentinel
 - compositing
 - separating general water and reservoir water
 """
@@ -42,10 +41,10 @@ if gee_connect:
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
 
 # %%% General Image and Plot Properties
-compression = 30 # 1 for full-sized images, bigger integer for smaller images
-dpi = 1000 # 3000 for full resolution, below 1000, images become fuzzy
+compression = 1 # 1 for full-sized images, bigger integer for smaller images
+dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
-save_images = False
+save_images = True
 # main parent path where all image files are stored
 HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 # %% General Landsat Function
@@ -62,7 +61,7 @@ def get_landsat(landsat_number, folder, do_landsat):
     file_paths = []
     images = []
     
-    # %%% Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
+    # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
     print("establishing paths, opening and resizing images, creating image arrays", 
           end="... ")
     start_time = time.monotonic()
@@ -98,7 +97,7 @@ def get_landsat(landsat_number, folder, do_landsat):
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% Masking Clouds
+    # %%% 2. Masking Clouds
     print("masking clouds", end="... ")
     start_time = time.monotonic()
     
@@ -114,20 +113,18 @@ def get_landsat(landsat_number, folder, do_landsat):
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% Calculating Water Indices
+    # %%% 3. Calculating Water Indices
     print("populating water index arrays", end="... ")
     start_time = time.monotonic()
     
     blue, green, nir, swir1, swir2 = image_arrays
-    
     ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
-    
     indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% Showing Images
+    # %%% 4. Showing Images
     if do_landsat:
         minimum = -1
         maximum = 1
@@ -146,44 +143,40 @@ def get_landsat(landsat_number, folder, do_landsat):
 do_s2 = True
 
 def get_sentinel(sentinel_number, folder, do_s2):
-    print("===================")
+    print("====================")
     print(f"||SENTINEL {sentinel_number} START||")
-    print("===================")
+    print("====================")
     table_print(compression=compression, dpi=dpi, do_s2=do_s2, save_images=save_images, 
                 plot_size=plot_size, gee_connect=gee_connect)
     file_paths = []
     images = []
     
-    # %%% Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
+    # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
     print("establishing paths, opening and resizing images, creating image arrays", 
           end="... ")
     start_time = time.monotonic()
     
-    # S2B_MSIL2A_20250227T112119_N0511_R037_T30UXD_20250227T150852.SAFE
-    # GRANULE sub-folder
-    # L2A_T30UXD_A041676_20250227T112116
-    
+    # %%%% 1a. path = HOME\Sentinel 2\folder\"GRANULE"
     satellite = f"\\Sentinel {sentinel_number}\\"
-    (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
-     processing_baseline_number, relative_orbit_number, tile_number_field, 
-     product_discriminator_and_format) = folder.split("_")
-    
-    path = HOME + satellite + folder + "\\GRANULE\\"
-    # find all subdirectories in GRANULE
-    # this has to be done this way because the sub-folder inside GRANULE does 
-    # not follow an explicit rule
+    path = HOME + satellite + folder + "\\GRANULE"
+    # %%%% 1b. path = path\subdirectory\, this is the directory for all data
     subdirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
     if len(subdirs) == 1:
-        path = (f"{path}\\{subdirs[0]}\\IMG_DATA\\R20m\\")
+        path = (f"{path}\\{subdirs[0]}\\")
         os.chdir(path)
     else:
         print("Too many subdirectories in 'GRANULE':", len(subdirs))
         return
+    path = (f"{path}\\IMG_DATA\\R20m\\")
     
+    (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
+     processing_baseline_number, relative_orbit_number, tile_number_field, 
+     product_discriminator_and_format) = folder.split("_")
     prefix = (f"{tile_number_field}_{datatake_start_sensing_time}_B")
     bands = get_sentinel_bands(sentinel_number)
+    
     for band in bands:
-        file_paths.append(prefix + band + "_20m.jp2")
+        file_paths.append(path + prefix + band + "_20m.jp2")
     
     for file_path in file_paths:
         images.append(Image.open(file_path))
@@ -195,38 +188,35 @@ def get_sentinel(sentinel_number, folder, do_s2):
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% Masking Clouds
+    # %%% 2. Masking Clouds
     print("masking clouds", end="... ")
     start_time = time.monotonic()
     
     path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\QI_DATA\\"
-        
-    qa = Image.open(path + "MSK_CLDPRB_20m.jp2")
-    qa_array = np.array(qa)
-    qa_array = np.where(qa_array == 1, 0, qa_array / 2**16) # FLAG div 2**16 because 
-    # it is being shown not with the gradient plot but with regular imshow pltshow
     
-    import matplotlib.pyplot as plt
-    plt.imshow(qa_array)
-    plt.show()
+    qa = Image.open(path + "MSK_CLDPRB_20m.jp2") # pixel value from 0 - 100
+    # representing the probability that a given pixel is a cloud
+    qa_array = np.array(qa)
+    
+    import matplotlib.pyplot as plt # troubleshooting
+    plt.imshow(qa_array) # troubleshooting
+    plt.show() # troubleshooting
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% Calculating Water Indices
+    # %%% 3. Calculating Water Indices
     print("populating water index arrays", end="... ")
     start_time = time.monotonic()
     
     blue, green, nir, swir1, swir2 = image_arrays
-    
     ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
-    
     indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% Showing Images
+    # %%% 4. Showing Images
     if do_s2:
         minimum = -1
         maximum = 1
