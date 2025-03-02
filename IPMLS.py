@@ -4,7 +4,7 @@
 - optimisations
 - output plots improved
 - sentinel 2
-    - functional index calculation and plots
+    - functional index calculation, plot outputs, and plot saving
 - machine learning
 - cloud masking
 - compositing
@@ -41,10 +41,10 @@ if gee_connect:
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
 
 # %%% General Image and Plot Properties
-compression = 1 # 1 for full-sized images, bigger integer for smaller images
-dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
+compression = 15 # 1 for full-sized images, bigger integer for smaller images
+dpi = 300 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
-save_images = True
+save_images = False
 # main parent path where all image files are stored
 HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 # %% General Landsat Function
@@ -146,8 +146,8 @@ def get_sentinel(sentinel_number, folder, do_s2):
     print("====================")
     print(f"||SENTINEL {sentinel_number} START||")
     print("====================")
-    table_print(compression=compression, dpi=dpi, do_s2=do_s2, save_images=save_images, 
-                plot_size=plot_size, gee_connect=gee_connect)
+    table_print(compression=compression, dpi=dpi, do_sentinel=do_s2, 
+                save_images=save_images, plot_size=plot_size, gee_connect=gee_connect)
     file_paths = []
     images = []
     
@@ -156,10 +156,9 @@ def get_sentinel(sentinel_number, folder, do_s2):
           end="... ")
     start_time = time.monotonic()
     
-    # %%%% 1a. path = HOME\Sentinel 2\folder\"GRANULE"
     satellite = f"\\Sentinel {sentinel_number}\\"
     path = HOME + satellite + folder + "\\GRANULE"
-    # %%%% 1b. path = path\subdirectory\, this is the directory for all data
+    
     subdirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
     if len(subdirs) == 1:
         path = (f"{path}\\{subdirs[0]}\\")
@@ -167,7 +166,8 @@ def get_sentinel(sentinel_number, folder, do_s2):
     else:
         print("Too many subdirectories in 'GRANULE':", len(subdirs))
         return
-    path = (f"{path}\\IMG_DATA\\R20m\\")
+    
+    path = (path + "\\IMG_DATA\\R20m\\")
     
     (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
      processing_baseline_number, relative_orbit_number, tile_number_field, 
@@ -196,10 +196,10 @@ def get_sentinel(sentinel_number, folder, do_s2):
     
     qa = Image.open(path + "MSK_CLDPRB_20m.jp2") # pixel value from 0 - 100
     # representing the probability that a given pixel is a cloud
-    qa_array = np.array(qa)
+    qa, qa_array, size = compress_image(compression, width, height, qa)
     
     import matplotlib.pyplot as plt # troubleshooting
-    plt.imshow(qa_array) # troubleshooting
+    plt.imshow(qa_array[0]) # troubleshooting
     plt.show() # troubleshooting
     
     time_taken = time.monotonic() - start_time
@@ -269,8 +269,8 @@ with the SWIR2 band.
 """
 if do_s2:
     s2_indices = get_sentinel(sentinel_number=2, 
-                              folder=("S2B_MSIL2A_20250227T112119_N0511_R037"
-                                  "_T30UXD_20250227T150852.SAFE"), 
+                              folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
+                                  "_T31UCU_20250301T152054.SAFE"), 
                                   do_s2=do_s2)
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
