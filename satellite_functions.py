@@ -18,7 +18,7 @@ def get_sentinel_bands(sentinel_n):
     if sentinel_n == 2:
         BLUE_BAND = '02'
         GREEN_BAND = '03'
-        NIR_BAND = '8A'
+        NIR_BAND = '08'
         SWIR1_BAND = '11'
         SWIR2_BAND = '12'
         return BLUE_BAND, GREEN_BAND, NIR_BAND, SWIR1_BAND, SWIR2_BAND
