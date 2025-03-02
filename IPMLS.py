@@ -101,13 +101,15 @@ def get_landsat(landsat_number, folder, do_landsat):
     print("masking clouds", end="... ")
     start_time = time.monotonic()
     
-    qa = Image.open(folder + "_QA_PIXEL.TIF")
-    qa_array = np.array(qa)
-    qa_array = np.where(qa_array == 1, 0, qa_array / 2**16) # FLAG div 2**16 because 
-    # it is being shown not with the gradient plot but with regular imshow pltshow
+    clouds = Image.open(folder + "_QA_PIXEL.TIF")
+    clouds, clouds_array, size = compress_image(compression, width, 
+                                                height, clouds)
+    clouds_array = np.where(clouds_array == 1, 0, 100 * clouds_array / 2**16)
+    # FLAG div 2**16 because it is being shown not with the gradient plot but 
+    # with regular imshow pltshow
     
     import matplotlib.pyplot as plt
-    plt.imshow(qa_array)
+    plt.imshow(clouds_array)
     plt.show()
     
     time_taken = time.monotonic() - start_time
@@ -194,13 +196,24 @@ def get_sentinel(sentinel_number, folder, do_s2):
     
     path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\QI_DATA\\"
     
-    qa = Image.open(path + "MSK_CLDPRB_20m.jp2") # pixel value from 0 - 100
-    # representing the probability that a given pixel is a cloud
-    qa, qa_array, size = compress_image(compression, width, height, qa)
+    clouds = Image.open(path + "MSK_CLDPRB_20m.jp2")
+    clouds, clouds_array, size = compress_image(compression, width, 
+                                                height, clouds)
     
     import matplotlib.pyplot as plt # troubleshooting
-    plt.imshow(qa_array[0]) # troubleshooting
+    plt.imshow(clouds_array) # troubleshooting
     plt.show() # troubleshooting
+    
+    clouds_array = np.where(clouds_array > 50, 100, clouds_array) 
+    # if it's more likely to  be a cloud than not, make it 100% a cloud
+    plt.imshow(clouds_array) # troubleshooting
+    plt.show() # troubleshooting
+    
+    cloud_positions = np.argwhere(clouds_array == 100) # find the position of 
+    # each cloud and store it in an array where [y, x]
+    
+    for image_array in image_arrays:
+        image_array[cloud_positions[:, 0], cloud_positions[:, 1]] = 0.00001
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
