@@ -18,3 +18,31 @@ def table_print(**kwargs):
     for key, value in kwargs.items():
         print(f"| {key.ljust(max_var_length)} | {str(value).ljust(max_value_length)} |")
     print(separator)
+
+# =============================================================================
+# def calculate_water_indices(image_arrays):
+#     print("populating water index arrays", end="... ")
+#     start_time = time.monotonic()
+# 
+#     blue, green, nir, swir1, swir2 = image_arrays
+#     ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
+#     indices = [ndwi, mndwi, awei_sh, awei_nsh]
+# 
+#     time_taken = time.monotonic() - start_time
+#     print(f"complete! time taken: {round(time_taken, 2)} seconds")
+#     return indices
+# 
+# def show_images(do_sat, indices, sat_number):
+#     if do_sat:
+#         minimum = -1
+#         maximum = 1
+#         if save_images:
+#             print("displaying and saving water index images...")
+#         else:
+#             print("displaying water index images...")
+#         start_time = time.monotonic()
+#         plot_image(indices, sat_number, plot_size, 
+#                    minimum, maximum, compression, dpi, save_images)
+#         time_taken = time.monotonic() - start_time
+#         print(f"complete! time taken: {round(time_taken, 2)} seconds")
+# =============================================================================
