@@ -3,18 +3,22 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import os
 
-def compress_image(factor, width, height, image_list):
+def compress_image(factor, width, height, image_s):
     image_arrays = []
-    if not isinstance(image_list, list):
-        image_list = [image_list] # Convert single image to a list
     if factor != 1:
         new_size = (width//factor, height//factor)
     else:
         new_size = (width, height)
-    for img in image_list:
+    if not isinstance(image_s, list):
+        img = image_s
         img = img.resize(new_size)
-        image_arrays.append(np.array(img))
-    return image_list, image_arrays, new_size
+        image_array = np.array(img)
+        return img, image_array, new_size
+    else:
+        for img in image_s:
+            img = img.resize(new_size)
+            image_arrays.append(np.array(img))
+        return image_s, image_arrays, new_size
 
 def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image):
     indices = ["NDWI", "MNDWI", "AWEI Shadowed", "AWEI Non-Shadowed"]
