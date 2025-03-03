@@ -190,8 +190,7 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     start_time = time.monotonic()
     
     blue, green, nir, swir1, swir2 = image_arrays
-    ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
-    indices = [ndwi, mndwi, awei_sh, awei_nsh]
+    indices = get_indices(blue, green, nir, swir1, swir2)
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
