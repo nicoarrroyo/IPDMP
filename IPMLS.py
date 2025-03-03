@@ -2,12 +2,14 @@
 """ Update Notes (from previous version IPMLS-25-02)
 - earth engine
 - optimisations
+    - low resolution option for sentinel 2
 - output plots improved
 - sentinel 2
     - functional index calculation, plot outputs, and plot saving
     - new general function for landsat and/or sentinel
 - machine learning
 - cloud masking
+    - now functional and included before index calculation
 - compositing
 - separating general water and reservoir water
 """
@@ -46,23 +48,25 @@ compression = 15 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 save_images = False
+high_res_Sentinel = False # use finer 10m spatial resolution (slower)
 # main parent path where all image files are stored
 HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 # %% General Mega Giga Function
-do_l7 = True
+do_l7 = False
 do_l8 = True
-do_l9 = True
+do_l9 = False
 
 do_s2 = True
 
 def get_sat(sat_name, sat_number, folder, do_sat):
+    sat_start_time = time.monotonic()
     if sat_name == "Landsat":
         Landsat = True
         Sentinel = False
         title_line = "==================="
     elif sat_name == "Sentinel":
-        Sentinel = True
         Landsat = False
+        Sentinel = True
         title_line = "===================="
     else:
         print("Bad satellite name" + sat_name)
@@ -71,8 +75,9 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     print(title_line)
     print(f"||{sat_name} {sat_number} Start||")
     print(title_line)
-    table_print(compression=compression, dpi=dpi, do_sat=do_sat, 
-                save_images=save_images, plot_size=plot_size, gee_connect=gee_connect)
+    table_print(compression=compression, DPI=dpi, plot_size=plot_size, 
+                do_sat=do_sat, save_images=save_images, GEE=gee_connect, 
+                high_res_Sentinel=high_res_Sentinel)
     
     # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
     print("establishing paths, opening and resizing images, creating image arrays", 
@@ -84,6 +89,7 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     satellite = f"\\{sat_name} {sat_number}\\"
     # %%%% 1a. Landsat Case
     if Landsat:
+        res = "30m"
         path = HOME + satellite + folder
         os.chdir(path)
         
@@ -115,20 +121,29 @@ def get_sat(sat_name, sat_number, folder, do_sat):
             print("Too many subdirectories in 'GRANULE':", len(subdirs))
             return
         
-        path_10 = (path + "\\IMG_DATA\\R10m\\") # finer resolution for bands 2, 3, 8
-        path_20 = (path + "\\IMG_DATA\\R20m\\") # regular resolution for bands 11, 12
+        if high_res_Sentinel:
+            res = "10m20m"
+            path_10 = (path + "IMG_DATA\\R10m\\") # finer resolution for bands 2, 3, 8
+            path_20 = (path + "IMG_DATA\\R20m\\") # regular resolution for bands 11, 12
+        else:
+            res = "60m"
+            path_60 = (path + "IMG_DATA\\R60m\\") # lower resolution for all bands
         
         (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
          processing_baseline_number, relative_orbit_number, tile_number_field, 
          product_discriminator_and_format) = folder.split("_")
         prefix = (f"{tile_number_field}_{datatake_start_sensing_time}_B")
-        bands = get_sentinel_bands(sat_number)
+        bands = get_sentinel_bands(sat_number, high_res_Sentinel)
         
         for band in bands:
-            if band == "02" or band == "03" or band == "08":
-                file_paths.append(path_10 + prefix + band + "_10m.jp2")
+            if high_res_Sentinel:
+                Image.MAX_IMAGE_PIXELS = None
+                if band == "02" or band == "03" or band == "08":
+                    file_paths.append(path_10 + prefix + band + "_10m.jp2")
+                else:
+                    file_paths.append(path_20 + prefix + band + "_20m.jp2")
             else:
-                file_paths.append(path_20 + prefix + band + "_20m.jp2")
+                file_paths.append(path_60 + prefix + band + "_60m.jp2")
     # %%% 1. Continued
     for file_path in file_paths:
         images.append(Image.open(file_path))
@@ -148,8 +163,8 @@ def get_sat(sat_name, sat_number, folder, do_sat):
         clouds, clouds_array, size = compress_image(compression, width, 
                                                     height, clouds)
         clouds_array = (clouds_array / 65536.0) * 100
-        # FLAG div 2**16 because it is being shown not with the gradient plot but 
-        # with regular imshow pltshow
+        # FLAG div 2**16 because it is being shown not with the gradient plot 
+        # but with regular imshow pltshow
         # * 100 to make it into a cloud probability percentage
     # %%%% 2b. Sentinel Case
     elif Sentinel:
@@ -191,10 +206,14 @@ def get_sat(sat_name, sat_number, folder, do_sat):
             print("displaying water index images...")
         start_time = time.monotonic()
         plot_image(indices, sat_number, plot_size, minimum, maximum, 
-                   compression, dpi, save_images)
+                   compression, dpi, save_images, res)
         time_taken = time.monotonic() - start_time
         print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
+    # %%% 5. Satellite Output
+    time_taken = time.monotonic() - sat_start_time
+    print(f"{sat_name} {sat_number} complete! "
+          f"time taken: {round(time_taken, 2)} seconds")
     return indices
 # %% Running Functions    
 """
