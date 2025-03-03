@@ -20,7 +20,7 @@ def compress_image(factor, width, height, image_s):
             image_arrays.append(np.array(img))
         return image_s, image_arrays, new_size
 
-def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image):
+def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res):
     indices = ["NDWI", "MNDWI", "AWEI Shadowed", "AWEI Non-Shadowed"]
     for i, water_index in enumerate(data):
         plt.figure(figsize=(size))
@@ -30,7 +30,8 @@ def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image):
         else:
             sat_name = "Sentinel"
             sat_letter = "S"
-        plt.title(f"{sat_name} {sat_n} {indices[i]} C{comp} DPI{dpi}", fontsize=8)
+        plt.title(f"{sat_name} {sat_n} {indices[i]} C{comp} DPI{dpi} R{res}", 
+                  fontsize=8)
         
         ax = plt.gca() # get current axis
         im = plt.imshow(water_index, 
@@ -53,7 +54,7 @@ def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image):
         
         if save_image:
             print(f"saving {indices[i]} image", end="... ")
-            plot_name = f"{sat_letter}{sat_n}_{indices[i]}_C{comp}_DPI{dpi}.png"
+            plot_name = f"{sat_letter}{sat_n}_{indices[i]}_C{comp}_DPI{dpi}_R{res}.png"
             
             # check for file name already existing and increment file name
             base_name, extension = os.path.splitext(plot_name)
