@@ -21,7 +21,7 @@ def compress_image(factor, width, height, image_s):
         return image_s, image_arrays, new_size
 
 def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res):
-    indices = ["NDWI", "MNDWI", "AWEI Shadowed", "AWEI Non-Shadowed"]
+    indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     for i, water_index in enumerate(data):
         plt.figure(figsize=(size))
         if sat_n != 2:
@@ -74,8 +74,3 @@ def cloud_mask(image_array):
 
 def composite():
     print("cannot composite yet")
-
-
-
-
-
