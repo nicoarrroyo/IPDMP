@@ -44,7 +44,7 @@ if gee_connect:
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
 
 # %%% General Image and Plot Properties
-compression = 15 # 1 for full-sized images, bigger integer for smaller images
+compression = 19 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 save_images = False
@@ -53,7 +53,7 @@ high_res_Sentinel = False # use finer 10m spatial resolution (slower)
 HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 # %% General Mega Giga Function
 do_l7 = False
-do_l8 = True
+do_l8 = False
 do_l9 = False
 
 do_s2 = True
@@ -137,13 +137,15 @@ def get_sat(sat_name, sat_number, folder, do_sat):
         
         for band in bands:
             if high_res_Sentinel:
-                Image.MAX_IMAGE_PIXELS = None
+                max_pixels = Image.MAX_IMAGE_PIXELS
+                Image.MAX_IMAGE_PIXELS = None # DecompressionBombWarning Suppression
                 if band == "02" or band == "03" or band == "08":
                     file_paths.append(path_10 + prefix + band + "_10m.jp2")
                 else:
                     file_paths.append(path_20 + prefix + band + "_20m.jp2")
             else:
                 file_paths.append(path_60 + prefix + band + "_60m.jp2")
+            Image.MAX_IMAGE_PIXELS = max_pixels
     # %%% 1. Continued
     for file_path in file_paths:
         images.append(Image.open(file_path))
