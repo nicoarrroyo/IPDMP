@@ -26,7 +26,7 @@ import threading
 from image_functions import compress_image, plot_image
 from calculation_functions import get_indices
 from satellite_functions import get_landsat_bands, get_sentinel_bands
-from misc_functions import table_print
+from misc_functions import table_print, performance_estimate
 
 # %%% Connect with Earth Engine project (ee)
 gee_connect = False
@@ -44,19 +44,31 @@ if gee_connect:
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
 
 # %%% General Image and Plot Properties
-compression = 19 # 1 for full-sized images, bigger integer for smaller images
+compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 save_images = False
 high_res_Sentinel = False # use finer 10m spatial resolution (slower)
 # main parent path where all image files are stored
 HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
+
 # %% General Mega Giga Function
-do_l7 = False
-do_l8 = False
-do_l9 = False
+do_l7 = True
+do_l8 = True
+do_l9 = True
 
 do_s2 = True
+perf_est = performance_estimate(gee_connect, compression, dpi, plot_size, 
+                                save_images, high_res_Sentinel, 
+                                do_l7, do_l8, do_l9, do_s2)
+if perf_est <= 0.25:
+    est_duration = "low"
+elif perf_est > 0.25 and perf_est <= 0.5:
+    est_duration = "medium"
+elif perf_est < 0.5 and perf_est <= 0.75:
+    est_duration = "high"
+else:
+    est_duration = "very high"
 
 def get_sat(sat_name, sat_number, folder, do_sat):
     sat_start_time = time.monotonic()
@@ -77,7 +89,7 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     print(title_line)
     table_print(compression=compression, DPI=dpi, plot_size=plot_size, 
                 do_sat=do_sat, save_images=save_images, GEE=gee_connect, 
-                high_res_Sentinel=high_res_Sentinel)
+                high_res_Sentinel=high_res_Sentinel, sim_duration=est_duration)
     
     # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
     print("establishing paths, opening and resizing images, creating image arrays", 
