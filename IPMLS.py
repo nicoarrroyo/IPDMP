@@ -143,9 +143,9 @@ def get_sat(sat_name, sat_number, folder, do_sat):
                     file_paths.append(path_10 + prefix + band + "_10m.jp2")
                 else:
                     file_paths.append(path_20 + prefix + band + "_20m.jp2")
+                Image.MAX_IMAGE_PIXELS = max_pixels
             else:
                 file_paths.append(path_60 + prefix + band + "_60m.jp2")
-            Image.MAX_IMAGE_PIXELS = max_pixels
     # %%% 1. Continued
     for file_path in file_paths:
         images.append(Image.open(file_path))
