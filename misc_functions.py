@@ -19,30 +19,31 @@ def table_print(**kwargs):
         print(f"| {key.ljust(max_var_length)} | {str(value).ljust(max_value_length)} |")
     print(separator)
 
-# =============================================================================
-# def calculate_water_indices(image_arrays):
-#     print("populating water index arrays", end="... ")
-#     start_time = time.monotonic()
-# 
-#     blue, green, nir, swir1, swir2 = image_arrays
-#     ndwi, mndwi, awei_sh, awei_nsh = get_indices(blue, green, nir, swir1, swir2)
-#     indices = [ndwi, mndwi, awei_sh, awei_nsh]
-# 
-#     time_taken = time.monotonic() - start_time
-#     print(f"complete! time taken: {round(time_taken, 2)} seconds")
-#     return indices
-# 
-# def show_images(do_sat, indices, sat_number):
-#     if do_sat:
-#         minimum = -1
-#         maximum = 1
-#         if save_images:
-#             print("displaying and saving water index images...")
-#         else:
-#             print("displaying water index images...")
-#         start_time = time.monotonic()
-#         plot_image(indices, sat_number, plot_size, 
-#                    minimum, maximum, compression, dpi, save_images)
-#         time_taken = time.monotonic() - start_time
-#         print(f"complete! time taken: {round(time_taken, 2)} seconds")
-# =============================================================================
+def performance_estimate(gee_connect, compression, dpi, plot_size, save_images, 
+                         high_res_Sentinel, do_l7, do_l8, do_l9, do_s2):
+    perf_params = [gee_connect, compression, dpi, plot_size, save_images,
+                   high_res_Sentinel, do_l7, do_l8, do_l9, do_s2]
+    
+    perf_counter = 0
+    for param in perf_params:
+        if isinstance(param, bool) and param:
+            perf_counter += 1
+            if param == high_res_Sentinel:
+                perf_counter += 4
+            if param == save_images:
+                perf_counter += 2
+        
+        if isinstance(param, int) and not isinstance(param, bool):
+            if param == compression and param <= 3:
+                perf_counter += 3
+            else:
+                perf_counter += 1
+            if param == dpi and param >= 2000 and save_images:
+                perf_counter += 1
+        if isinstance(param, tuple):
+            if param == plot_size and param > (3, 3):
+                perf_counter += 2
+    
+    print(perf_counter)
+    max_counter = 30 # incorrect - needs tweaking
+    return perf_counter/max_counter
