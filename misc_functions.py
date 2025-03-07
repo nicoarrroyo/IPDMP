@@ -28,7 +28,7 @@ def performance_estimate(gee_connect, compression, dpi, plot_size, save_images,
     for param in perf_params:
         if isinstance(param, bool) and param:
             perf_counter += 1
-            if param == high_res_Sentinel:
+            if do_s2 and param == high_res_Sentinel:
                 perf_counter += 4
             if param == save_images:
                 perf_counter += 2
@@ -44,5 +44,5 @@ def performance_estimate(gee_connect, compression, dpi, plot_size, save_images,
             if param == plot_size and param > (3, 3):
                 perf_counter += 2
     
-    max_counter = 30 # incorrect - needs tweaking
+    max_counter = 20 # incorrect - needs tweaking
     return perf_counter/max_counter
