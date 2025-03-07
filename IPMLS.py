@@ -55,8 +55,7 @@ if uni_mode:
     HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
     # L9 - LC09_L2SP_201023_20241128_20241129_02_T1
 else:
-    HOME = "C:\\Users\\nicol\\Documents\\UoM"
-    "\\YEAR 3\\Individual Project\\Downloads"
+    HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
     # L7 - LE07_L1TP_201023_20230820_20230915_02_T1
     # L8 - LC08_L2SP_201024_20241120_20241203_02_T1
     # L9 - LC09_L1TP_201023_20241011_20241011_02_T1
