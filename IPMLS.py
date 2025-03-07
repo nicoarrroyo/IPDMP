@@ -23,7 +23,7 @@ import numpy as np
 import threading
 
 # %%% Internal Function Imports
-from image_functions import compress_image, plot_image
+from image_functions import compress_image, plot_image, upscale_image_array
 from calculation_functions import get_indices
 from satellite_functions import get_landsat_bands, get_sentinel_bands
 from misc_functions import table_print, performance_estimate
@@ -44,7 +44,7 @@ if gee_connect:
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
 
 # %%% General Image and Plot Properties
-compression = 1 # 1 for full-sized images, bigger integer for smaller images
+compression = 15 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 save_images = False
@@ -53,9 +53,9 @@ high_res_Sentinel = False # use finer 10m spatial resolution (slower)
 HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 
 # %% General Mega Giga Function
-do_l7 = True
+do_l7 = False
 do_l8 = True
-do_l9 = True
+do_l9 = False
 
 do_s2 = True
 perf_est = performance_estimate(gee_connect, compression, dpi, plot_size, 
@@ -97,7 +97,6 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     start_time = time.monotonic()
     
     file_paths = []
-    images = []
     satellite = f"\\{sat_name} {sat_number}\\"
     # %%%% 1a. Landsat Case
     if Landsat:
@@ -159,11 +158,7 @@ def get_sat(sat_name, sat_number, folder, do_sat):
             else:
                 file_paths.append(path_60 + prefix + band + "_60m.jp2")
     # %%% 1. Continued
-    for file_path in file_paths:
-        images.append(Image.open(file_path))
-    
-    width, height = images[1].size
-    images, image_arrays, size = compress_image(compression, width, height, images)
+    image_arrays, size = compress_image(compression, file_paths)
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
@@ -173,9 +168,7 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     start_time = time.monotonic()
     # %%%% 2a. Landsat Case
     if Landsat:
-        clouds = Image.open(folder + "_QA_PIXEL.TIF")
-        clouds, clouds_array, size = compress_image(compression, width, 
-                                                    height, clouds)
+        clouds_array, size = compress_image(compression, folder + "_QA_PIXEL.TIF")
         clouds_array = (clouds_array / 65536.0) * 100
         # FLAG div 2**16 because it is being shown not with the gradient plot 
         # but with regular imshow pltshow
@@ -183,16 +176,18 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     # %%%% 2b. Sentinel Case
     elif Sentinel:
         path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\QI_DATA\\"
-        
-        clouds = Image.open(path + "MSK_CLDPRB_20m.jp2")
-        clouds, clouds_array, size = compress_image(compression, width, 
-                                                    height, clouds)
+        if high_res_Sentinel:
+            image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
+            image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
+            path = path + "MSK_CLDPRB_20m.jp2"
+        else:
+            path = path + "MSK_CLDPRB_60m.jp2"
+        clouds_array, size = compress_image(compression, path)
     # %%% 2. Continued
     clouds_array = np.where(clouds_array > 50, 100, clouds_array) # if it's 
     # more likely to  be a cloud than not, make it 100% a cloud
     cloud_positions = np.argwhere(clouds_array == 100) # find the position of 
     # each cloud and store it in an array where [y, x]
-    
     for image_array in image_arrays:
         image_array[cloud_positions[:, 0], cloud_positions[:, 1]] = 0.00001
     
@@ -202,6 +197,9 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     # %%% 3. Calculating Water Indices
     print("populating water index arrays", end="... ")
     start_time = time.monotonic()
+    
+    if Sentinel:
+        globals()["im_arr_sen"] = image_arrays
     
     blue, green, nir, swir1, swir2 = image_arrays
     indices = get_indices(blue, green, nir, swir1, swir2)
