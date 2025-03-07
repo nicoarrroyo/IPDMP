@@ -74,8 +74,11 @@ def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res)
 def upscale_image_array(img_array, factor=2):
     return np.repeat(np.repeat(img_array, factor, axis=0), factor, axis=1)
 
-def cloud_mask(image_array):
-    print("hi")
-
-def composite():
-    print("cannot composite yet")
+def get_rgb(blue_path, green_path, red_path):
+    channels = []
+    for path in (blue_path, green_path, red_path):
+        with Image.open(path) as img:
+            arr = np.array(img, dtype=np.float32)
+            channels.append(((arr / arr.max()) * 255).astype(np.uint8))
+    rgb_image = np.stack(channels, axis=-1)
+    Image.fromarray(rgb_image).show()
