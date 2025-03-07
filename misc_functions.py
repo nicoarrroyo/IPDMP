@@ -44,6 +44,5 @@ def performance_estimate(gee_connect, compression, dpi, plot_size, save_images,
             if param == plot_size and param > (3, 3):
                 perf_counter += 2
     
-    print(perf_counter)
     max_counter = 30 # incorrect - needs tweaking
     return perf_counter/max_counter
