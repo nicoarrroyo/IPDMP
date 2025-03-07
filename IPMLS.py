@@ -44,17 +44,26 @@ if gee_connect:
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
 
 # %%% General Image and Plot Properties
-compression = 15 # 1 for full-sized images, bigger integer for smaller images
+compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-plot_size = (3, 3) # larger plots increase detail and pixel count
-save_images = False
+plot_size = (5, 5) # larger plots increase detail and pixel count
+save_images = True
 high_res_Sentinel = False # use finer 10m spatial resolution (slower)
 # main parent path where all image files are stored
-HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
+uni_mode = True
+if uni_mode:
+    HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
+    # L9 - LC09_L2SP_201023_20241128_20241129_02_T1
+else:
+    HOME = "C:\\Users\\nicol\\Documents\\UoM"
+    "\\YEAR 3\\Individual Project\\Downloads"
+    # L7 - LE07_L1TP_201023_20230820_20230915_02_T1
+    # L8 - LC08_L2SP_201024_20241120_20241203_02_T1
+    # L9 - LC09_L1TP_201023_20241011_20241011_02_T1
 
 # %% General Mega Giga Function
 do_l7 = False
-do_l8 = True
+do_l8 = False
 do_l9 = False
 
 do_s2 = True
@@ -89,7 +98,8 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     print(title_line)
     table_print(compression=compression, DPI=dpi, plot_size=plot_size, 
                 do_sat=do_sat, save_images=save_images, GEE=gee_connect, 
-                high_res_Sentinel=high_res_Sentinel, sim_duration=est_duration)
+                high_res_Sentinel=high_res_Sentinel, uni_mode=uni_mode, 
+                sim_duration=est_duration)
     
     # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
     print("establishing paths, opening and resizing images, creating image arrays", 
@@ -180,9 +190,11 @@ def get_sat(sat_name, sat_number, folder, do_sat):
             image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
             image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
             path = path + "MSK_CLDPRB_20m.jp2"
+            clouds_array, size = compress_image(compression, path)
+            clouds_array = upscale_image_array(clouds_array, factor=2)
         else:
             path = path + "MSK_CLDPRB_60m.jp2"
-        clouds_array, size = compress_image(compression, path)
+            clouds_array, size = compress_image(compression, path)
     # %%% 2. Continued
     clouds_array = np.where(clouds_array > 50, 100, clouds_array) # if it's 
     # more likely to  be a cloud than not, make it 100% a cloud
@@ -197,9 +209,6 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     # %%% 3. Calculating Water Indices
     print("populating water index arrays", end="... ")
     start_time = time.monotonic()
-    
-    if Sentinel:
-        globals()["im_arr_sen"] = image_arrays
     
     blue, green, nir, swir1, swir2 = image_arrays
     indices = get_indices(blue, green, nir, swir1, swir2)
@@ -226,7 +235,7 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     print(f"{sat_name} {sat_number} complete! "
           f"time taken: {round(time_taken, 2)} seconds")
     return indices
-# %% Running Functions    
+# %% Running Functions
 """
 Landsat 7 has only one Short-Wave Infrared (SWIR) band, which means that Autom-
 ated Water Extraction Index (AWEI) cannot be properly calculated. 
@@ -253,7 +262,7 @@ band.
 """
 if do_l9:
     l9_indices = get_sat(sat_name="Landsat", sat_number=9, 
-                             folder="LC09_L1TP_201023_20241011_20241011_02_T1", 
+                             folder="LC09_L2SP_201023_20241128_20241129_02_T1", 
                              do_sat=do_l9)
 
 """
@@ -265,7 +274,7 @@ with the SWIR2 band.
 if do_s2:
     s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
                               folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
-                                  "_T31UCU_20250301T152054.SAFE"), 
+                                      "_T31UCU_20250301T152054.SAFE"), 
                                   do_sat=do_s2)
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
