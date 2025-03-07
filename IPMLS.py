@@ -46,16 +46,17 @@ if gee_connect:
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-plot_size = (5, 5) # larger plots increase detail and pixel count
-save_images = True
+save_images = False
 high_res_Sentinel = False # use finer 10m spatial resolution (slower)
 # main parent path where all image files are stored
 uni_mode = True
 if uni_mode:
     HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
+    plot_size = (6, 6) # larger plots increase detail and pixel count
     # L9 - LC09_L2SP_201023_20241128_20241129_02_T1
 else:
     HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
+    plot_size = (3, 3) # larger plots increase detail and pixel count
     # L7 - LE07_L1TP_201023_20230820_20230915_02_T1
     # L8 - LC08_L2SP_201024_20241120_20241203_02_T1
     # L9 - LC09_L1TP_201023_20241011_20241011_02_T1
