@@ -2,23 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import os
+from PIL import Image
 
-def compress_image(factor, width, height, image_s):
-    image_arrays = []
-    if factor != 1:
-        new_size = (width//factor, height//factor)
-    else:
-        new_size = (width, height)
-    if not isinstance(image_s, list):
-        img = image_s
-        img = img.resize(new_size)
-        image_array = np.array(img)
-        return img, image_array, new_size
-    else:
-        for img in image_s:
+def compress_image(factor, file_path_s):
+    if not isinstance(file_path_s, list):
+        with Image.open(file_path_s) as img:
+            new_size = (img.width//factor, img.height//factor)
             img = img.resize(new_size)
-            image_arrays.append(np.array(img))
-        return image_s, image_arrays, new_size
+            image_array = np.array(img)
+        return image_array, new_size
+    
+    else:
+        image_arrays = []
+        for file_path in file_path_s:
+            with Image.open(file_path) as img:
+                new_size = (img.width//factor, img.height//factor)
+                img = img.resize(new_size)
+                image_arrays.append(np.array(img))
+        return image_arrays, new_size
 
 def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res):
     indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
@@ -68,6 +69,10 @@ def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res)
         
         print(f"displaying {indices[i]} image", end="... ")
         plt.show()
+        print(f"{indices[i]} image display complete!")
+
+def upscale_image_array(img_array, factor=2):
+    return np.repeat(np.repeat(img_array, factor, axis=0), factor, axis=1)
 
 def cloud_mask(image_array):
     print("hi")
