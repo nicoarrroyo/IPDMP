@@ -82,3 +82,22 @@ def get_rgb(blue_path, green_path, red_path):
             channels.append(((arr / arr.max()) * 255).astype(np.uint8))
     rgb_image = np.stack(channels, axis=-1)
     Image.fromarray(rgb_image).show()
+
+def mask_sentinel(path, high_res, image_arrays, comp):
+    if high_res:
+        image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
+        image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
+        path = path + "MSK_CLDPRB_20m.jp2"
+        clouds_array, size = compress_image(comp, path)
+        clouds_array = upscale_image_array(clouds_array, factor=2)
+    else:
+        path = path + "MSK_CLDPRB_60m.jp2"
+        clouds_array, size = compress_image(comp, path)
+    
+    clouds_array = np.where(clouds_array > 50, 100, clouds_array)
+    cloud_positions = np.argwhere(clouds_array == 100)
+    
+    for image_array in image_arrays:
+        image_array[cloud_positions[:, 0], cloud_positions[:, 1]] = 0.00001
+    
+    return image_arrays
