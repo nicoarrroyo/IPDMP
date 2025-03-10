@@ -42,7 +42,7 @@ else:
 # %% General Mega Giga Function
 do_s2 = True
 
-def get_sat(sat_name, sat_number, folder, do_sat):    
+def get_sat(sat_name, sat_number, folder):    
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
@@ -82,10 +82,13 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     
     for band in bands:
         if high_res:
+            max_pixels = Image.MAX_IMAGE_PIXELS
+            Image.MAX_IMAGE_PIXELS = None # DecompressionBombWarning Suppression
             if band == "02" or band == "03" or band == "08":
                 file_paths.append(path_10 + prefix + band + "_10m.jp2")
             else:
                 file_paths.append(path_20 + prefix + band + "_20m.jp2")
+            Image.MAX_IMAGE_PIXELS = max_pixels
         else:
             file_paths.append(path_60 + prefix + band + "_60m.jp2")
     
@@ -115,18 +118,17 @@ def get_sat(sat_name, sat_number, folder, do_sat):
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 4. Showing Images
-    if do_sat:
-        minimum = -1
-        maximum = 1
-        if save_images:
-            print("displaying and saving water index images...")
-        else:
-            print("displaying water index images...")
-        start_time = time.monotonic()
-        plot_image(indices, sat_number, plot_size, minimum, maximum, 
-                   compression, dpi, save_images, res)
-        time_taken = time.monotonic() - start_time
-        print(f"complete! time taken: {round(time_taken, 2)} seconds")
+    minimum = -1
+    maximum = 1
+    if save_images:
+        print("displaying and saving water index images...")
+    else:
+        print("displaying water index images...")
+    start_time = time.monotonic()
+    plot_image(indices, sat_number, plot_size, minimum, maximum, 
+               compression, dpi, save_images, res)
+    time_taken = time.monotonic() - start_time
+    print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 5. Satellite Output
     return indices
@@ -140,8 +142,7 @@ with the SWIR2 band.
 if do_s2:
     s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
                               folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
-                                      "_T31UCU_20250301T152054.SAFE"), 
-                                  do_sat=do_s2)
+                                      "_T31UCU_20250301T152054.SAFE"))
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
 print(f"total time taken for all processes: {round(TOTAL_TIME, 2)} seconds")
