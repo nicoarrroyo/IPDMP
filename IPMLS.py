@@ -17,17 +17,16 @@
 # %%% External Library Imports
 import time
 MAIN_START_TIME = time.monotonic()
-from PIL import Image
 import os
 
 # %%% Internal Function Imports
-from image_functions import compress_image, plot_image, mask_sentinel
+from image_functions import compress_image, plot_indices, mask_sentinel
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
 from misc_functions import table_print
 
 # %%% General Image and Plot Properties
-compression = 15 # 1 for full-sized images, bigger integer for smaller images
+compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
 save_images = False
@@ -82,13 +81,10 @@ def get_sat(sat_name, sat_number, folder):
     
     for band in bands:
         if high_res:
-            max_pixels = Image.MAX_IMAGE_PIXELS
-            Image.MAX_IMAGE_PIXELS = None # DecompressionBombWarning Suppression
             if band == "02" or band == "03" or band == "08":
                 file_paths.append(path_10 + prefix + band + "_10m.jp2")
             else:
                 file_paths.append(path_20 + prefix + band + "_20m.jp2")
-            Image.MAX_IMAGE_PIXELS = max_pixels
         else:
             file_paths.append(path_60 + prefix + band + "_60m.jp2")
     
@@ -117,7 +113,7 @@ def get_sat(sat_name, sat_number, folder):
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% 4. Showing Images
+    # %%% 4. Showing Indices
     minimum = -1
     maximum = 1
     if save_images:
@@ -125,12 +121,69 @@ def get_sat(sat_name, sat_number, folder):
     else:
         print("displaying water index images...")
     start_time = time.monotonic()
-    plot_image(indices, sat_number, plot_size, minimum, maximum, 
+    plot_indices(indices, sat_number, plot_size, minimum, maximum, 
                compression, dpi, save_images, res)
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% 5. Satellite Output
+    # %%% 5. Slicing Images
+    print("a")
+    import numpy as np
+    
+    def split_array(array, n_chunks):
+        rows = np.array_split(array, np.sqrt(n_chunks), axis=0) # split into rows
+        split_arrays = [np.array_split(row_chunk, np.sqrt(n_chunks), 
+                                       axis=1) for row_chunk in rows]
+        chunks = [subarray for row_chunk in split_arrays for subarray in row_chunk]
+        return chunks
+    
+    # split indices into chunks
+    chunks = []
+    for index in indices:
+        chunks.append(split_array(array=index, n_chunks=500))
+    
+    # look for rgb image everywhere
+    def find_rgb_file(path):
+        for item in os.listdir(path):
+            full_path = os.path.join(path, item)
+            if os.path.isdir(full_path): # if item is a folder
+                found_rgb, rgb_path = find_rgb_file(full_path)
+                if found_rgb:  
+                    return True, rgb_path
+            else: # if item is a file
+                if "RGB" in item and "10m" in item: # check for "RGB" in filename
+                    return True, full_path
+        return False, None
+    
+    path = HOME + satellite + folder
+    found_rgb, full_path = find_rgb_file(path)
+    
+    # if rgb image found
+    if found_rgb:
+        print("found 10 m resolution RGB image", full_path)
+    else: # elif rgb image not found
+        print("did not find 10 m resolution RGB image")
+    
+    
+    import matplotlib.pyplot as plt
+    plt.imshow(chunks[0][0], interpolation="nearest", 
+               cmap="viridis", vmin=minimum, vmax=maximum)
+    plt.title("chunk0")
+    plt.show()
+    
+    
+    path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\"
+    path_10 = (path + "IMG_DATA\\R10m\\") # finer resolution for bands 2, 3, 8
+    path_20 = (path + "IMG_DATA\\R20m\\") # regular resolution for bands 11, 12
+    path_60 = (path + "IMG_DATA\\R60m\\")
+    rgb = False
+    if rgb:
+        blue_path = path_60 + "T31UCU_20250301T111031_B02_60m.jp2"
+        green_path = path_60 + "T31UCU_20250301T111031_B03_60m.jp2"
+        red_path = path_60 + "T31UCU_20250301T111031_B04_60m.jp2"
+        from image_functions import get_rgb
+        get_rgb(blue_path, green_path, red_path)
+    # %%% XX. Satellite Output
     return indices
 # %% Running Functions
 """
