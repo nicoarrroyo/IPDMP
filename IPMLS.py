@@ -114,15 +114,13 @@ def get_sat(sat_name, sat_number, folder):
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 4. Showing Indices
-    minimum = -1
-    maximum = 1
     if save_images:
         print("displaying and saving water index images...")
     else:
         print("displaying water index images...")
     start_time = time.monotonic()
-    plot_indices(indices, sat_number, plot_size, minimum, maximum, 
-               compression, dpi, save_images, res)
+    plot_indices(indices, sat_number, plot_size, compression, 
+                 dpi, save_images, res)
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
@@ -178,7 +176,7 @@ def get_sat(sat_name, sat_number, folder):
     
     # split indices into chunks
     index_chunks = []
-    n_chunks = 2**10
+    n_chunks = 5000
     print("creating", n_chunks, "chunks from satellite imagery", end="... ")
     for index in indices:
         index_chunks.append(split_array(array=index, n_chunks=n_chunks))
@@ -187,27 +185,33 @@ def get_sat(sat_name, sat_number, folder):
     
     import matplotlib.pyplot as plt
     
-    indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
-    for i, index in enumerate(index_chunks):
-        for j, chunk in enumerate(index):
-            # Create a new figure and axes for side-by-side plots
-            fig, axes = plt.subplots(1, 2, figsize=(5, 3))
-            
-            axes[0].imshow(chunk, interpolation="nearest", 
-                           cmap="viridis", vmin=minimum, vmax=maximum)
-            axes[0].set_title(f"{indices[i]} Chunk {(i + 1) * j}")
-            axes[0].axis("off")
-            
-            axes[1].imshow(rgb_chunks[j], interpolation="nearest", 
-                           cmap="viridis", vmin=minimum, vmax=maximum)
-            axes[1].set_title(f"RGB Chunk {(i + 1) * j}")
-            axes[1].axis("off")
-            
-            plt.tight_layout()
-            plt.show()
-            if j>3:
-                print("done at j =", j)
-                return
+    index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
+# =============================================================================
+#     n_reservoirs = [np.zeros_like(index_chunks[0][0])]
+#     print(n_reservoirs)
+# =============================================================================
+    
+    for i in range(len(index_chunks[0])):
+        # plot index chunks
+        fig, axes = plt.subplots(1, len(indices), figsize=(5, 3))
+        
+        for count, index_label in enumerate(index_labels):
+            axes[count].imshow(index_chunks[count][i])
+            axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
+            axes[count].axis("off")
+        plt.tight_layout()
+        plt.show()
+        
+        # plot rgb chunks
+        plt.figure(figsize=(3, 3))
+        plt.title(f"RGB Chunk {i}", fontsize=6)
+        plt.imshow(rgb_chunks[i])
+        plt.axis("off")
+        plt.show()
+        
+        if i>3:
+            print("done at i =", i)
+            return
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
