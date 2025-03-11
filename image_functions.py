@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import os
 from PIL import Image
 
@@ -101,3 +100,15 @@ def mask_sentinel(path, high_res, image_arrays, comp):
         image_array[cloud_positions[:, 0], cloud_positions[:, 1]] = 0.00001
     
     return image_arrays
+
+def find_rgb_file(path):
+    for item in os.listdir(path):
+        full_path = os.path.join(path, item)
+        if os.path.isdir(full_path): # if item is a folder
+            found_rgb, rgb_path = find_rgb_file(full_path)
+            if found_rgb:  
+                return True, rgb_path
+        else: # if item is a file
+            if "RGB" in item and "10m" in item and "bright" in item:
+                return True, full_path
+    return False, None
