@@ -127,7 +127,9 @@ def get_sat(sat_name, sat_number, folder):
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 5. Slicing Images
-    print("a")
+    print("slicing images...")
+    start_time = time.monotonic()
+    
     import numpy as np
     
     def split_array(array, n_chunks):
@@ -136,11 +138,6 @@ def get_sat(sat_name, sat_number, folder):
                                        axis=1) for row_chunk in rows]
         chunks = [subarray for row_chunk in split_arrays for subarray in row_chunk]
         return chunks
-    
-    # split indices into chunks
-    chunks = []
-    for index in indices:
-        chunks.append(split_array(array=index, n_chunks=500))
     
     # look for rgb image everywhere
     def find_rgb_file(path):
@@ -151,38 +148,57 @@ def get_sat(sat_name, sat_number, folder):
                 if found_rgb:  
                     return True, rgb_path
             else: # if item is a file
-                if "RGB" in item and "10m" in item: # check for "RGB" in filename
+                if "RGB" in item and "10m" in item:
                     return True, full_path
         return False, None
     
     path = HOME + satellite + folder
     found_rgb, full_path = find_rgb_file(path)
     
-    # if rgb image found
+    from PIL import Image
     if found_rgb:
-        print("found 10 m resolution RGB image", full_path)
-    else: # elif rgb image not found
-        print("did not find 10 m resolution RGB image")
+        print("RGB image search successful - located 10m resolution RGB image")
+        with Image.open(full_path) as rgb_image:
+            rgb_array = np.array(rgb_image)
+    else:
+        print("RGB image search failed - "
+              "generating and saving a new 10m resolution RGB image")
+        
+        path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\"
+        os.chdir(path)
+        path_10 = (path + "IMG_DATA\\R10m\\")
+        
+        blue_path = path_10 + prefix + "02_10m.jp2"
+        green_path = path_10 + prefix + "03_10m.jp2"
+        red_path = path_10 + prefix + "04_10m.jp2"
+        
+        from image_functions import get_rgb
+        rgb_array = get_rgb(blue_path, green_path, red_path, 
+                            save_image=True, res=10, show_image=False)
     
+    # split indices into chunks
+    index_chunks = []
+    n_chunks = 1000
+    print("creating", n_chunks, "chunks from satellite imagery", end="... ")
+    for index in indices:
+        index_chunks.append(split_array(array=index, n_chunks=n_chunks))
+    rgb_chunks = split_array(array=rgb_array, n_chunks=n_chunks)
+    print("complete!")
     
     import matplotlib.pyplot as plt
-    plt.imshow(chunks[0][0], interpolation="nearest", 
+    
+    plt.imshow(index_chunks[0][0], interpolation="nearest", 
                cmap="viridis", vmin=minimum, vmax=maximum)
-    plt.title("chunk0")
+    plt.title("ndwi chunk 0")
     plt.show()
     
+    plt.imshow(rgb_chunks[0], interpolation="nearest", 
+               cmap="viridis", vmin=minimum, vmax=maximum)
+    plt.title("rgb chunk 0")
+    plt.show()
     
-    path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\"
-    path_10 = (path + "IMG_DATA\\R10m\\") # finer resolution for bands 2, 3, 8
-    path_20 = (path + "IMG_DATA\\R20m\\") # regular resolution for bands 11, 12
-    path_60 = (path + "IMG_DATA\\R60m\\")
-    rgb = False
-    if rgb:
-        blue_path = path_60 + "T31UCU_20250301T111031_B02_60m.jp2"
-        green_path = path_60 + "T31UCU_20250301T111031_B03_60m.jp2"
-        red_path = path_60 + "T31UCU_20250301T111031_B04_60m.jp2"
-        from image_functions import get_rgb
-        get_rgb(blue_path, green_path, red_path)
+    time_taken = time.monotonic() - start_time
+    print(f"complete! time taken: {round(time_taken, 2)} seconds")
     # %%% XX. Satellite Output
     return indices
 # %% Running Functions
