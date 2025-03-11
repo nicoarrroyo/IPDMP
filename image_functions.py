@@ -21,7 +21,7 @@ def compress_image(factor, file_path_s):
                 image_arrays.append(np.array(img))
         return image_arrays, new_size
 
-def plot_indices(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res):
+def plot_indices(data, sat_n, size, comp, dpi, save_image, res):
     indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     for i, water_index in enumerate(data):
         plt.figure(figsize=(size))
@@ -34,19 +34,8 @@ def plot_indices(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, re
         plt.title(f"{sat_name} {sat_n} {indices[i]} C{comp} DPI{dpi} R{res}", 
                   fontsize=8)
         
-        ax = plt.gca() # get current axis
-        im = plt.imshow(water_index, 
-                        interpolation="nearest", cmap="viridis", 
-                        vmin=minimum, vmax=maximum)
-        axins = inset_axes(ax, width="10%", height="2%", loc="lower right")
-        
-        cbar = plt.colorbar(im, cax=axins, orientation="horizontal")
-        cbar.set_ticks(np.linspace(minimum, maximum, 3))
-        cbar.set_ticklabels([f"{minimum}", 
-                             f"{int(np.average([minimum, maximum]))}", 
-                             f"{maximum}"], 
-                            fontsize=5, color="w")
-        axins.xaxis.set_ticks_position("top")
+        ax = plt.gca()
+        plt.imshow(water_index)
         
         ax.spines["left"].set_visible(False)
         ax.spines["bottom"].set_visible(False)
