@@ -1,11 +1,13 @@
+import numpy as np
+
 def table_print(**kwargs):
     if not kwargs:
         print("No data to display.")
         return
     
     # Compute max lengths efficiently
-    max_var_length = max(map(len, kwargs.keys()), default=8)  # Default for "Variable"
-    max_value_length = max(map(lambda v: len(str(v)), kwargs.values()), default=5)  # Default for "Value"
+    max_var_length = max(map(len, kwargs.keys()), default=8)
+    max_value_length = max(map(lambda v: len(str(v)), kwargs.values()), default=5)
 
     # Format the header and separator dynamically
     header = f"| {'Variable'.ljust(max_var_length)} | {'Value'.ljust(max_value_length)} |"
@@ -31,7 +33,7 @@ def performance_estimate(gee_connect, compression, dpi, plot_size, save_images,
             if do_s2 and param == high_res_Sentinel:
                 perf_counter += 4
             if param == save_images:
-                perf_counter += 2
+                perf_counter += 3
         
         if isinstance(param, int) and not isinstance(param, bool):
             if param == compression and param <= 3:
@@ -44,5 +46,12 @@ def performance_estimate(gee_connect, compression, dpi, plot_size, save_images,
             if param == plot_size and param > (3, 3):
                 perf_counter += 2
     
-    max_counter = 20 # incorrect - needs tweaking
+    max_counter = 30 # incorrect - needs tweaking
     return perf_counter/max_counter
+
+def split_array(array, n_chunks):
+    rows = np.array_split(array, np.sqrt(n_chunks), axis=0) # split into rows
+    split_arrays = [np.array_split(row_chunk, np.sqrt(n_chunks), 
+                                   axis=1) for row_chunk in rows]
+    chunks = [subarray for row_chunk in split_arrays for subarray in row_chunk]
+    return chunks
