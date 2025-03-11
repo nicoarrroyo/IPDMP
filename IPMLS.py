@@ -148,7 +148,7 @@ def get_sat(sat_name, sat_number, folder):
                 if found_rgb:  
                     return True, rgb_path
             else: # if item is a file
-                if "RGB" in item and "10m" in item:
+                if "RGB" in item and "10m" in item and "bright" in item:
                     return True, full_path
         return False, None
     
@@ -178,7 +178,7 @@ def get_sat(sat_name, sat_number, folder):
     
     # split indices into chunks
     index_chunks = []
-    n_chunks = 1000
+    n_chunks = 2**10
     print("creating", n_chunks, "chunks from satellite imagery", end="... ")
     for index in indices:
         index_chunks.append(split_array(array=index, n_chunks=n_chunks))
@@ -187,15 +187,27 @@ def get_sat(sat_name, sat_number, folder):
     
     import matplotlib.pyplot as plt
     
-    plt.imshow(index_chunks[0][0], interpolation="nearest", 
-               cmap="viridis", vmin=minimum, vmax=maximum)
-    plt.title("ndwi chunk 0")
-    plt.show()
-    
-    plt.imshow(rgb_chunks[0], interpolation="nearest", 
-               cmap="viridis", vmin=minimum, vmax=maximum)
-    plt.title("rgb chunk 0")
-    plt.show()
+    indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
+    for i, index in enumerate(index_chunks):
+        for j, chunk in enumerate(index):
+            # Create a new figure and axes for side-by-side plots
+            fig, axes = plt.subplots(1, 2, figsize=(5, 3))
+            
+            axes[0].imshow(chunk, interpolation="nearest", 
+                           cmap="viridis", vmin=minimum, vmax=maximum)
+            axes[0].set_title(f"{indices[i]} Chunk {(i + 1) * j}")
+            axes[0].axis("off")
+            
+            axes[1].imshow(rgb_chunks[j], interpolation="nearest", 
+                           cmap="viridis", vmin=minimum, vmax=maximum)
+            axes[1].set_title(f"RGB Chunk {(i + 1) * j}")
+            axes[1].axis("off")
+            
+            plt.tight_layout()
+            plt.show()
+            if j>3:
+                print("done at j =", j)
+                return
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
