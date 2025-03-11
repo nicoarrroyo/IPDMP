@@ -21,7 +21,7 @@ def compress_image(factor, file_path_s):
                 image_arrays.append(np.array(img))
         return image_arrays, new_size
 
-def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res):
+def plot_indices(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res):
     indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     for i, water_index in enumerate(data):
         plt.figure(figsize=(size))
@@ -74,14 +74,25 @@ def plot_image(data, sat_n, size,  minimum, maximum, comp, dpi, save_image, res)
 def upscale_image_array(img_array, factor=2):
     return np.repeat(np.repeat(img_array, factor, axis=0), factor, axis=1)
 
-def get_rgb(blue_path, green_path, red_path):
-    channels = []
+def get_rgb(blue_path, green_path, red_path, save_image, res, show_image):
+    bands = []
+    print("creating RGB image", end="... ")
     for path in (blue_path, green_path, red_path):
         with Image.open(path) as img:
             arr = np.array(img, dtype=np.float32)
-            channels.append(((arr / arr.max()) * 255).astype(np.uint8))
-    rgb_image = np.stack(channels, axis=-1)
-    Image.fromarray(rgb_image).show()
+            bands.append(((arr / arr.max()) * 255).astype(np.uint8))
+    rgb_array = np.stack(bands, axis=-1)
+    rgb_image = Image.fromarray(rgb_array)
+    print("complete!")
+    if save_image:
+        print("saving image", end="... ")
+        rgb_image.save(f"{res}m_RGB.png")
+        print("complete!")
+    if show_image:
+        print("displaying image", end="... ")
+        rgb_image.show()
+        print("complete!")
+    return rgb_array
 
 def mask_sentinel(path, high_res, image_arrays, comp):
     if high_res:
