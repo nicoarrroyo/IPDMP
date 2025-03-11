@@ -18,17 +18,22 @@
 import time
 MAIN_START_TIME = time.monotonic()
 import os
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
 
 # %%% Internal Function Imports
 from image_functions import compress_image, plot_indices, mask_sentinel
+from image_functions import get_rgb, find_rgb_file
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
-from misc_functions import table_print
+from misc_functions import table_print, split_array
 
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 plot_size = (3, 3) # larger plots increase detail and pixel count
+n_chunks = 5000 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 # main parent path where all image files are stored
@@ -41,11 +46,11 @@ else:
 # %% General Mega Giga Function
 do_s2 = True
 
-def get_sat(sat_name, sat_number, folder):    
+def get_sat(sat_name, sat_number, folder):
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
-    table_print(compression=compression, DPI=dpi, plot_size=plot_size, 
+    table_print(compression=compression, DPI=dpi, plot_size=plot_size, n_chunks=n_chunks, 
                 save_images=save_images, high_res=high_res, uni_mode=uni_mode)
     
     # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
@@ -128,32 +133,9 @@ def get_sat(sat_name, sat_number, folder):
     print("slicing images...")
     start_time = time.monotonic()
     
-    import numpy as np
-    
-    def split_array(array, n_chunks):
-        rows = np.array_split(array, np.sqrt(n_chunks), axis=0) # split into rows
-        split_arrays = [np.array_split(row_chunk, np.sqrt(n_chunks), 
-                                       axis=1) for row_chunk in rows]
-        chunks = [subarray for row_chunk in split_arrays for subarray in row_chunk]
-        return chunks
-    
-    # look for rgb image everywhere
-    def find_rgb_file(path):
-        for item in os.listdir(path):
-            full_path = os.path.join(path, item)
-            if os.path.isdir(full_path): # if item is a folder
-                found_rgb, rgb_path = find_rgb_file(full_path)
-                if found_rgb:  
-                    return True, rgb_path
-            else: # if item is a file
-                if "RGB" in item and "10m" in item and "bright" in item:
-                    return True, full_path
-        return False, None
-    
+    # %%%% 5.1 Searching for RGB Image
     path = HOME + satellite + folder
     found_rgb, full_path = find_rgb_file(path)
-    
-    from PIL import Image
     if found_rgb:
         print("RGB image search successful - located 10m resolution RGB image")
         with Image.open(full_path) as rgb_image:
@@ -170,31 +152,25 @@ def get_sat(sat_name, sat_number, folder):
         green_path = path_10 + prefix + "03_10m.jp2"
         red_path = path_10 + prefix + "04_10m.jp2"
         
-        from image_functions import get_rgb
         rgb_array = get_rgb(blue_path, green_path, red_path, 
                             save_image=True, res=10, show_image=False)
     
-    # split indices into chunks
-    index_chunks = []
-    n_chunks = 5000
+    # %%%% 5.2 Creating Chunks from Satellite Imagery
     print("creating", n_chunks, "chunks from satellite imagery", end="... ")
+    index_chunks = []
     for index in indices:
         index_chunks.append(split_array(array=index, n_chunks=n_chunks))
     rgb_chunks = split_array(array=rgb_array, n_chunks=n_chunks)
     print("complete!")
     
-    import matplotlib.pyplot as plt
-    
+    # %%%% 5.3 Outputting Images for Labelling
+    print("outputting images for labelling", end="... ")
     index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
-# =============================================================================
-#     n_reservoirs = [np.zeros_like(index_chunks[0][0])]
-#     print(n_reservoirs)
-# =============================================================================
-    
-    for i in range(len(index_chunks[0])):
-        # plot index chunks
-        fig, axes = plt.subplots(1, len(indices), figsize=(5, 3))
+    responses = np.zeros((2, n_chunks))
+    responses[0] = np.arange(n_chunks)
         
+    for i in range(len(index_chunks[0])):
+        fig, axes = plt.subplots(1, len(indices), figsize=(5, 3))
         for count, index_label in enumerate(index_labels):
             axes[count].imshow(index_chunks[count][i])
             axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
@@ -202,16 +178,27 @@ def get_sat(sat_name, sat_number, folder):
         plt.tight_layout()
         plt.show()
         
-        # plot rgb chunks
         plt.figure(figsize=(3, 3))
         plt.title(f"RGB Chunk {i}", fontsize=6)
         plt.imshow(rgb_chunks[i])
         plt.axis("off")
         plt.show()
         
-        if i>3:
-            print("done at i =", i)
-            return
+        # %%%% 5.4 User Labelling
+        n_reservoirs = input("how many reservoirs? ")
+        while True:
+            try:
+                n_reservoirs = int(n_reservoirs)
+                responses[1][i] = n_reservoirs
+                print("generating next chunk...")
+                break
+            except ValueError:
+                if "break" in n_reservoirs in n_reservoirs:
+                    globals()["responses"] = responses
+                    print("saved responses as global variable")
+                    return indices
+                print("error: non-integer response. type 'break' to save and quit")
+                n_reservoirs = input("how many reservoirs? ")
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
