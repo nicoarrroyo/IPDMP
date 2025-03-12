@@ -97,7 +97,7 @@ def mask_sentinel(path, high_res, image_arrays, comp):
     cloud_positions = np.argwhere(clouds_array == 100)
     
     for image_array in image_arrays:
-        image_array[cloud_positions[:, 0], cloud_positions[:, 1]] = 0.00001
+        image_array[cloud_positions[:, 0], cloud_positions[:, 1]] = np.amin(abs(image_array))
     
     return image_arrays
 
