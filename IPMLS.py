@@ -179,8 +179,11 @@ def get_sat(sat_name, sat_number, folder):
     # %%%% 5.3 Outputting Images for Labelling
     print("outputting images for labelling", end="... ")
     index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
+    break_flag = False
     
     for i in range(len(index_chunks[0])):
+        if break_flag:
+            break
         fig, axes = plt.subplots(1, len(indices), figsize=chunk_plot_size)
         for count, index_label in enumerate(index_labels):
             axes[count].imshow(index_chunks[count][i])
@@ -211,7 +214,8 @@ def get_sat(sat_name, sat_number, folder):
                     if "break" in n_reservoirs:
                         print("taking a break")
                         response_time += time.monotonic() - response_time_start
-                        return indices
+                        break_flag = True
+                        break
                     print("error: non-integer response. type 'break' to save and quit")
                     n_reservoirs = input("how many reservoirs? ")
         else:
@@ -220,6 +224,7 @@ def get_sat(sat_name, sat_number, folder):
     
     time_taken = time.monotonic() - start_time - response_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"responding time: {round(response_time, 2)} seconds")
     # %%% XX. Satellite Output
     return indices
 # %% Running Functions
