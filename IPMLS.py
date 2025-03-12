@@ -1,13 +1,16 @@
 """ Individual Project Machine Learning Software (IPMLS-25-03) """
 """ Update Notes (from previous version IPMLS-25-02)
 - earth engine
+    - gee removed entirely, switch to local files
 - optimisations
     - low resolution option for sentinel 2
-- output plots improved
+- output plots
+    - minimums and interpolation removed
 - sentinel 2
     - functional index calculation, plot outputs, and plot saving
     - new general function for landsat and/or sentinel
 - machine learning
+    - new section to allow user to manually label chunks of an image
 - cloud masking
     - now functional and included before index calculation
 - compositing
@@ -32,17 +35,24 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-plot_size = (3, 3) # larger plots increase detail and pixel count
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 # main parent path where all image files are stored
-uni_mode = False
+uni_mode = True
+label_data = True
 if uni_mode:
+    plot_size = (5, 5) # larger plots increase detail and pixel count
+    chunk_plot_size = (7, 5)
     HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
 else:
+    plot_size = (3, 3) # larger plots increase detail and pixel count
+    chunk_plot_size = (5, 3)
     HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 
+responses = np.zeros((2, n_chunks))
+responses[0] = np.arange(n_chunks)
+response_time = 0
 # %% General Mega Giga Function
 do_s2 = True
 
@@ -51,7 +61,8 @@ def get_sat(sat_name, sat_number, folder):
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
     table_print(compression=compression, DPI=dpi, plot_size=plot_size, n_chunks=n_chunks, 
-                save_images=save_images, high_res=high_res, uni_mode=uni_mode)
+                save_images=save_images, high_res=high_res, labelling=label_data, 
+                uni_mode=uni_mode)
     
     # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
     print("establishing paths, opening and resizing images, creating image arrays", 
@@ -133,16 +144,18 @@ def get_sat(sat_name, sat_number, folder):
     print("slicing images...")
     start_time = time.monotonic()
     
-    # %%%% 5.1 Searching for RGB Image
+    # %%%% 5.1 Searching for and Opening RGB Image
     path = HOME + satellite + folder
     found_rgb, full_path = find_rgb_file(path)
     if found_rgb:
-        print("RGB image search successful - located 10m resolution RGB image")
+        print("bright RGB image search successful")
+        print("opening 10m resolution RGB image", end="... ")
         with Image.open(full_path) as rgb_image:
             rgb_array = np.array(rgb_image)
+        print("complete!")
     else:
-        print("RGB image search failed - "
-              "generating and saving a new 10m resolution RGB image")
+        print("bright RGB image search failed - "
+              "generating and saving a new 10m resolution RGB image", end="... ")
         
         path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\"
         os.chdir(path)
@@ -154,7 +167,7 @@ def get_sat(sat_name, sat_number, folder):
         
         rgb_array = get_rgb(blue_path, green_path, red_path, 
                             save_image=True, res=10, show_image=False)
-    
+        print("complete!")
     # %%%% 5.2 Creating Chunks from Satellite Imagery
     print("creating", n_chunks, "chunks from satellite imagery", end="... ")
     index_chunks = []
@@ -166,11 +179,9 @@ def get_sat(sat_name, sat_number, folder):
     # %%%% 5.3 Outputting Images for Labelling
     print("outputting images for labelling", end="... ")
     index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
-    responses = np.zeros((2, n_chunks))
-    responses[0] = np.arange(n_chunks)
-        
+    
     for i in range(len(index_chunks[0])):
-        fig, axes = plt.subplots(1, len(indices), figsize=(5, 3))
+        fig, axes = plt.subplots(1, len(indices), figsize=chunk_plot_size)
         for count, index_label in enumerate(index_labels):
             axes[count].imshow(index_chunks[count][i])
             axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
@@ -178,29 +189,36 @@ def get_sat(sat_name, sat_number, folder):
         plt.tight_layout()
         plt.show()
         
-        plt.figure(figsize=(3, 3))
+        plt.figure(figsize=plot_size)
         plt.title(f"RGB Chunk {i}", fontsize=6)
         plt.imshow(rgb_chunks[i])
         plt.axis("off")
         plt.show()
         
         # %%%% 5.4 User Labelling
-        n_reservoirs = input("how many reservoirs? ")
-        while True:
-            try:
-                n_reservoirs = int(n_reservoirs)
-                responses[1][i] = n_reservoirs
-                print("generating next chunk...")
-                break
-            except ValueError:
-                if "break" in n_reservoirs in n_reservoirs:
-                    globals()["responses"] = responses
-                    print("saved responses as global variable")
-                    return indices
-                print("error: non-integer response. type 'break' to save and quit")
-                n_reservoirs = input("how many reservoirs? ")
+        if label_data:
+            global response_time
+            response_time_start = time.monotonic()
+            n_reservoirs = input("how many reservoirs? ")
+            while True:
+                try:
+                    n_reservoirs = int(n_reservoirs)
+                    responses[1][i] = n_reservoirs
+                    print("generating next chunk...")
+                    response_time += time.monotonic() - response_time_start
+                    break
+                except ValueError:
+                    if "break" in n_reservoirs:
+                        print("taking a break")
+                        response_time += time.monotonic() - response_time_start
+                        return indices
+                    print("error: non-integer response. type 'break' to save and quit")
+                    n_reservoirs = input("how many reservoirs? ")
+        else:
+            print("not labelling data")
+            return indices
     
-    time_taken = time.monotonic() - start_time
+    time_taken = time.monotonic() - start_time - response_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     # %%% XX. Satellite Output
     return indices
@@ -216,5 +234,5 @@ if do_s2:
                               folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
                                       "_T31UCU_20250301T152054.SAFE"))
 # %% Final
-TOTAL_TIME = time.monotonic() - MAIN_START_TIME
+TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total time taken for all processes: {round(TOTAL_TIME, 2)} seconds")
