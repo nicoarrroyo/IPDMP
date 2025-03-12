@@ -37,11 +37,11 @@ compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 label_data = True
 uni_mode = True
 if uni_mode:
-    plot_size = (6, 6) # larger plots increase detail and pixel count
+    plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunk = (8, 6)
     HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
 else:
@@ -148,14 +148,11 @@ def get_sat(sat_name, sat_number, folder):
         path = HOME + satellite + folder
         found_rgb, full_path = find_rgb_file(path)
         if found_rgb:
-            print("bright RGB image search successful")
             print("opening 10m resolution RGB image", end="... ")
             with Image.open(full_path) as rgb_image:
                 rgb_array = np.array(rgb_image)
-            print("complete!")
         else:
-            print("bright RGB image search failed - "
-                  "generating and saving a new 10m resolution RGB image", end="... ")
+            print("generating and saving a new 10m resolution RGB image", end="... ")
             
             path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\"
             os.chdir(path)
@@ -167,18 +164,19 @@ def get_sat(sat_name, sat_number, folder):
             
             rgb_array = get_rgb(blue_path, green_path, red_path, 
                                 save_image=True, res=10, show_image=False)
-            print("complete!")
         
         tci_file_name = prefix + "_TCI_10m.jp2"
         tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R10m\\"
         with Image.open(tci_path + tci_file_name) as tci_image:
             tci_array = np.array(tci_image)
+        print("complete!")
         # %%%% 5.2 Creating Chunks from Satellite Imagery
         print("creating", n_chunks, "chunks from satellite imagery", end="... ")
         index_chunks = []
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
         rgb_chunks = split_array(array=rgb_array, n_chunks=n_chunks)
+        tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
         print("complete!")
         
         # %%%% 5.3 Outputting Images for Labelling
@@ -197,10 +195,14 @@ def get_sat(sat_name, sat_number, folder):
             plt.tight_layout()
             plt.show()
             
-            plt.figure(figsize=plot_size)
-            plt.title(f"RGB Chunk {i}", fontsize=6)
-            plt.imshow(rgb_chunks[i])
-            plt.axis("off")
+            fig, axes = plt.subplots(1, 2, figsize=plot_size)
+            axes[0].imshow(rgb_chunks[i])
+            axes[0].set_title(f"RGB Chunk {i}", fontsize=6)
+            axes[0].axis("off")
+            axes[1].imshow(tci_chunks[i])
+            axes[1].set_title(f"TCI Chunk {i}", fontsize=6)
+            axes[1].axis("off")
+            plt.tight_layout()
             plt.show()
             
             # %%%% 5.4 User Labelling
