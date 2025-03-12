@@ -27,7 +27,6 @@ from PIL import Image
 
 # %%% Internal Function Imports
 from image_functions import compress_image, plot_indices, mask_sentinel
-from image_functions import get_rgb, find_rgb_file
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
 from misc_functions import table_print, split_array
@@ -37,12 +36,12 @@ compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 label_data = True
 uni_mode = True
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunk = (8, 6)
+    plot_size_chunk = (8, 5)
     HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
 else:
     plot_size = (3, 3) # larger plots increase detail and pixel count
@@ -81,7 +80,7 @@ def get_sat(sat_name, sat_number, folder):
         return
     
     if high_res:
-        res = "10m20m"
+        res = "10m"
         path_10 = (path + "IMG_DATA\\R10m\\") # finer resolution for bands 2, 3, 8
         path_20 = (path + "IMG_DATA\\R20m\\") # regular resolution for bands 11, 12
     else:
@@ -138,44 +137,27 @@ def get_sat(sat_name, sat_number, folder):
     plot_indices(indices, sat_number, plot_size, compression, 
                  dpi, save_images, res)
     time_taken = time.monotonic() - start_time
-    print(f"complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"image display complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 5. Data Labelling
     if label_data:
         start_time = time.monotonic()
         
         # %%%% 5.1 Searching for, Opening, and Converting RGB Image
+        print("opening " + res + " resolution true colour image", end="... ")
         path = HOME + satellite + folder
-        found_rgb, full_path = find_rgb_file(path)
-        if found_rgb:
-            print("opening 10m resolution RGB image", end="... ")
-            with Image.open(full_path) as rgb_image:
-                rgb_array = np.array(rgb_image)
-        else:
-            print("generating and saving a new 10m resolution RGB image", end="... ")
-            
-            path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\"
-            os.chdir(path)
-            path_10 = (path + "IMG_DATA\\R10m\\")
-            
-            blue_path = path_10 + prefix + "02_10m.jp2"
-            green_path = path_10 + prefix + "03_10m.jp2"
-            red_path = path_10 + prefix + "04_10m.jp2"
-            
-            rgb_array = get_rgb(blue_path, green_path, red_path, 
-                                save_image=True, res=10, show_image=False)
+        tci_file_name = prefix + f"_TCI_{res}.jp2"
+        tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
         
-        tci_file_name = prefix + "_TCI_10m.jp2"
-        tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R10m\\"
         with Image.open(tci_path + tci_file_name) as tci_image:
             tci_array = np.array(tci_image)
         print("complete!")
+        
         # %%%% 5.2 Creating Chunks from Satellite Imagery
         print("creating", n_chunks, "chunks from satellite imagery", end="... ")
         index_chunks = []
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
-        rgb_chunks = split_array(array=rgb_array, n_chunks=n_chunks)
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
         print("complete!")
         
@@ -195,16 +177,12 @@ def get_sat(sat_name, sat_number, folder):
             plt.tight_layout()
             plt.show()
             
-            fig, axes = plt.subplots(1, 2, figsize=plot_size)
-            axes[0].imshow(rgb_chunks[i])
-            axes[0].set_title(f"RGB Chunk {i}", fontsize=6)
-            axes[0].axis("off")
-            axes[1].imshow(tci_chunks[i])
-            axes[1].set_title(f"TCI Chunk {i}", fontsize=6)
-            axes[1].axis("off")
-            plt.tight_layout()
+            plt.figure(figsize=plot_size)
+            plt.title(f"TCI Chunk {i}", fontsize=10)
+            plt.imshow(tci_chunks[i])
+            plt.axis("off")
             plt.show()
-            
+                
             # %%%% 5.4 User Labelling
             global response_time
             response_time_start = time.monotonic()
