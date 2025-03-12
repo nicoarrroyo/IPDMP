@@ -36,7 +36,7 @@ compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 label_data = True
 uni_mode = True
 if uni_mode:
@@ -205,10 +205,10 @@ def get_sat(sat_name, sat_number, folder):
     else:
         print("not labelling data")
         return indices
+    print(f"responding time: {round(response_time, 2)} seconds")
     
     time_taken = time.monotonic() - start_time - response_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
-    print(f"responding time: {round(response_time, 2)} seconds")
     # %%% XX. Satellite Output
     return indices
 # %% Running Functions
