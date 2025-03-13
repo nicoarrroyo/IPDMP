@@ -24,6 +24,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+import csv
 
 # %%% Internal Function Imports
 from image_functions import compress_image, plot_indices, mask_sentinel
@@ -38,7 +39,7 @@ n_chunks = 500 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 label_data = True
-uni_mode = False
+uni_mode = True
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunk = (8, 5)
@@ -167,58 +168,89 @@ def get_sat(sat_name, sat_number, folder):
         path = HOME + satellite + folder
         os.chdir(path)
         
-        # check latest chunk recorded
         lines = []
-        with open("responses.csv", "r") as read_file:
-            lines = read_file.readlines()
-            try: # check if file has data in it
+        responses_file_name = "responses.csv"
+        try: # check if file exists
+            with open(responses_file_name, "r") as re: # read-write file
+                lines = re.readlines()
                 globals()["lines"] = lines
-                chunk_col = int(lines.split(","))
-                last_chunk = int(lines[-1][0])
-            except: # otherwise start at first point
-                last_chunk = 0
-        with open("responses.csv", "a") as append_file:
-            if last_chunk == 0:
-                print("empty sheet, inputting headers")
-                append_file.write("chunk,reservoirs")
+                try: # check if file has data in it
+                    last_chunk = int(lines[-1].split(",")[0])
+                except: # otherwise start at first point
+                    with open(responses_file_name, mode="w") as create:
+                        create.write("chunk,reservoirs") # input headers
+                        last_chunk = -1 # must be new sheet anyway, so no last chunk
+        except: # otherwise create a file
+            with open(responses_file_name, mode="w") as create:
+                create.write("chunk,reservoirs") # input headers
+                last_chunk = -1 # must be new sheet anyway, so no last chunk
+        
+        i = last_chunk + 1
+        rewriting = False
+        while i < len(index_chunks[0]):
+            if break_flag:
+                break
+            fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunk)
+            for count, index_label in enumerate(index_labels):
+                axes[count].imshow(index_chunks[count][i])
+                axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
+                axes[count].axis("off")
+            plt.tight_layout()
+            plt.show()
             
-            for i in range(last_chunk, len(index_chunks[0])):
-                if break_flag:
+            plt.figure(figsize=plot_size)
+            plt.title(f"TCI Chunk {i}", fontsize=10)
+            plt.imshow(tci_chunks[i])
+            plt.axis("off")
+            plt.show()
+            
+            # %%%% 5.4 User Labelling
+            global response_time
+            response_time_start = time.monotonic()
+            n_reservoirs = input("how many reservoirs? ")
+            while True:
+                try:
+                    n_reservoirs = int(n_reservoirs)
+                    print(i)
+                    with open(responses_file_name, mode="a") as ap: # append
+                        if not rewriting:
+                            ap.write(f"\n{i},{n_reservoirs}")
+                        else:
+                            ap.write(f"{i},{n_reservoirs}")
+                    rewriting = False
+                    print("generating next chunk...")
+                    response_time += time.monotonic() - response_time_start
+                    i += 1
                     break
-                fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunk)
-                for count, index_label in enumerate(index_labels):
-                    axes[count].imshow(index_chunks[count][i])
-                    axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
-                    axes[count].axis("off")
-                plt.tight_layout()
-                plt.show()
-                
-                plt.figure(figsize=plot_size)
-                plt.title(f"TCI Chunk {i}", fontsize=10)
-                plt.imshow(tci_chunks[i])
-                plt.axis("off")
-                plt.show()
-                
-                # %%%% 5.4 User Labelling
-                global response_time
-                response_time_start = time.monotonic()
-                n_reservoirs = input("how many reservoirs? ")
-                while True:
-                    try:
-                        n_reservoirs = int(n_reservoirs)
-                        append_file.write(f"\n{i},{n_reservoirs}")
-                        print("generating next chunk...")
+                except ValueError:
+                    if "break" in n_reservoirs:
+                        print("taking a break")
                         response_time += time.monotonic() - response_time_start
+                        break_flag = True
                         break
-                    except ValueError:
-                        if "break" in n_reservoirs:
-                            print("taking a break")
-                            response_time += time.monotonic() - response_time_start
-                            break_flag = True
-                            break
-                        print("error: non-integer response."
-                              "\ntype 'break' to save and quit")
-                        n_reservoirs = input("how many reservoirs? ")
+                    elif "back" in n_reservoirs:
+                        rewriting = True
+                        print("returning to previous chunk")
+                        i -= 1
+                        with open(responses_file_name, mode="r") as re: # read
+                            rows = list(csv.reader(re))
+                            print("unpopped rows: ", rows)
+                        rows.pop() # Remove the last row
+                        print("popped rows: ", rows)
+                        print("rows[1][0]: ", rows[1][0])
+                        print("rows[0][1]: ", rows[0][1])
+                        with open(responses_file_name, mode="w") as wr: # write
+                            for j in range(len(rows)):
+                                print(j)
+                                print(len(rows))
+                                string = (f"{rows[j][0]},{rows[j][1]}\n")
+                                print(string)
+                                wr.write(string)
+                        break
+                    print("error: non-integer response."
+                          "\ntype 'break' to save and quit"
+                          "\ntype 'back' to go to previous chunk")
+                    n_reservoirs = input("how many reservoirs? ")
     else:
         print("not labelling data")
         return indices
@@ -242,10 +274,3 @@ if do_s2:
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total time taken for all processes: {round(TOTAL_TIME, 2)} seconds")
-"""
-put break print on new line
-put entire labelling for loop inside the "with open responses" statement
-changed 5.3 to include "and preparing file"
-added "data labelling" to completion print for 5
-removed responses list (now writing straight to file)
-"""
