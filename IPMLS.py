@@ -34,7 +34,7 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 500 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 label_data = True
@@ -166,6 +166,18 @@ def get_sat(sat_name, sat_number, folder):
         index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
         break_flag = False
         
+        import csv
+        path = HOME + satellite + folder
+        os.chdir(path)
+        
+        lines = []
+        with open("responses.csv", "r") as read_file:
+            lines = file.readline()
+            if lines:
+                last_chunk = int(lines[-1].split[0])
+            else:
+                last_chunk = -1
+        
         for i in range(len(index_chunks[0])):
             if break_flag:
                 break
@@ -206,6 +218,10 @@ def get_sat(sat_name, sat_number, folder):
         print("not labelling data")
         return indices
     print(f"responding time: {round(response_time, 2)} seconds")
+    
+    with open("responses.csv", "a") as append_file:
+        for entry in range(i):
+            
     
     time_taken = time.monotonic() - start_time - response_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
