@@ -242,3 +242,10 @@ if do_s2:
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total time taken for all processes: {round(TOTAL_TIME, 2)} seconds")
+"""
+put break print on new line
+put entire labelling for loop inside the "with open responses" statement
+changed 5.3 to include "and preparing file"
+added "data labelling" to completion print for 5
+removed responses list (now writing straight to file)
+"""
