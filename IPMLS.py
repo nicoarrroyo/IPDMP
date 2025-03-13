@@ -38,7 +38,7 @@ n_chunks = 500 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 label_data = True
-uni_mode = True
+uni_mode = False
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunk = (8, 5)
@@ -48,8 +48,6 @@ else:
     plot_size_chunk = (5, 3)
     HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 
-responses = np.zeros((2, n_chunks))
-responses[0] = np.arange(n_chunks)
 response_time = 0
 # %% General Mega Giga Function
 do_s2 = True
@@ -161,70 +159,73 @@ def get_sat(sat_name, sat_number, folder):
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
         print("complete!")
         
-        # %%%% 5.3 Outputting Images for Labelling
-        print("outputting images for labelling", end="... ")
+        # %%%% 5.3 Outputting Images and Preparing File for Labelling
+        print("outputting images and preparing file for labelling", end="... ")
         index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
         break_flag = False
         
-        import csv
         path = HOME + satellite + folder
         os.chdir(path)
         
+        # check latest chunk recorded
         lines = []
         with open("responses.csv", "r") as read_file:
-            lines = file.readline()
-            if lines:
-                last_chunk = int(lines[-1].split[0])
-            else:
-                last_chunk = -1
-        
-        for i in range(len(index_chunks[0])):
-            if break_flag:
-                break
-            fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunk)
-            for count, index_label in enumerate(index_labels):
-                axes[count].imshow(index_chunks[count][i])
-                axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
-                axes[count].axis("off")
-            plt.tight_layout()
-            plt.show()
+            lines = read_file.readlines()
+            try: # check if file has data in it
+                globals()["lines"] = lines
+                chunk_col = int(lines.split(","))
+                last_chunk = int(lines[-1][0])
+            except: # otherwise start at first point
+                last_chunk = 0
+        with open("responses.csv", "a") as append_file:
+            if last_chunk == 0:
+                print("empty sheet, inputting headers")
+                append_file.write("chunk,reservoirs")
             
-            plt.figure(figsize=plot_size)
-            plt.title(f"TCI Chunk {i}", fontsize=10)
-            plt.imshow(tci_chunks[i])
-            plt.axis("off")
-            plt.show()
-                
-            # %%%% 5.4 User Labelling
-            global response_time
-            response_time_start = time.monotonic()
-            n_reservoirs = input("how many reservoirs? ")
-            while True:
-                try:
-                    n_reservoirs = int(n_reservoirs)
-                    responses[1][i] = n_reservoirs
-                    print("generating next chunk...")
-                    response_time += time.monotonic() - response_time_start
+            for i in range(last_chunk, len(index_chunks[0])):
+                if break_flag:
                     break
-                except ValueError:
-                    if "break" in n_reservoirs:
-                        print("taking a break")
+                fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunk)
+                for count, index_label in enumerate(index_labels):
+                    axes[count].imshow(index_chunks[count][i])
+                    axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
+                    axes[count].axis("off")
+                plt.tight_layout()
+                plt.show()
+                
+                plt.figure(figsize=plot_size)
+                plt.title(f"TCI Chunk {i}", fontsize=10)
+                plt.imshow(tci_chunks[i])
+                plt.axis("off")
+                plt.show()
+                
+                # %%%% 5.4 User Labelling
+                global response_time
+                response_time_start = time.monotonic()
+                n_reservoirs = input("how many reservoirs? ")
+                while True:
+                    try:
+                        n_reservoirs = int(n_reservoirs)
+                        append_file.write(f"\n{i},{n_reservoirs}")
+                        print("generating next chunk...")
                         response_time += time.monotonic() - response_time_start
-                        break_flag = True
                         break
-                    print("error: non-integer response. type 'break' to save and quit")
-                    n_reservoirs = input("how many reservoirs? ")
+                    except ValueError:
+                        if "break" in n_reservoirs:
+                            print("taking a break")
+                            response_time += time.monotonic() - response_time_start
+                            break_flag = True
+                            break
+                        print("error: non-integer response."
+                              "\ntype 'break' to save and quit")
+                        n_reservoirs = input("how many reservoirs? ")
     else:
         print("not labelling data")
         return indices
-    print(f"responding time: {round(response_time, 2)} seconds")
-    
-    with open("responses.csv", "a") as append_file:
-        for entry in range(i):
-            
+    print(f"responding time: {round(response_time, 2)} seconds")            
     
     time_taken = time.monotonic() - start_time - response_time
-    print(f"complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"data labelling complete! time taken: {round(time_taken, 2)} seconds")
     # %%% XX. Satellite Output
     return indices
 # %% Running Functions
