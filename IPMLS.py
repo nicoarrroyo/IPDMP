@@ -35,9 +35,9 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 500 # number of chunks into which images are split
+n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 label_data = True
 uni_mode = True
 if uni_mode:
@@ -211,7 +211,6 @@ def get_sat(sat_name, sat_number, folder):
             while True:
                 try:
                     n_reservoirs = int(n_reservoirs)
-                    print(i)
                     with open(responses_file_name, mode="a") as ap: # append
                         if not rewriting:
                             ap.write(f"\n{i},{n_reservoirs}")
@@ -222,7 +221,7 @@ def get_sat(sat_name, sat_number, folder):
                     response_time += time.monotonic() - response_time_start
                     i += 1
                     break
-                except ValueError:
+                except:
                     if "break" in n_reservoirs:
                         print("taking a break")
                         response_time += time.monotonic() - response_time_start
@@ -230,22 +229,19 @@ def get_sat(sat_name, sat_number, folder):
                         break
                     elif "back" in n_reservoirs:
                         rewriting = True
-                        print("returning to previous chunk")
-                        i -= 1
+                        try:
+                            n_backs = int(n_reservoirs.split(" ")[1])
+                        except:
+                            n_backs = 1
+                        i -= n_backs
+                        print("returning to chunk", i)
                         with open(responses_file_name, mode="r") as re: # read
                             rows = list(csv.reader(re))
-                            print("unpopped rows: ", rows)
-                        rows.pop() # Remove the last row
-                        print("popped rows: ", rows)
-                        print("rows[1][0]: ", rows[1][0])
-                        print("rows[0][1]: ", rows[0][1])
+                        for j in range(n_backs):
+                            rows.pop() # remove the last "n_backs" rows
                         with open(responses_file_name, mode="w") as wr: # write
                             for j in range(len(rows)):
-                                print(j)
-                                print(len(rows))
-                                string = (f"{rows[j][0]},{rows[j][1]}\n")
-                                print(string)
-                                wr.write(string)
+                                wr.write(f"{rows[j][0]},{rows[j][1]}\n")
                         break
                     print("error: non-integer response."
                           "\ntype 'break' to save and quit"
