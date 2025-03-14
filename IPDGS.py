@@ -45,7 +45,7 @@ save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
-uni_mode = True
+uni_mode = False
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (10, 10)
@@ -106,7 +106,7 @@ def get_sat(sat_name, sat_number, folder):
                 file_paths.append(path_20 + prefix + "_B" + band + "_20m.jp2")
         else:
             file_paths.append(path_60 + prefix + "_B" + band + "_60m.jp2")
-
+    
     image_arrays, size = compress_image(compression, file_paths)
     
     time_taken = time.monotonic() - start_time
@@ -162,7 +162,7 @@ def get_sat(sat_name, sat_number, folder):
         tci_60_file_name = prefix + "_TCI_60m.jp2"
         with Image.open(tci_60_path + tci_60_file_name) as tci_60_image:
             tci_60_array = np.array(tci_60_image)
-            tci_60_height = tci_60_image.height
+            side_length = tci_60_image.height
         
         print("complete!")
         
@@ -205,12 +205,13 @@ def get_sat(sat_name, sat_number, folder):
             except IOError:
                 print("could not open file - please close the responses file")
                 input("press enter to retry")
-        
+    
+        chunk_length = side_length / np.sqrt(len(tci_chunks))
+        print("side_length", side_length)
+        print("chunk length", chunk_length)
+        row_counter = 0
+        chunk_uly = 0
         i = last_chunk + 1
-        current_row = 0
-        current_col = 0
-        chunk_length = 1830 * np.sqrt(n_chunks) / n_chunks
-        row_height = np.sqrt(len(tci_chunks)) / tci_60_height
         rewriting = False
         while i < len(index_chunks[0]):
             if break_flag:
@@ -225,18 +226,30 @@ def get_sat(sat_name, sat_number, folder):
             fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
             axes[0].imshow(tci_chunks[i])
             axes[0].set_title(f"TCI Chunk {i}", fontsize=10)
-            #axes[0].axis("off")
+            axes[0].axis("off")
             
             axes[1].imshow(tci_60_array)
             axes[1].set_title("TCI 60m Resolution", fontsize=10)
-            #axes[1].axis("off")
+            axes[1].axis("off")
             
-            current_col = i * chunk_length
-
-            if i > chunk_length * n_chunks:
-                current_row = current_row + 1
-                current_col = 0
-            axes[1].plot(current_col, current_row, marker='x', color='red', markersize=5)
+            chunk_ulx = (i - row_counter) * chunk_length
+            
+            if chunk_ulx >= int(side_length):
+                row_counter = i
+                chunk_ulx = 0
+                chunk_uly += chunk_length
+                print("row counter", row_counter)
+                print("chunk_ulx", chunk_ulx)
+                print("chunk_uly", chunk_uly)
+            
+            axes[1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
+            for k in range(int(chunk_length)):
+                axes[1].plot(chunk_ulx+k, chunk_uly, marker=",", color="red")
+                axes[1].plot(chunk_ulx+k, chunk_uly+chunk_length, marker=",", color="red")
+                axes[1].plot(chunk_ulx, chunk_uly+k, marker=",", color="red")
+                axes[1].plot(chunk_ulx+chunk_length, chunk_uly+k, marker=",", color="red")
+            axes[1].plot(chunk_ulx+chunk_length, chunk_uly+chunk_length, 
+                         marker=",", color="red")
             
             plt.show()
             
