@@ -40,9 +40,9 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 200 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 uni_mode = True
@@ -162,6 +162,7 @@ def get_sat(sat_name, sat_number, folder):
         tci_60_file_name = prefix + "_TCI_60m.jp2"
         with Image.open(tci_60_path + tci_60_file_name) as tci_60_image:
             tci_60_array = np.array(tci_60_image)
+            tci_60_height = tci_60_image.height
         
         print("complete!")
         
@@ -173,8 +174,8 @@ def get_sat(sat_name, sat_number, folder):
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
         print("complete!")
         
-        # %%%% 5.3 Outputting Images and Preparing File for Labelling
-        print("outputting images and preparing file for labelling...")
+        # %%%% 5.3 Preparing File for Labelling and Outputting Images
+        print("preparing file for labelling and outputting images...")
         index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
         break_flag = False
         
@@ -206,6 +207,10 @@ def get_sat(sat_name, sat_number, folder):
                 input("press enter to retry")
         
         i = last_chunk + 1
+        current_row = 0
+        current_col = 0
+        chunk_length = 1830 * np.sqrt(n_chunks) / n_chunks
+        row_height = np.sqrt(len(tci_chunks)) / tci_60_height
         rewriting = False
         while i < len(index_chunks[0]):
             if break_flag:
@@ -217,15 +222,21 @@ def get_sat(sat_name, sat_number, folder):
                 axes[count].axis("off")
             plt.tight_layout()
             plt.show()
-            
             fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
             axes[0].imshow(tci_chunks[i])
             axes[0].set_title(f"TCI Chunk {i}", fontsize=10)
-            axes[0].axis("off")
+            #axes[0].axis("off")
             
             axes[1].imshow(tci_60_array)
             axes[1].set_title("TCI 60m Resolution", fontsize=10)
-            axes[1].axis("off")
+            #axes[1].axis("off")
+            
+            current_col = i * chunk_length
+
+            if i > chunk_length * n_chunks:
+                current_row = current_row + 1
+                current_col = 0
+            axes[1].plot(current_col, current_row, marker='x', color='red', markersize=5)
             
             plt.show()
             
