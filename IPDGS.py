@@ -45,10 +45,10 @@ save_images = False
 high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
-uni_mode = False
+uni_mode = True
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (8, 8)
+    plot_size_chunks = (10, 10)
     HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
 else:
     plot_size = (3, 3) # larger plots increase detail and pixel count
@@ -152,11 +152,17 @@ def get_sat(sat_name, sat_number, folder):
         # %%%% 5.1 Searching for, Opening, and Converting RGB Image
         print("opening " + res + " resolution true colour image", end="... ")
         path = HOME + satellite + folder
-        tci_file_name = prefix + f"_TCI_{res}.jp2"
-        tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
         
+        tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
+        tci_file_name = prefix + f"_TCI_{res}.jp2"
         with Image.open(tci_path + tci_file_name) as tci_image:
             tci_array = np.array(tci_image)
+        
+        tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
+        tci_60_file_name = prefix + "_TCI_60m.jp2"
+        with Image.open(tci_60_path + tci_60_file_name) as tci_60_image:
+            tci_60_array = np.array(tci_60_image)
+        
         print("complete!")
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
@@ -168,7 +174,7 @@ def get_sat(sat_name, sat_number, folder):
         print("complete!")
         
         # %%%% 5.3 Outputting Images and Preparing File for Labelling
-        print("outputting images and preparing file for labelling", end="... ")
+        print("outputting images and preparing file for labelling...")
         index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
         break_flag = False
         
@@ -176,7 +182,7 @@ def get_sat(sat_name, sat_number, folder):
         os.chdir(path)
         
         lines = []
-        responses_file_name = "responses.csv"
+        responses_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
         try: # check if file exists
             with open(responses_file_name, "r") as re: # read-write file
                 lines = re.readlines()
@@ -191,6 +197,14 @@ def get_sat(sat_name, sat_number, folder):
                 create.write("chunk,reservoirs") # input headers
                 last_chunk = -1 # must be new sheet anyway, so no last chunk
         
+        while True:
+            try: # check if file is open
+                with open(responses_file_name, mode="a") as ap:
+                    break
+            except IOError:
+                print("could not open file - please close the responses file")
+                input("press enter to retry")
+        
         i = last_chunk + 1
         rewriting = False
         while i < len(index_chunks[0]):
@@ -204,10 +218,15 @@ def get_sat(sat_name, sat_number, folder):
             plt.tight_layout()
             plt.show()
             
-            plt.figure(figsize=plot_size_chunks)
-            plt.title(f"TCI Chunk {i}", fontsize=10)
-            plt.imshow(tci_chunks[i])
-            plt.axis("off")
+            fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
+            axes[0].imshow(tci_chunks[i])
+            axes[0].set_title(f"TCI Chunk {i}", fontsize=10)
+            axes[0].axis("off")
+            
+            axes[1].imshow(tci_60_array)
+            axes[1].set_title("TCI 60m Resolution", fontsize=10)
+            axes[1].axis("off")
+            
             plt.show()
             
             # %%%% 5.4 User Labelling
