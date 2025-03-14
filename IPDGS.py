@@ -1,5 +1,10 @@
-""" Individual Project Machine Learning Software (IPMLS-25-03) """
+""" Individual Project Data Generation Software (IPDGS-25-03) """
 """ Update Notes (from previous version IPMLS-25-02)
+- name change
+    - from Individual Project Machine Learning Software (IPMLS) to
+        Individual Project Data Generation Software (IPDGS)
+    - Individual Project Random Forest Model (IPRFM) made for model development
+    - IPMLS is the combination of IPDGS and IPRFM
 - earth engine
     - gee removed entirely, switch to local files
 - optimisations
@@ -38,15 +43,16 @@ dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
 high_res = True # use finer 10m spatial resolution (slower)
+show_index_plots = False
 label_data = True
-uni_mode = True
+uni_mode = False
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunk = (8, 5)
+    plot_size_chunks = (8, 8)
     HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
 else:
     plot_size = (3, 3) # larger plots increase detail and pixel count
-    plot_size_chunk = (5, 3)
+    plot_size_chunks = (5, 5)
     HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
 
 response_time = 0
@@ -57,9 +63,9 @@ def get_sat(sat_name, sat_number, folder):
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
-    table_print(compression=compression, DPI=dpi, plot_size=plot_size, n_chunks=n_chunks, 
-                save_images=save_images, high_res=high_res, labelling=label_data, 
-                uni_mode=uni_mode)
+    table_print(compression=compression, DPI=dpi, 
+                n_chunks=n_chunks, save_images=save_images, high_res=high_res, 
+                labelling=label_data, uni_mode=uni_mode)
     
     # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
     print("establishing paths, opening and resizing images, creating image arrays", 
@@ -121,25 +127,26 @@ def get_sat(sat_name, sat_number, folder):
     start_time = time.monotonic()
     
     blue, green, nir, swir1, swir2 = image_arrays
-    globals()["im_arrs"] = image_arrays
     indices = get_indices(blue, green, nir, swir1, swir2)
     
     time_taken = time.monotonic() - start_time
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 4. Showing Indices
-    if save_images:
-        print("saving and displaying water index images...")
-    else:
-        print("displaying water index images...")
-    start_time = time.monotonic()
-    plot_indices(indices, sat_number, plot_size, compression, 
-                 dpi, save_images, res)
-    time_taken = time.monotonic() - start_time
-    print(f"image display complete! time taken: {round(time_taken, 2)} seconds")
+    if show_index_plots:
+        if save_images:
+            print("saving and displaying water index images...")
+        else:
+            print("displaying water index images...")
+        start_time = time.monotonic()
+        plot_indices(indices, sat_number, plot_size, compression, 
+                     dpi, save_images, res)
+        time_taken = time.monotonic() - start_time
+        print(f"image display complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 5. Data Labelling
     if label_data:
+        print("data labelling start")
         start_time = time.monotonic()
         
         # %%%% 5.1 Searching for, Opening, and Converting RGB Image
@@ -173,7 +180,6 @@ def get_sat(sat_name, sat_number, folder):
         try: # check if file exists
             with open(responses_file_name, "r") as re: # read-write file
                 lines = re.readlines()
-                globals()["lines"] = lines
                 try: # check if file has data in it
                     last_chunk = int(lines[-1].split(",")[0])
                 except: # otherwise start at first point
@@ -190,7 +196,7 @@ def get_sat(sat_name, sat_number, folder):
         while i < len(index_chunks[0]):
             if break_flag:
                 break
-            fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunk)
+            fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunks)
             for count, index_label in enumerate(index_labels):
                 axes[count].imshow(index_chunks[count][i])
                 axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
@@ -198,7 +204,7 @@ def get_sat(sat_name, sat_number, folder):
             plt.tight_layout()
             plt.show()
             
-            plt.figure(figsize=plot_size)
+            plt.figure(figsize=plot_size_chunks)
             plt.title(f"TCI Chunk {i}", fontsize=10)
             plt.imshow(tci_chunks[i])
             plt.axis("off")
@@ -269,4 +275,4 @@ if do_s2:
                                       "_T31UCU_20250301T152054.SAFE"))
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
-print(f"total time taken for all processes: {round(TOTAL_TIME, 2)} seconds")
+print(f"total processing time: {round(TOTAL_TIME, 2)} seconds")
