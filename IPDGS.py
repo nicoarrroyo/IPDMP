@@ -160,10 +160,14 @@ def get_sat(sat_name, sat_number, folder):
         
         tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
         tci_60_file_name = prefix + "_TCI_60m.jp2"
-        with Image.open(tci_60_path + tci_60_file_name) as tci_60_image:
-            tci_60_array = np.array(tci_60_image)
-            side_length = tci_60_image.height
-        
+# =============================================================================
+#         with Image.open(tci_60_path + tci_60_file_name) as tci_60_image:
+#             tci_60_array = np.array(tci_60_image)
+#             side_length = tci_60_image.height
+# =============================================================================
+        c = 5 # compression for this operation
+        tci_60_array, size = compress_image(c, tci_60_path + tci_60_file_name)
+        side_length = size[1]
         print("complete!")
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
@@ -172,6 +176,7 @@ def get_sat(sat_name, sat_number, folder):
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
+        chunk_length = side_length / np.sqrt(len(tci_chunks))
         print("complete!")
         
         # %%%% 5.3 Preparing File for Labelling and Outputting Images
@@ -205,17 +210,13 @@ def get_sat(sat_name, sat_number, folder):
             except IOError:
                 print("could not open file - please close the responses file")
                 input("press enter to retry")
-    
-        chunk_length = side_length / np.sqrt(len(tci_chunks))
-        print("side_length", side_length)
-        print("chunk length", chunk_length)
-        row_counter = 0
-        chunk_uly = 0
+        
         i = last_chunk + 1
         rewriting = False
         while i < len(index_chunks[0]):
             if break_flag:
                 break
+            
             fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunks)
             for count, index_label in enumerate(index_labels):
                 axes[count].imshow(index_chunks[count][i])
@@ -223,27 +224,21 @@ def get_sat(sat_name, sat_number, folder):
                 axes[count].axis("off")
             plt.tight_layout()
             plt.show()
+            
             fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
             axes[0].imshow(tci_chunks[i])
             axes[0].set_title(f"TCI Chunk {i}", fontsize=10)
             axes[0].axis("off")
             
             axes[1].imshow(tci_60_array)
-            axes[1].set_title("TCI 60m Resolution", fontsize=10)
+            axes[1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
             axes[1].axis("off")
             
-            chunk_ulx = (i - row_counter) * chunk_length
-            
-            if chunk_ulx >= int(side_length):
-                row_counter = i
-                chunk_ulx = 0
-                chunk_uly += chunk_length
-                print("row counter", row_counter)
-                print("chunk_ulx", chunk_ulx)
-                print("chunk_uly", chunk_uly)
+            chunk_uly = chunk_length * (i // np.sqrt(len(tci_chunks)))
+            chunk_ulx = (i * chunk_length) % side_length
             
             axes[1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
-            for k in range(int(chunk_length)):
+            for k in range(int(chunk_length)): # make a square around the chunk
                 axes[1].plot(chunk_ulx+k, chunk_uly, marker=",", color="red")
                 axes[1].plot(chunk_ulx+k, chunk_uly+chunk_length, marker=",", color="red")
                 axes[1].plot(chunk_ulx, chunk_uly+k, marker=",", color="red")
