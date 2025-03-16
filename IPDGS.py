@@ -40,24 +40,26 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 200 # number of chunks into which images are split
+n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 uni_mode = False
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (10, 10)
-    HOME = "C:\\Users\\c55626na\\OneDrive - The University of Manchester\\Individual Project"
+    HOME = ("C:\\Users\\c55626na\\OneDrive - "
+            "The University of Manchester\\Individual Project")
 else:
     plot_size = (3, 3) # larger plots increase detail and pixel count
     plot_size_chunks = (5, 5)
-    HOME = "C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project\\Downloads"
+    HOME = ("C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\"
+            "Individual Project\\Downloads")
 
-response_time = 0
 # %% General Mega Giga Function
 do_s2 = True
+response_time = 0
 
 def get_sat(sat_name, sat_number, folder):
     print("====================")
@@ -67,16 +69,16 @@ def get_sat(sat_name, sat_number, folder):
                 n_chunks=n_chunks, save_images=save_images, high_res=high_res, 
                 labelling=label_data, uni_mode=uni_mode)
     
-    # %%% 1. Establishing Paths, Opening and Resizing Images, and Creating Image Arrays
-    print("establishing paths, opening and resizing images, creating image arrays", 
-          end="... ")
+    # %%% 1. Opening Images and Creating Image Arrays
+    print("opening images and creating image arrays", end="... ")
     start_time = time.monotonic()
     
     file_paths = []
     satellite = f"\\{sat_name} {sat_number}\\"
     path = HOME + satellite + folder + "\\GRANULE"
     
-    subdirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
+    subdirs = [d for d in os.listdir(path) 
+               if os.path.isdir(os.path.join(path, d))]
     if len(subdirs) == 1:
         path = (f"{path}\\{subdirs[0]}\\")
         os.chdir(path)
@@ -86,11 +88,11 @@ def get_sat(sat_name, sat_number, folder):
     
     if high_res:
         res = "10m"
-        path_10 = (path + "IMG_DATA\\R10m\\") # finer resolution for bands 2, 3, 8
-        path_20 = (path + "IMG_DATA\\R20m\\") # regular resolution for bands 11, 12
+        path_10 = (path + "IMG_DATA\\R10m\\") # blue, green, nir
+        path_20 = (path + "IMG_DATA\\R20m\\") # swir1 and swir2
     else:
         res = "60m"
-        path_60 = (path + "IMG_DATA\\R60m\\") # lower resolution for all bands
+        path_60 = (path + "IMG_DATA\\R60m\\")
     
     (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
      processing_baseline_number, relative_orbit_number, tile_number_field, 
@@ -116,7 +118,8 @@ def get_sat(sat_name, sat_number, folder):
     print("masking clouds", end="... ")
     start_time = time.monotonic()
     
-    path = HOME + satellite + folder + "\\GRANULE\\" + subdirs[0] + "\\QI_DATA\\"
+    path = (HOME + satellite + folder + 
+            "\\GRANULE\\" + subdirs[0] + "\\QI_DATA\\")
     image_arrays = mask_sentinel(path, high_res, image_arrays, compression)
     
     time_taken = time.monotonic() - start_time
@@ -142,7 +145,8 @@ def get_sat(sat_name, sat_number, folder):
         plot_indices(indices, sat_number, plot_size, compression, 
                      dpi, save_images, res)
         time_taken = time.monotonic() - start_time
-        print(f"image display complete! time taken: {round(time_taken, 2)} seconds")
+        print("image display complete! "
+              f"time taken: {round(time_taken, 2)} seconds")
     
     # %%% 5. Data Labelling
     if label_data:
@@ -160,11 +164,7 @@ def get_sat(sat_name, sat_number, folder):
         
         tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
         tci_60_file_name = prefix + "_TCI_60m.jp2"
-# =============================================================================
-#         with Image.open(tci_60_path + tci_60_file_name) as tci_60_image:
-#             tci_60_array = np.array(tci_60_image)
-#             side_length = tci_60_image.height
-# =============================================================================
+        
         c = 5 # compression for this operation
         tci_60_array, size = compress_image(c, tci_60_path + tci_60_file_name)
         side_length = size[1]
@@ -197,11 +197,11 @@ def get_sat(sat_name, sat_number, folder):
                 except: # otherwise start at first point
                     with open(responses_file_name, mode="w") as create:
                         create.write("chunk,reservoirs") # input headers
-                        last_chunk = -1 # must be new sheet anyway, so no last chunk
+                        last_chunk = -1 # must be new sheet, no last chunk
         except: # otherwise create a file
             with open(responses_file_name, mode="w") as create:
                 create.write("chunk,reservoirs") # input headers
-                last_chunk = -1 # must be new sheet anyway, so no last chunk
+                last_chunk = -1 # must be new sheet, no last chunk
         
         while True:
             try: # check if file is open
@@ -217,6 +217,7 @@ def get_sat(sat_name, sat_number, folder):
             if break_flag:
                 break
             
+            max_indices_chunk = np.zeros(len(indices))
             fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunks)
             for count, index_label in enumerate(index_labels):
                 axes[count].imshow(index_chunks[count][i])
@@ -224,6 +225,9 @@ def get_sat(sat_name, sat_number, folder):
                 axes[count].axis("off")
             plt.tight_layout()
             plt.show()
+            for count, max_index in enumerate(max_indices_chunk):
+                max_index = -1 * round(np.amax(index_chunks[count][i]), 2)
+                print(f"MAX {index_labels[count]}: {max_index}", end=" | ")
             
             fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
             axes[0].imshow(tci_chunks[i])
@@ -239,10 +243,14 @@ def get_sat(sat_name, sat_number, folder):
             
             axes[1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
             for k in range(int(chunk_length)): # make a square around the chunk
-                axes[1].plot(chunk_ulx+k, chunk_uly, marker=",", color="red")
-                axes[1].plot(chunk_ulx+k, chunk_uly+chunk_length, marker=",", color="red")
-                axes[1].plot(chunk_ulx, chunk_uly+k, marker=",", color="red")
-                axes[1].plot(chunk_ulx+chunk_length, chunk_uly+k, marker=",", color="red")
+                axes[1].plot(chunk_ulx+k, chunk_uly, 
+                             marker=",", color="red")
+                axes[1].plot(chunk_ulx+k, chunk_uly+chunk_length, 
+                             marker=",", color="red")
+                axes[1].plot(chunk_ulx, chunk_uly+k, 
+                             marker=",", color="red")
+                axes[1].plot(chunk_ulx+chunk_length, chunk_uly+k, 
+                             marker=",", color="red")
             axes[1].plot(chunk_ulx+chunk_length, chunk_uly+chunk_length, 
                          marker=",", color="red")
             
