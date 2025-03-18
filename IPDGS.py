@@ -40,9 +40,9 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 4000 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 uni_mode = False
@@ -147,7 +147,8 @@ def get_sat(sat_name, sat_number, folder):
         time_taken = time.monotonic() - start_time
         print("image display complete! "
               f"time taken: {round(time_taken, 2)} seconds")
-    
+    else:
+        print("not displaying water index images")
     # %%% 5. Data Labelling
     if label_data:
         print("data labelling start")
