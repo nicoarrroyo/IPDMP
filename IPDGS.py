@@ -40,15 +40,15 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 4000 # number of chunks into which images are split
+n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
-uni_mode = False
+uni_mode = True
 if uni_mode:
-    plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (10, 10)
+    plot_size = (3, 3) # larger plots increase detail and pixel count
+    plot_size_chunks = (5, 5)
     HOME = ("C:\\Users\\c55626na\\OneDrive - "
             "The University of Manchester\\Individual Project")
 else:
@@ -67,7 +67,7 @@ def get_sat(sat_name, sat_number, folder):
     print("====================")
     table_print(compression=compression, DPI=dpi, 
                 n_chunks=n_chunks, save_images=save_images, high_res=high_res, 
-                labelling=label_data, uni_mode=uni_mode)
+                show_plots=show_index_plots, labelling=label_data, uni_mode=uni_mode)
     
     # %%% 1. Opening Images and Creating Image Arrays
     print("opening images and creating image arrays", end="... ")
@@ -108,7 +108,6 @@ def get_sat(sat_name, sat_number, folder):
                 file_paths.append(path_20 + prefix + "_B" + band + "_20m.jp2")
         else:
             file_paths.append(path_60 + prefix + "_B" + band + "_60m.jp2")
-    
     image_arrays, size = compress_image(compression, file_paths)
     
     time_taken = time.monotonic() - start_time
@@ -176,6 +175,7 @@ def get_sat(sat_name, sat_number, folder):
         index_chunks = []
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
+        globals()["ndwi_chunks"] = index_chunks[0]
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
         chunk_length = side_length / np.sqrt(len(tci_chunks))
         print("complete!")
@@ -227,7 +227,7 @@ def get_sat(sat_name, sat_number, folder):
             plt.tight_layout()
             plt.show()
             for count, max_index in enumerate(max_indices_chunk):
-                max_index = -1 * round(np.amax(index_chunks[count][i]), 2)
+                max_index = round(np.amax(index_chunks[count][i]), 2)
                 print(f"MAX {index_labels[count]}: {max_index}", end=" | ")
             
             fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
@@ -320,6 +320,9 @@ if do_s2:
     s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
                               folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
                                       "_T31UCU_20250301T152054.SAFE"))
+    print("splitting")
+    ndwi, mndwi, awei_sh, awei_nsh = s2_indices
+    print("done")
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total processing time: {round(TOTAL_TIME, 2)} seconds")
