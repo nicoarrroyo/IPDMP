@@ -40,15 +40,15 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 200 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
-uni_mode = True
+uni_mode = False
 if uni_mode:
-    plot_size = (3, 3) # larger plots increase detail and pixel count
-    plot_size_chunks = (5, 5)
+    plot_size = (5, 5) # larger plots increase detail and pixel count
+    plot_size_chunks = (7, 7)
     HOME = ("C:\\Users\\c55626na\\OneDrive - "
             "The University of Manchester\\Individual Project")
 else:
