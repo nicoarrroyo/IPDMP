@@ -33,6 +33,7 @@ import csv
 
 # %%% Internal Function Imports
 from image_functions import compress_image, plot_indices, mask_sentinel
+from image_functions import prompt_roi
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
 from misc_functions import table_print, split_array
@@ -40,12 +41,12 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 200 # number of chunks into which images are split
+n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
-uni_mode = False
+uni_mode = True
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (7, 7)
@@ -67,7 +68,8 @@ def get_sat(sat_name, sat_number, folder):
     print("====================")
     table_print(compression=compression, DPI=dpi, 
                 n_chunks=n_chunks, save_images=save_images, high_res=high_res, 
-                show_plots=show_index_plots, labelling=label_data, uni_mode=uni_mode)
+                show_plots=show_index_plots, labelling=label_data, 
+                uni_mode=uni_mode)
     
     # %%% 1. Opening Images and Creating Image Arrays
     print("opening images and creating image arrays", end="... ")
@@ -175,7 +177,6 @@ def get_sat(sat_name, sat_number, folder):
         index_chunks = []
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
-        globals()["ndwi_chunks"] = index_chunks[0]
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
         chunk_length = side_length / np.sqrt(len(tci_chunks))
         print("complete!")
@@ -270,6 +271,13 @@ def get_sat(sat_name, sat_number, folder):
                         else:
                             ap.write(f"{i},{n_reservoirs}")
                     rewriting = False
+                    
+                    """ Region Of Interest """
+                    
+                    #prompt_roi(HOME)
+                    
+                    """ Region Of Interest """
+                    
                     print("generating next chunk...")
                     response_time += time.monotonic() - response_time_start
                     i += 1
