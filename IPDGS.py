@@ -43,10 +43,10 @@ compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
-uni_mode = True
+uni_mode = False
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (7, 7)
@@ -215,10 +215,12 @@ def get_sat(sat_name, sat_number, folder):
         
         i = last_chunk + 1
         rewriting = False
+        coords = []
         while i < len(index_chunks[0]):
             if break_flag:
                 break
             
+            # plot index chunks
             max_indices_chunk = np.zeros(len(indices))
             fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunks)
             for count, index_label in enumerate(index_labels):
@@ -231,6 +233,7 @@ def get_sat(sat_name, sat_number, folder):
                 max_index = round(np.amax(index_chunks[count][i]), 2)
                 print(f"MAX {index_labels[count]}: {max_index}", end=" | ")
             
+            # plot tci chunks
             fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
             axes[0].imshow(tci_chunks[i])
             axes[0].set_title(f"TCI Chunk {i}", fontsize=10)
@@ -271,13 +274,8 @@ def get_sat(sat_name, sat_number, folder):
                         else:
                             ap.write(f"{i},{n_reservoirs}")
                     rewriting = False
-                    
-                    """ Region Of Interest """
-                    
-                    #prompt_roi(HOME)
-                    
-                    """ Region Of Interest """
-                    
+                    if n_reservoirs != 0:
+                        prompt_roi(tci_chunks[i])
                     print("generating next chunk...")
                     response_time += time.monotonic() - response_time_start
                     i += 1
