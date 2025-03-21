@@ -46,7 +46,7 @@ save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
-uni_mode = False
+uni_mode = True
 if uni_mode:
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (7, 7)
