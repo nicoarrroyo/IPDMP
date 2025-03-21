@@ -275,7 +275,9 @@ def get_sat(sat_name, sat_number, folder):
                             ap.write(f"{i},{n_reservoirs}")
                     rewriting = False
                     if n_reservoirs != 0:
-                        prompt_roi(tci_chunks[i])
+                        #prompt_roi(tci_chunks[i])
+                        coords.append(prompt_roi(tci_chunks[i]))
+                        globals()["coords"] = coords
                     print("generating next chunk...")
                     response_time += time.monotonic() - response_time_start
                     i += 1
