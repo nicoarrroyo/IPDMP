@@ -136,6 +136,7 @@ def prompt_roi(image_array: np.ndarray):
     # Create the Tkinter window and canvas
     root = tk.Tk()
     root.title("Select Multiple ROIs")
+    root.resizable(False, False)
     canvas = tk.Canvas(root, width=width, height=height)
     canvas.pack()
 
