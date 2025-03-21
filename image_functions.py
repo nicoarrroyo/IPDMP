@@ -113,246 +113,91 @@ def find_rgb_file(path):
                 return True, full_path
     return False, None
 
-def prompt_roi(chunk):
+def prompt_roi(image_array: np.ndarray):
     """
-    region of interest code using tkinter
-    https://stackoverflow.com/questions/55636313/selecting-an-area-of-an-
-    image-with-a-mouse-and-recording-the-dimensions-of-the-s
-    question asked by InfiniteLoop on April 11 2019
-    question answered by martineau on April 11 2019
+    Opens a Tkinter window displaying the image (as a numpy array).
+    Allows the user to select multiple ROIs by click-and-drag.
+    After each selection, click "Save ROI" to confirm that region.
+    When done, click "Finish" to close the window and return a list of ROI coordinates.
+    
+    Returns:
+        A list of tuples (x, y, width, height) for each ROI.
     """
-    class MousePositionTracker(tk.Frame):
-        """Tkinter Canvas mouse position widget."""
-        def __init__(self, canvas):
-            self.canvas = canvas
-            self.canv_width = self.canvas.cget('width')
-            self.canv_height = self.canvas.cget('height')
-            self.reset()
-            
-            # Create canvas cross-hair lines
-            xhair_opts = dict(dash=(3, 2), fill='white', state=tk.HIDDEN)
-            self.lines = (
-                self.canvas.create_line(0, 0, 0, self.canv_height, **xhair_opts),
-                self.canvas.create_line(0, 0, self.canv_width,  0, **xhair_opts)
-            )
-        
-        def cur_selection(self):
-            return (self.start, self.end)
-        
-        def begin(self, event):
-            self.hide()
-            self.start = (event.x, event.y)  # Remember starting position
-        
-        def update(self, event):
-            self.end = (event.x, event.y)
-            self._update(event)
-            self._command(self.start, (event.x, event.y))  # User callback
-        
-        def _update(self, event):
-            # Update cross-hair lines.
-            self.canvas.coords(self.lines[0], event.x, 0, event.x, self.canv_height)
-            self.canvas.coords(self.lines[1], 0, event.y, self.canv_width, event.y)
-            self.show()
-        
-        def reset(self):
-            self.start = self.end = None
-        
-        def hide(self):
-            self.canvas.itemconfigure(self.lines[0], state=tk.HIDDEN)
-            self.canvas.itemconfigure(self.lines[1], state=tk.HIDDEN)
-        
-        def show(self):
-            self.canvas.itemconfigure(self.lines[0], state=tk.NORMAL)
-            self.canvas.itemconfigure(self.lines[1], state=tk.NORMAL)
-        
-        def autodraw(self, command=lambda *args: None):
-            """Setup automatic drawing; supports a command callback."""
-            self.reset()
-            self._command = command
-            self.canvas.bind("<Button-1>", self.begin)
-            self.canvas.bind("<B1-Motion>", self.update)
-            self.canvas.bind("<ButtonRelease-1>", self.quit)
-        
-        def quit(self, event):
-            self.hide()  # Hide cross-hairs
-            self.reset()  # This resets the selection coordinates
-    
-    
-    class SelectionObject:
-        """Widget to display a rectangular area on a 
-        given canvas defined by two points."""
-        def __init__(self, canvas, select_opts):
-            self.canvas = canvas
-            self.select_opts1 = select_opts
-            self.width = self.canvas.cget('width')
-            self.height = self.canvas.cget('height')
-            
-            # Options for areas outside the rectangular selection
-            select_opts1 = self.select_opts1.copy()
-            select_opts1.update(state=tk.HIDDEN)  # Hide initially
-            # Separate options for area inside the rectangular selection
-            select_opts2 = dict(dash=(2, 2), fill='', outline='white', 
-                                state=tk.HIDDEN)
-            
-            # Initial extrema for inner and outer rectangles.
-            imin_x, imin_y, imax_x, imax_y = 0, 0, 1, 1
-            omin_x, omin_y, omax_x, omax_y = 0, 0, self.width, self.height
-            
-            self.rects = (
-                # Areas *outside* the selection rectangle
-                self.canvas.create_rectangle(omin_x, omin_y, omax_x, imin_y, 
-                                             **select_opts1),
-                self.canvas.create_rectangle(omin_x, imin_y, imin_x, imax_y, 
-                                             **select_opts1),
-                self.canvas.create_rectangle(imax_x, imin_y, omax_x, imax_y, 
-                                             **select_opts1),
-                self.canvas.create_rectangle(omin_x, imax_y, omax_x, omax_y, 
-                                             **select_opts1),
-                # The inner rectangle (selected area)
-                self.canvas.create_rectangle(imin_x, imin_y, imax_x, imax_y, 
-                                             **select_opts2)
-            )
-        
-        def update(self, start, end):
-            imin_x, imin_y, imax_x, imax_y = self._get_coords(start, end)
-            omin_x, omin_y, omax_x, omax_y = 0, 0, self.width, self.height
-            
-            # Update coordinates for all rectangles.
-            self.canvas.coords(self.rects[0], omin_x, omin_y, omax_x, imin_y)
-            self.canvas.coords(self.rects[1], omin_x, imin_y, imin_x, imax_y)
-            self.canvas.coords(self.rects[2], imax_x, imin_y, omax_x, imax_y)
-            self.canvas.coords(self.rects[3], omin_x, imax_y, omax_x, omax_y)
-            self.canvas.coords(self.rects[4], imin_x, imin_y, imax_x, imax_y)
-            
-            for rect in self.rects:
-                self.canvas.itemconfigure(rect, state=tk.NORMAL)
-        
-        def _get_coords(self, start, end):
-            return (min(start[0], end[0]), min(start[1], end[1]),
-                    max(start[0], end[0]), max(start[1], end[1]))
-        
-        def hide(self):
-            for rect in self.rects:
-                self.canvas.itemconfigure(rect, state=tk.HIDDEN)
-    
-    
-    class Application(tk.Frame):
-        # Default selection options
-        SELECT_OPTS = dict(dash=(2, 2), stipple='gray25', fill='red', outline='')
-        
-        def __init__(self, parent, *args, **kwargs):
-            super().__init__(parent, *args, **kwargs)
-            
-            # Load & prepare image
-            self.chunk = chunk
-            self.img = Image.fromarray(self.chunk, "RGB")
-            self.img = self.img.resize((500, 500))
-            self.tk_img = ImageTk.PhotoImage(self.img)
-            
-            # Pack Application frame to take full window space.
-            self.pack(fill="both", expand=True)
-            
-            # Create canvas for the image at the top
-            self.canvas = tk.Canvas(self, width=self.tk_img.width(),
-                                    height=self.tk_img.height(),
-                                    borderwidth=0, highlightthickness=0)
-            self.canvas.pack(side="top", fill="both", expand=True)
-            self.canvas.create_image(0, 0, image=self.tk_img, anchor=tk.NW)
-            self.canvas.img = self.tk_img  # Keep a reference
-            
-            # Create selection tools (as before)
-            self.selection_obj = SelectionObject(self.canvas, self.SELECT_OPTS)
-            
-            # Callback function to update selection boundaries
-            def on_drag(start, end, **kwargs):
-                self.selection_obj.update(start, end)
-            
-            self.posn_tracker = MousePositionTracker(self.canvas)
-            self.posn_tracker.autodraw(command=on_drag)
-            original_quit = self.posn_tracker.quit
-            
-            def new_quit(event):
-                self.final_selection = self.posn_tracker.cur_selection()
-                original_quit(event)
-            self.posn_tracker.canvas.bind("<ButtonRelease-1>", new_quit)
-            
-            # Create a control frame for buttons and status bar at the bottom.
-            control_frame = tk.Frame(self)
-            control_frame.pack(side="bottom", fill="x", padx=5, pady=5)
-            
-            # Create Save button
-            self.save_button = tk.Button(control_frame, text="Save", 
-                                         command=self.save_selection)
-            self.save_button.pack(side="left", padx=(0, 5))
-            
-            # Create Save & Continue button
-            self.save_continue_button = tk.Button(control_frame, text="Save & Continue", 
-                                                  command=self.save_continue)
-            self.save_continue_button.pack(side="left")
-            
-            # Create a status bar as a Label widget
-            self.status_label = tk.Label(control_frame, text="Ready", bd=1, 
-                                         relief="sunken", anchor="w")
-            self.status_label.pack(side="bottom", fill="x", pady=(5, 0))
-            
-            # Attribute to hold final selection coordinates
-            self.final_selection = None
-        
-        def save_selection(self):
-            """Crop and save the selected region as a new image."""
-            selection = self.final_selection
-            if selection and selection[0] and selection[1]:
-                start, end = selection
-                coords = []
-                coords = list(self.selection_obj._get_coords(start, end))
-                coords = [max(0, int(c)) for c in coords]
-                coords = [min(self.img.width, int(c)) for c in coords]
-                print(coords)
-                cropped_image = self.img.crop(tuple(coords))
-                cropped_image.save("selected_area.png")
-                # Update the status bar message:
-                self.status_label.config(text="Selected area saved as 'selected_area.png'.")
-            else:
-                self.status_label.config(text="No area selected.")
-        
-        def save_continue(self):
-            """Crop and save the selected region as a new image and continue."""
-            selection = self.final_selection
-            if selection and selection[0] and selection[1]:
-                start, end = selection
-                coords = []
-                coords = list(self.selection_obj._get_coords(start, end))
-                coords = [max(0, int(c)) for c in coords]
-                coords = [min(self.img.width, int(c)) for c in coords]
-                print(coords)
-                cropped_image = self.img.crop(tuple(coords))
-                cropped_image.save("selected_area.png")
-                # Update the status bar message:
-                self.status_label.config(text="Selected area saved as 'selected_area.png'.")
-                root.destroy()
-            else:
-                self.status_label.config(text="No area selected.")
-    
-    while True:
-        try:
-            root = tk.Tk()
-            # Set the main window geometry to match the image size 
-            # (plus room for the control frame)
-            app = Application(root)
-            root.geometry(f"{app.tk_img.width()}x{app.tk_img.height() + 30}")
-            root.resizable(False, False)
-            root.title("Image Cropper")
-            root.mainloop()
-            break
-        except:
-            print("error - resetting tk frame")
-            root = tk.Toplevel()
-            root.title("placeholder")
-            root.geometry(f"{app.tk_img.width()}x{app.tk_img.height() + 30}")
-            root.configure(background="grey")
-            
-            app = Application(root, background="grey")
-            app.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.TRUE)
-            root.destroy()
-            print("close any blank windows opened")
-            root.mainloop()
+    # Convert the numpy array to a PIL image
+    image = Image.fromarray(image_array)
+    image = image.resize((500, 500))
+    width, height = image.size
+
+    rois = []          # List to store confirmed ROI coordinates
+    current_roi = None # To temporarily hold the current ROI coordinates
+    start_x = start_y = 0
+    current_rect = None
+
+    # Create the Tkinter window and canvas
+    root = tk.Tk()
+    root.title("Select Multiple ROIs")
+    canvas = tk.Canvas(root, width=width, height=height)
+    canvas.pack()
+
+    # Display the image on the canvas
+    tk_image = ImageTk.PhotoImage(image)
+    canvas.create_image(0, 0, anchor="nw", image=tk_image)
+
+    # Event handlers for drawing the ROI rectangle
+    def on_button_press(event):
+        nonlocal start_x, start_y, current_rect, current_roi
+        start_x, start_y = event.x, event.y
+        # Start drawing a rectangle
+        current_rect = canvas.create_rectangle(start_x, start_y, start_x, start_y, 
+                                               outline="red", width=2)
+        current_roi = None  # Reset current ROI
+
+    def on_move_press(event):
+        nonlocal current_rect
+        # Update the rectangle as the mouse is dragged
+        canvas.coords(current_rect, start_x, start_y, event.x, event.y)
+
+    def on_button_release(event):
+        nonlocal current_roi
+        # Finalize the ROI on mouse release
+        end_x, end_y = event.x, event.y
+        x = min(start_x, end_x)
+        y = min(start_y, end_y)
+        w = abs(end_x - start_x)
+        h = abs(end_y - start_y)
+        current_roi = (x, y, w, h)
+        # The rectangle remains on screen until confirmed
+
+    # Button callback to save the current ROI
+    def save_roi():
+        nonlocal rois, current_roi, current_rect
+        if current_roi is not None:
+            rois.append(current_roi)
+            # Optionally, change the rectangle color to indicate it was saved
+            canvas.itemconfig(current_rect, outline="green")
+            # Reset current selection variables for the next ROI
+            current_roi = None
+            # Prepare for a new ROI by not keeping the reference to this rectangle
+            current_rect = None
+
+    # Button callback to finish the ROI selection and close the window
+    def finish_selection():
+        root.destroy()
+
+    # Bind mouse events to the canvas
+    canvas.bind("<ButtonPress-1>", on_button_press)
+    canvas.bind("<B1-Motion>", on_move_press)
+    canvas.bind("<ButtonRelease-1>", on_button_release)
+
+    # Add "Save ROI" and "Finish" buttons
+    button_frame = tk.Frame(root)
+    button_frame.pack(fill=tk.X, pady=10)
+
+    save_button = tk.Button(button_frame, text="Save ROI", command=save_roi)
+    save_button.pack(side=tk.LEFT, padx=10)
+
+    finish_button = tk.Button(button_frame, text="Finish", command=finish_selection)
+    finish_button.pack(side=tk.RIGHT, padx=10)
+
+    root.mainloop()
+    return rois
