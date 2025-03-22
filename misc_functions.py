@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 
 def table_print(**kwargs):
     if not kwargs:
@@ -55,3 +56,17 @@ def split_array(array, n_chunks):
                                    axis=1) for row_chunk in rows]
     chunks = [subarray for row_chunk in split_arrays for subarray in row_chunk]
     return chunks
+
+def blank_entry_check(file):
+    k = 0
+    with open(file, mode="r") as re: # read
+        rows = list(csv.reader(re))
+    while k < len(rows): # check for blank entries
+        if len(rows[k]) < 2:
+            rows.pop(k)
+            print(f"eliminated blank entry on line {k} (chunk {k-2})")
+            k -= 1
+        k += 1
+    with open(file, mode="w") as wr: # write
+        for j in range(len(rows)):
+            wr.write(f"{rows[j][0]},{rows[j][1]}\n")
