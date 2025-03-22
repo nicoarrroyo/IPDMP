@@ -113,7 +113,7 @@ def find_rgb_file(path):
                 return True, full_path
     return False, None
 
-def prompt_roi(image_array: np.ndarray):
+def prompt_roi(image_array, n):
     """
     Opens a Tkinter window displaying the image (as a numpy array).
     Allows the user to select multiple ROIs by click-and-drag.
@@ -186,39 +186,40 @@ def prompt_roi(image_array: np.ndarray):
     # Button callback to save the current ROI
     def save_roi():
         nonlocal rois, current_roi, rects, current_rect
-        if current_roi is not None:
-            current_roi = [max(0, int(roi)) for roi in current_roi]
-            current_roi = [min(width, int(roi)) for roi in current_roi]
-            rois.append(current_roi)
-            rects.append(current_rect)
-            canvas.itemconfig(current_rect, outline="green")
-            # Reset current selection variables for the next ROI
-            current_roi = None
-            # Prepare for a new ROI by not keeping the reference to this rectangle
-            current_rect = None
-            print("saved roi", rois)
-            print("rectangles", rects)
+        if len(rois) < n:
+            if current_roi is not None:
+                current_roi = [max(0, int(roi)) for roi in current_roi]
+                current_roi = [min(width, int(roi)) for roi in current_roi]
+                rois.append(current_roi)
+                rects.append(current_rect)
+                canvas.itemconfig(current_rect, outline="green")
+                # Reset current selection variables for the next ROI
+                current_roi = None
+                # Prepare for a new ROI by not keeping the reference to this rectangle
+                current_rect = None
+                print("saved roi", rois)
+            else:
+                print("no region of interest selected")
         else:
-            print("no region of interest selected")
+            print("too many selections, expected:", n,". overwrite a selection")
     
     # Button callback to finish the ROI selection and close the window
     def finish_selection():
-        nonlocal rois, current_roi
-        if current_roi is not None:
-            rois.append(current_roi)
-            canvas.itemconfig(current_rect, outline="green")
-            print("saved roi", rois)
-        root.destroy()
-        print("destroyed root", rois)
+        nonlocal rois
+        save_roi()
+        if len(rois) < n:
+            print(n - len(rois), " selection(s) remaining")
+        else:
+            root.destroy()
     
     def overwrite():
         nonlocal rois, current_roi, current_rect, rects
         if rects[-1] is not None and rois:
             canvas.delete(rects[-1])
+            canvas.delete(current_roi)
             rois.pop()
             rects.pop()
             print("overwritten roi", rois)
-            print("rectangles", rects)
         else:
             print("no regions of interest saved")
     
