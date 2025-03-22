@@ -197,8 +197,12 @@ def get_sat(sat_name, sat_number, folder):
                 try: # check if file has data in it
                     globals()["lines"] = lines
                     for i in range(1, len(lines) - 1): # check file validity
-                        current_chunk = int(lines[i].split(",")[0])
-                        next_chunk = int(lines[i+1].split(",")[0])
+                        try:
+                            current_chunk = int(lines[i].split(",")[0])
+                            next_chunk = int(lines[i+1].split(",")[0])
+                        except:
+                            print("bad data in responses file. line", i+2)
+                            return indices
                         chunk_diff = next_chunk - current_chunk
                         if chunk_diff != 1:
                             if chunk_diff < 1:
@@ -328,12 +332,18 @@ def get_sat(sat_name, sat_number, folder):
                         for j in range(n_backs):
                             rows.pop() # remove the last "n_backs" rows
                             print("popped", rows)
-                            for j in range(len(rows)):
+                            while j < len(rows):
+                                print(j, len(rows))
                                 print(rows[j])
-                                print(type(rows[j]))
-                                print(len(rows[j]))
-                                if len(rows[j]) != 2:
+                                if len(rows[j]) < 2:
+                                    print(rows)
                                     rows.pop(j)
+                                    print("pop")
+                                    print(rows)
+                                    print(j)
+                                    j -= 1
+                                    print(j)
+                                j += 1
                             print("clean popped", rows)
                         with open(responses_file_name, mode="w") as wr: # write
                             for j in range(len(rows)):
