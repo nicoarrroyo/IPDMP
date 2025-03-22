@@ -41,7 +41,7 @@ from misc_functions import table_print, split_array
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 4999 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
@@ -195,12 +195,27 @@ def get_sat(sat_name, sat_number, folder):
             with open(responses_file_name, "r") as re: # read-write file
                 lines = re.readlines()
                 try: # check if file has data in it
+                    globals()["lines"] = lines
+                    for i in range(1, len(lines) - 1): # check file validity
+                        current_chunk = int(lines[i].split(",")[0])
+                        next_chunk = int(lines[i+1].split(",")[0])
+                        chunk_diff = next_chunk - current_chunk
+                        if chunk_diff != 1:
+                            if chunk_diff < 1:
+                                print("duplication error in responses file")
+                            elif chunk_diff > 1:
+                                print("skipping error in responses file")
+                            print(f"index={i}, index+1={(i+1)}")
+                            print(f"chunk={current_chunk}, chunk+1={next_chunk}")
+                            return indices # end program if file is invalid
                     last_chunk = int(lines[-1].split(",")[0])
                 except: # otherwise start at first point
+                    print("restarting data")
                     with open(responses_file_name, mode="w") as create:
                         create.write("chunk,reservoirs") # input headers
                         last_chunk = -1 # must be new sheet, no last chunk
         except: # otherwise create a file
+            print("new file")
             with open(responses_file_name, mode="w") as create:
                 create.write("chunk,reservoirs") # input headers
                 last_chunk = -1 # must be new sheet, no last chunk
@@ -267,16 +282,23 @@ def get_sat(sat_name, sat_number, folder):
             n_reservoirs = input("how many reservoirs? ")
             while True:
                 try:
+                    print("try start", n_reservoirs)
+                    with open(responses_file_name, mode="r") as re: # read
+                        rows = list(csv.reader(re))
+                        print("pre", rows)
                     n_reservoirs = int(n_reservoirs)
+                    print(n_reservoirs)
                     with open(responses_file_name, mode="a") as ap: # append
                         if not rewriting:
                             ap.write(f"\n{i},{n_reservoirs}")
                         else:
                             ap.write(f"{i},{n_reservoirs}")
                     rewriting = False
+                    with open(responses_file_name, mode="r") as re: # read
+                        rows = list(csv.reader(re))
+                        print("post", rows)
                     if n_reservoirs != 0:
-                        #prompt_roi(tci_chunks[i])
-                        coords.append(prompt_roi(tci_chunks[i]))
+                        coords.append(prompt_roi(tci_chunks[i], n_reservoirs))
                         globals()["coords"] = coords
                     print("generating next chunk...")
                     response_time += time.monotonic() - response_time_start
@@ -285,6 +307,10 @@ def get_sat(sat_name, sat_number, folder):
                 except:
                     if "break" in n_reservoirs:
                         print("taking a break")
+                        with open(responses_file_name, mode="r") as re: # read
+                            rows_break = list(csv.reader(re))
+                            globals()["rows_break"] = rows_break
+                            print("break", rows_break)
                         response_time += time.monotonic() - response_time_start
                         break_flag = True
                         break
@@ -298,10 +324,20 @@ def get_sat(sat_name, sat_number, folder):
                         print("returning to chunk", i)
                         with open(responses_file_name, mode="r") as re: # read
                             rows = list(csv.reader(re))
+                            print("unpopped", rows)
                         for j in range(n_backs):
                             rows.pop() # remove the last "n_backs" rows
+                            print("popped", rows)
+                            for j in range(len(rows)):
+                                print(rows[j])
+                                print(type(rows[j]))
+                                print(len(rows[j]))
+                                if len(rows[j]) != 2:
+                                    rows.pop(j)
+                            print("clean popped", rows)
                         with open(responses_file_name, mode="w") as wr: # write
                             for j in range(len(rows)):
+                                print(f"{rows[j][0]},{rows[j][1]}\n")
                                 wr.write(f"{rows[j][0]},{rows[j][1]}\n")
                         break
                     print("error: non-integer response."
