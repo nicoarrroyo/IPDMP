@@ -169,7 +169,7 @@ def get_sat(sat_name, sat_number, folder):
         
         c = 5 # compression for this operation
         tci_60_array, size = compress_image(c, tci_60_path + tci_60_file_name)
-        side_length = size[1]
+        side_length = size[0]
         print("complete!")
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
@@ -200,7 +200,8 @@ def get_sat(sat_name, sat_number, folder):
                             current_chunk = int(lines[i].split(",")[0])
                             next_chunk = int(lines[i+1].split(",")[0])
                         except:
-                            print("bad data in responses file. line", i+2)
+                            print("bad data in responses file")
+                            print(f"line {i}, chunk {(current_chunk)}")
                             return indices
                         chunk_diff = next_chunk - current_chunk
                         if chunk_diff != 1:
@@ -232,7 +233,6 @@ def get_sat(sat_name, sat_number, folder):
         
         i = last_chunk + 1
         rewriting = False
-        coords = []
         while i < len(index_chunks[0]):
             if break_flag:
                 break
@@ -286,15 +286,24 @@ def get_sat(sat_name, sat_number, folder):
                 blank_entry_check(file=data_file)
                 try:
                     n_reservoirs = int(n_reservoirs)
+                    entry = f"{i},{n_reservoirs}"
+                    if n_reservoirs != 0:
+                        print("please draw a square around the reservoir(s)")
+                        raw_coords = np.array(prompt_roi(tci_chunks[i], n_reservoirs))
+                        print("raw coords ", raw_coords)
+                        print("len tci_chunks ", len(tci_chunks[0]))
+                        chunk_coords = raw_coords * len(tci_chunks[0]) / 500
+                        print("chunk coords ", chunk_coords)
+                        globals()["chunk_coords"] = chunk_coords
+                        for coord in chunk_coords:
+                            entry = f"{entry},{coord}"
+                        print("entry", entry)
                     with open(data_file, mode="a") as ap: # append
                         if not rewriting:
-                            ap.write(f"\n{i},{n_reservoirs}")
+                            ap.write(f"\n{entry}")
                         else:
-                            ap.write(f"{i},{n_reservoirs}")
+                            ap.write(f"{entry}")
                     rewriting = False
-                    if n_reservoirs != 0:
-                        coords.append(prompt_roi(tci_chunks[i], n_reservoirs))
-                        globals()["coords"] = coords
                     print("generating next chunk...")
                     response_time += time.monotonic() - response_time_start
                     i += 1
