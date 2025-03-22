@@ -125,11 +125,11 @@ def prompt_roi(image_array, n):
     """
     # Convert the numpy array to a PIL image
     image = Image.fromarray(image_array)
-    image = image.resize((500, 500))
+    image = image.resize((500, 500))  # Resize the image to fit in the window
     width, height = image.size
     
     rois = []          # List to store confirmed ROI coordinates
-    rects = []
+    rects = []         # List to store the drawn rectangles
     current_roi = None # To temporarily hold the current ROI coordinates
     current_rect = None
     start_x = start_y = 0
@@ -155,18 +155,22 @@ def prompt_roi(image_array, n):
             canvas = tk.Canvas(root, width=width, height=height)
             canvas.pack()
             root.destroy()
-            print("please close any windows that were opened")
+            print("Please close any windows that were opened")
             root.mainloop()
     if error_counter >= 2:
-        print("broken prompt_roi function")
+        print("Broken prompt_roi function")
         return
+    
+    # Create the lines for following the cursor
+    vertical_line = canvas.create_line(0, 0, 0, height, fill="red", dash=(4, 2))
+    horizontal_line = canvas.create_line(0, 0, width, 0, fill="red", dash=(4, 2))
     
     # Event handlers for drawing the ROI rectangle
     def on_button_press(event):
         nonlocal start_x, start_y, current_rect, current_roi
         start_x, start_y = event.x, event.y
         if current_rect is not None:
-            canvas.delete(current_rect)
+            canvas.delete(current_rect)  # Delete the previous rectangle if exists
         # Start drawing a rectangle
         current_rect = canvas.create_rectangle(start_x, start_y, start_x, start_y, 
                                                outline="red", width=2)
@@ -176,6 +180,9 @@ def prompt_roi(image_array, n):
         nonlocal current_rect
         # Update the rectangle as the mouse is dragged
         canvas.coords(current_rect, start_x, start_y, event.x, event.y)
+        # Update the follower lines by simply resetting the coordinates
+        canvas.coords(vertical_line, event.x, 0, event.x, height)
+        canvas.coords(horizontal_line, 0, event.y, width, event.y)
     
     def on_button_release(event):
         nonlocal current_roi
@@ -188,64 +195,71 @@ def prompt_roi(image_array, n):
         current_roi = (ulx, uly, brx, bry)
         # The rectangle remains on screen until confirmed
     
+    # Event handler for mouse motion (unpressed button) to update the lines
+    def on_mouse_motion(event):
+        canvas.coords(vertical_line, event.x, 0, event.x, height)
+        canvas.coords(horizontal_line, 0, event.y, width, event.y)
+    
     # Button callback to save the current ROI
     def save_roi():
         nonlocal rois, current_roi, rects, current_rect
         if len(rois) < n:
             if current_roi is not None:
+                # Ensure the ROI coordinates are within bounds
                 current_roi = [max(0, int(roi)) for roi in current_roi]
                 current_roi = [min(width, int(roi)) for roi in current_roi]
+                
                 rois.append(current_roi)
-                rects.append(current_rect)
+                rects.append(current_rect)  # Keep track of the rectangle reference
                 canvas.itemconfig(current_rect, outline="green")
                 # Reset current selection variables for the next ROI
                 current_roi = None
-                # Prepare for a new ROI by not keeping the reference to this rectangle
                 current_rect = None
-                print("saved roi", rois)
+                print("Saved ROI", rois)
             else:
-                print("no region of interest selected")
+                print("No region of interest selected")
         else:
-            print("too many selections, expected:", n,". overwrite a selection")
+            print(f"Too many selections, expected: {n}. Overwrite a selection.")
     
     # Button callback to finish the ROI selection and close the window
     def finish_selection():
         nonlocal rois
-        save_roi()
+        save_roi()  # Save the last ROI
         if len(rois) < n:
-            print(n - len(rois), " selection(s) remaining")
+            print(f"{n - len(rois)} selection(s) remaining")
         else:
             root.destroy()
     
     def overwrite():
         nonlocal rois, current_roi, current_rect, rects
-        if rects[-1] is not None and rois:
+        canvas.delete(current_rect)
+        if rois and rects:
+            # Remove the last saved ROI and rectangle
             canvas.delete(rects[-1])
-            canvas.delete(current_roi)
-            rois.pop()
-            rects.pop()
-            print("overwritten roi", rois)
-        else:
-            print("no regions of interest saved")
+            rois.pop()  # Remove the last ROI coordinates
+            rects.pop()  # Remove the last rectangle reference
+            current_rect = None  # Reset the current rectangle reference
+            current_roi = None  # Reset the current ROI coordinates
     
     # Bind mouse events to the canvas
     canvas.bind("<ButtonPress-1>", on_button_press)
     canvas.bind("<B1-Motion>", on_move_press)
     canvas.bind("<ButtonRelease-1>", on_button_release)
+    canvas.bind("<Motion>", on_mouse_motion)
     
-    # Add "Save ROI" and "Finish" buttons
+    # Add "Save ROI", "Finish", and "Overwrite" buttons
     button_frame = tk.Frame(root)
     button_frame.pack(fill=tk.X, pady=10)
     
     save_button = tk.Button(button_frame, text="Save ROI", command=save_roi)
-    save_button.pack(side=tk.LEFT, padx=10)
+    save_button.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
+    
+    overwrite_button = tk.Button(button_frame, text="Overwrite", command=overwrite)
+    overwrite_button.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
     
     finish_button = tk.Button(button_frame, text="Save and Continue", 
                               command=finish_selection)
-    finish_button.pack(side=tk.RIGHT, padx=10)
-    
-    overwrite_button = tk.Button(button_frame, text="Overwrite", command=overwrite)
-    overwrite_button.pack(side=tk.BOTTOM)
+    finish_button.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
     
     root.mainloop()
     return rois
