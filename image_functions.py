@@ -134,7 +134,8 @@ def prompt_roi(image_array, n):
     current_rect = None
     start_x = start_y = 0
     
-    while True:
+    error_counter = 0
+    while error_counter < 2:
         try:
             # Create the Tkinter window and canvas
             root = tk.Tk()
@@ -148,6 +149,7 @@ def prompt_roi(image_array, n):
             canvas.create_image(0, 0, anchor="nw", image=tk_image)
             break
         except:
+            error_counter += 1
             root = tk.Toplevel()
             root.title("CLOSE THIS WINDOW")
             canvas = tk.Canvas(root, width=width, height=height)
@@ -155,6 +157,9 @@ def prompt_roi(image_array, n):
             root.destroy()
             print("please close any windows that were opened")
             root.mainloop()
+    if error_counter >= 2:
+        print("broken prompt_roi function")
+        return
     
     # Event handlers for drawing the ROI rectangle
     def on_button_press(event):
