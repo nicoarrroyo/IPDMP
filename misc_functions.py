@@ -57,8 +57,16 @@ def split_array(array, n_chunks):
     chunks = [subarray for row_chunk in split_arrays for subarray in row_chunk]
     return chunks
 
+def rewrite(write_file, rows):
+    for j in range(len(rows)):
+        entry = f"{rows[j][0]},{rows[j][1]}"
+        for k in range(2, len(rows[j])): # add coordinates
+            entry = f"{entry},{rows[j][k]}"
+        write_file.write(f"\n{entry}")
+
 def blank_entry_check(file):
     k = 0
+    popped = False
     with open(file, mode="r") as re: # read
         rows = list(csv.reader(re))
     while k < len(rows): # check for blank entries
@@ -66,7 +74,11 @@ def blank_entry_check(file):
             rows.pop(k)
             print(f"eliminated blank entry on line {k} (chunk {k-2})")
             k -= 1
+            popped = True
         k += 1
-    with open(file, mode="w") as wr: # write
-        for j in range(len(rows)):
-            wr.write(f"{rows[j][0]},{rows[j][1]}\n")
+    if popped:
+        with open(file, mode="w") as wr: # write
+            for j in range(len(rows)):
+                wr.write(f"{rows[j][0]},{rows[j][1]}\n")
+        with open(file, mode="w") as wr: # write
+            rewrite(write_file=wr, rows=rows)
