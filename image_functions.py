@@ -6,18 +6,26 @@ import tkinter as tk
 
 def compress_image(factor, file_path_s):
     if not isinstance(file_path_s, list):
+        print("opening and converting image", end="")
         with Image.open(file_path_s) as img:
+            print(".", end="")
             new_size = (img.width//factor, img.height//factor)
             img = img.resize(new_size)
             image_array = np.array(img)
+            print("..", end="")
+        print(" complete!")
         return image_array, new_size
     else:
         image_arrays = []
+        print("opening and converting images", end="")
         for file_path in file_path_s:
             with Image.open(file_path) as img:
-                new_size = (img.width//factor, img.height//factor)
+                print(".", end="")
+                new_size = (img.width // factor, img.height // factor)
                 img = img.resize(new_size)
                 image_arrays.append(np.array(img))
+                print(".", end="")
+        print(" complete!")
         return image_arrays, new_size
 
 def plot_indices(data, sat_n, size, comp, dpi, save_image, res):
@@ -251,12 +259,20 @@ def prompt_roi(image_array, n):
             set_status("Overwritten ROI")
         else:
             set_status("No regions of interest saved")
-
+    
+    def hide_cursor(event):
+        canvas.config(cursor="none")
+    
+    def show_cursor(event):
+        canvas.config(cursor="")
     # Bind mouse events to the canvas
     canvas.bind("<ButtonPress-1>", on_button_press)
     canvas.bind("<B1-Motion>", on_move_press)
     canvas.bind("<ButtonRelease-1>", on_button_release)
     canvas.bind("<Motion>", on_mouse_motion)
+    canvas.config(cursor="none")
+    canvas.bind("<Enter>", lambda event: canvas.config(cursor="none"))
+    canvas.bind("<Leave>", lambda event: canvas.config(cursor=""))
 
     # Create button frame and add "Overwrite" and "Finish" buttons only.
     button_frame = tk.Frame(root)
