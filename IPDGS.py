@@ -73,6 +73,9 @@ def get_sat(sat_name, sat_number, folder):
                 show_plots=show_index_plots, labelling=label_data)
     
     # %%% 1. Opening Images and Creating Image Arrays
+    print("==========")
+    print("| STEP 1 |")
+    print("==========")
     print("opening images and creating image arrays", end="... ")
     start_time = time.monotonic()
     
@@ -117,6 +120,9 @@ def get_sat(sat_name, sat_number, folder):
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 2. Masking Clouds
+    print("==========")
+    print("| STEP 2 |")
+    print("==========")
     print("masking clouds", end="... ")
     start_time = time.monotonic()
     
@@ -128,6 +134,9 @@ def get_sat(sat_name, sat_number, folder):
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 3. Calculating Water Indices
+    print("==========")
+    print("| STEP 3 |")
+    print("==========")
     print("populating water index arrays", end="... ")
     start_time = time.monotonic()
     
@@ -138,6 +147,9 @@ def get_sat(sat_name, sat_number, folder):
     print(f"complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 4. Showing Indices
+    print("==========")
+    print("| STEP 4 |")
+    print("==========")
     if show_index_plots:
         if save_images:
             print("saving and displaying water index images...")
@@ -152,6 +164,9 @@ def get_sat(sat_name, sat_number, folder):
     else:
         print("not displaying water index images")
     # %%% 5. Data Labelling
+    print("==========")
+    print("| STEP 5 |")
+    print("==========")
     if label_data:
         print("data labelling start")
         start_time = time.monotonic()
@@ -182,8 +197,8 @@ def get_sat(sat_name, sat_number, folder):
         chunk_length = side_length / np.sqrt(len(tci_chunks))
         print("complete!")
         
-        # %%%% 5.3 Preparing File for Labelling and Outputting Images
-        print("preparing file for labelling and outputting images...")
+        # %%%% 5.3 Preparing File for Labelling
+        print("preparing file for labelling...")
         index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
         break_flag = False
         
@@ -195,6 +210,7 @@ def get_sat(sat_name, sat_number, folder):
         try: # check if file exists
             with open(data_file, "r") as re: # read-write file
                 lines = re.readlines()
+                globals()["lines"] = lines
                 try: # check if file has data in it
                     for i in range(1, len(lines) - 1): # check file validity
                         try:
@@ -202,12 +218,12 @@ def get_sat(sat_name, sat_number, folder):
                             next_chunk = int(lines[i+1].split(",")[0])
                         except:
                             print("bad data in responses file")
-                            print(f"line {i}, chunk {(current_chunk)}")
+                            print(f"line {i+2}, chunk {(current_chunk+1)}")
                             return indices
                         chunk_diff = next_chunk - current_chunk
                         if chunk_diff != 1:
                             print("error in responses file")
-                            print(f"line {i}, chunk {(current_chunk)}")
+                            print(f"line {i+2}, chunk {(current_chunk+1)}")
                             return indices # end program if file is invalid
                     last_chunk = int(lines[-1].split(",")[0])
                 except: # otherwise start at first point
@@ -218,7 +234,7 @@ def get_sat(sat_name, sat_number, folder):
         except: # otherwise create a file
             print("new file")
             with open(data_file, mode="w") as create:
-                create.write("chunk,reservoirs") # input headers
+                create.write("chunk,reservoirs,coordinates") # input headers
                 last_chunk = -1 # must be new sheet, no last chunk
         
         while True:
@@ -229,13 +245,37 @@ def get_sat(sat_name, sat_number, folder):
                 print("could not open file - please close the responses file")
                 input("press enter to retry")
         
-        i = last_chunk + 1
+        i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
         rewriting = False
+        
+        reservoir_rows = []
+        reservoir_rows_index = 0
+        data_correction = False
+        for j in range(1, len(lines)):
+            num_of_reservoirs = int(lines[j].split(",")[1])
+            #len_0 = len(lines[j].split(",")[0])
+            #len_1 = len(lines[j].split(","))
+            #len_1 <= len(str(j-1)) + num_of_reservoirs
+            
+            no_coords = False
+            try:
+                for k in range(num_of_reservoirs):
+                    lines[j].split(",")[3+k] # try to access coordinates
+            except:
+                no_coords = True
+            if num_of_reservoirs != 0 and no_coords:
+                reservoir_rows.append(j-1)
+                data_correction = True
+                i = reservoir_rows[0]
+        globals()["reservoir_rows"] = reservoir_rows
+        
         while i < len(index_chunks[0]):
             if break_flag:
                 break
             
+            # %%%% 5.4 Outputting Images
             # plot index chunks
+            print("outputting images...")
             max_indices_chunk = np.zeros(len(indices))
             fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunks)
             for count, index_label in enumerate(index_labels):
@@ -276,12 +316,18 @@ def get_sat(sat_name, sat_number, folder):
             
             plt.show()
             
-            # %%%% 5.4 User Labelling
+            # %%%% 5.5 User Labelling
             global response_time
             response_time_start = time.monotonic()
+            if data_correction:
+                print(f"found {len(reservoir_rows)} chunks containing "
+                       "reservoirs with no coordinate data")
+                print("this chunk should contain "
+                      f"{int(lines[i+1].split(',')[1])} reservoirs")
             n_reservoirs = input("how many reservoirs? ")
             while True:
                 blank_entry_check(file=data_file)
+                
                 try:
                     n_reservoirs = int(n_reservoirs)
                     entry = f"{i},{n_reservoirs}"
@@ -292,7 +338,18 @@ def get_sat(sat_name, sat_number, folder):
                         chunk_coords = raw_coords * len(tci_chunks[0]) / 500
                         for coord in chunk_coords:
                             entry = f"{entry},{coord}"
-                        print("entry: ", entry)
+                    
+                    if data_correction: # add coordinates to data
+                        lines[i] = entry
+                        with open(data_file, mode="w") as wr: # write
+                            wr.write(f"{entry}\n")
+                        reservoir_rows_index += 1
+                        i = reservoir_rows[reservoir_rows_index]
+                        if reservoir_rows_index >= len(reservoir_rows):
+                            i = last_chunk + 1
+                            data_correction = False
+                        break
+                    
                     with open(data_file, mode="a") as ap: # append
                         if not rewriting:
                             ap.write(f"\n{entry}")
@@ -330,11 +387,207 @@ def get_sat(sat_name, sat_number, folder):
                     n_reservoirs = input("how many reservoirs? ")
     else:
         print("not labelling data")
-        return indices
     print(f"responding time: {round(response_time, 2)} seconds")            
     
     time_taken = time.monotonic() - start_time - response_time
     print(f"data labelling complete! time taken: {round(time_taken, 2)} seconds")
+    
+    # %%% 6. Drawing Rectangles
+    drawing = False
+    if drawing:
+        print("data labelling start")
+        start_time = time.monotonic()
+        
+        # %%%% 6.1 Searching for, Opening, and Converting RGB Image
+        print("opening " + res + " resolution true colour image", end="... ")
+        path = HOME + satellite + folder
+        
+        tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
+        tci_file_name = prefix + f"_TCI_{res}.jp2"
+        with Image.open(tci_path + tci_file_name) as tci_image:
+            tci_array = np.array(tci_image)
+        
+        tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
+        tci_60_file_name = prefix + "_TCI_60m.jp2"
+        
+        c = 5 # compression for this operation
+        tci_60_array, size = compress_image(c, tci_60_path + tci_60_file_name)
+        side_length = size[0]
+        print("complete!")
+        
+        # %%%% 6.2 Creating Chunks from Satellite Imagery
+        print("creating", n_chunks, "chunks from satellite imagery", end="... ")
+        index_chunks = []
+        for index in indices:
+            index_chunks.append(split_array(array=index, n_chunks=n_chunks))
+        tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
+        chunk_length = side_length / np.sqrt(len(tci_chunks))
+        print("complete!")
+        
+        # %%%% 6.3 Preparing File for Labelling
+        print("preparing file for labelling...")
+        index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
+        break_flag = False
+        
+        path = HOME + satellite + folder
+        os.chdir(path)
+        
+        reservoir_rows = []
+        lines = []
+        data_file = "responses_" + str(n_chunks) + "_chunks.csv"
+        try: # check if file exists
+            with open(data_file, "r") as re: # read-write file
+                lines = re.readlines()
+                try: # check if file has data in it
+                    for i in range(1, len(lines) - 1): # check file validity
+                        try:
+                            current_chunk = int(lines[i].split(",")[0])
+                            next_chunk = int(lines[i+1].split(",")[0])
+                        except:
+                            print("bad data in responses file")
+                            print(f"line {i+2}, chunk {(current_chunk+1)}")
+                            return indices
+                        chunk_diff = next_chunk - current_chunk
+                        
+                        # look for reservoir chunks
+                        if int(lines[i].split(",")[1]) != 0:
+                            reservoir_rows.append(i-1)
+                        
+                        if chunk_diff != 1:
+                            print("error in responses file")
+                            print(f"line {i+2}, chunk {(current_chunk+1)}")
+                            return indices # end program if file is invalid
+                    last_chunk = int(lines[-1].split(",")[0])
+                except: # otherwise start at first point
+                    print("please fix the file")
+                    return indices
+        except: # otherwise create a file
+            print("new file")
+            with open(data_file, mode="w") as create:
+                create.write("chunk,reservoirs") # input headers
+                last_chunk = -1 # must be new sheet, no last chunk
+        
+        while True:
+            try: # check if file is open
+                with open(data_file, mode="a") as ap:
+                    break
+            except IOError:
+                print("could not open file - please close the responses file")
+                input("press enter to retry")
+        
+        i = reservoir_rows[0]
+        reservoir_row_index = 0
+        
+        # check if row already has saved coordinates
+        for u, row in enumerate(reservoir_rows):
+            print("HANG ON FOR A SECOND I WILL BE BACK")
+        
+        rewriting = False
+        while i < len(index_chunks[0]):
+            if break_flag:
+                break
+            
+            # %%%% 6.4 Outputting Images
+            # plot index chunks
+            print("outputting images...")
+            max_indices_chunk = np.zeros(len(indices))
+            fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunks)
+            for count, index_label in enumerate(index_labels):
+                axes[count].imshow(index_chunks[count][i])
+                axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
+                axes[count].axis("off")
+            plt.tight_layout()
+            plt.show()
+            for count, max_index in enumerate(max_indices_chunk):
+                max_index = round(np.amax(index_chunks[count][i]), 2)
+                print(f"MAX {index_labels[count]}: {max_index}", end=" | ")
+            
+            # plot tci chunks
+            fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
+            axes[0].imshow(tci_chunks[i])
+            axes[0].set_title(f"TCI Chunk {i}", fontsize=10)
+            axes[0].axis("off")
+            
+            axes[1].imshow(tci_60_array)
+            axes[1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
+            axes[1].axis("off")
+            
+            chunk_uly = chunk_length * (i // np.sqrt(len(tci_chunks)))
+            chunk_ulx = (i * chunk_length) % side_length
+            
+            axes[1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
+            for k in range(int(chunk_length)): # make a square around the chunk
+                axes[1].plot(chunk_ulx+k, chunk_uly, 
+                             marker=",", color="red")
+                axes[1].plot(chunk_ulx+k, chunk_uly+chunk_length, 
+                             marker=",", color="red")
+                axes[1].plot(chunk_ulx, chunk_uly+k, 
+                             marker=",", color="red")
+                axes[1].plot(chunk_ulx+chunk_length, chunk_uly+k, 
+                             marker=",", color="red")
+            axes[1].plot(chunk_ulx+chunk_length, chunk_uly+chunk_length, 
+                         marker=",", color="red")
+            
+            plt.show()
+            
+            # %%%% 6.5 User Labelling
+            response_time_start = time.monotonic()
+            n_reservoirs = input("how many reservoirs? ")
+            while True:
+                blank_entry_check(file=data_file)
+                try:
+                    n_reservoirs = int(n_reservoirs)
+                    entry = f"{i},{n_reservoirs}"
+                    if n_reservoirs != 0:
+                        print("please draw a square around the reservoir(s)")
+                        raw_coords = prompt_roi(tci_chunks[i], n_reservoirs)
+                        raw_coords = np.array(raw_coords)
+                        chunk_coords = raw_coords * len(tci_chunks[0]) / 500
+                        for coord in chunk_coords:
+                            entry = f"{entry},{coord}"
+                    with open(data_file, mode="r") as re: # read
+                        rows = list(csv.reader(re))
+                    rows.pop(i)
+                    with open(data_file, mode="w") as wr: # write
+                        rewrite(write_file=wr, rows=rows)
+                    with open(data_file, mode="a") as ap: # append
+                        if not rewriting:
+                            ap.write(f"\n{entry}")
+                        else:
+                            ap.write(f"{entry}")
+                    rewriting = False
+                    print("generating next chunk...")
+                    response_time += time.monotonic() - response_time_start
+                    reservoir_row_index += 1
+                    i = reservoir_rows[reservoir_row_index]
+                    break
+                except:
+                    if "break" in n_reservoirs:
+                        print("taking a break")
+                        response_time += time.monotonic() - response_time_start
+                        break_flag = True
+                        break
+                    elif "back" in n_reservoirs:
+                        rewriting = True
+                        try:
+                            n_backs = int(n_reservoirs.split(" ")[1])
+                        except:
+                            n_backs = 1
+                        i -= n_backs
+                        print("returning to chunk", i)
+                        with open(data_file, mode="r") as re: # read
+                            rows = list(csv.reader(re))
+                        for j in range(n_backs):
+                            rows.pop() # remove the last "n_backs" rows
+                        with open(data_file, mode="w") as wr: # write
+                            rewrite(write_file=wr, rows=rows)
+                        break
+                    print("error: non-integer response."
+                          "\ntype 'break' to save and quit"
+                          "\ntype 'back' to go to previous chunk")
+                    n_reservoirs = input("how many reservoirs? ")
+    else:
+        print("not labelling data")
     # %%% XX. Satellite Output
     return indices
 # %% Running Functions
