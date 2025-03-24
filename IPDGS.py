@@ -46,17 +46,19 @@ save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
-uni_mode = True
-if uni_mode:
-    plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (7, 7)
-    HOME = ("C:\\Users\\c55626na\\OneDrive - "
-            "The University of Manchester\\Individual Project")
-else:
-    plot_size = (3, 3) # larger plots increase detail and pixel count
-    plot_size_chunks = (5, 5)
+
+try: # personal pc mode
     HOME = ("C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\"
             "Individual Project\\Downloads")
+    os.chdir(HOME)
+    plot_size = (3, 3) # larger plots increase detail and pixel count
+    plot_size_chunks = (5, 5)
+except: # uni mode
+    HOME = ("C:\\Users\\c55626na\\OneDrive - "
+            "The University of Manchester\\Individual Project")
+    os.chdir(HOME)
+    plot_size = (5, 5) # larger plots increase detail and pixel count
+    plot_size_chunks = (7, 7)
 
 # %% General Mega Giga Function
 do_s2 = True
@@ -68,8 +70,7 @@ def get_sat(sat_name, sat_number, folder):
     print("====================")
     table_print(compression=compression, DPI=dpi, 
                 n_chunks=n_chunks, save_images=save_images, high_res=high_res, 
-                show_plots=show_index_plots, labelling=label_data, 
-                uni_mode=uni_mode)
+                show_plots=show_index_plots, labelling=label_data)
     
     # %%% 1. Opening Images and Creating Image Arrays
     print("opening images and creating image arrays", end="... ")
@@ -205,10 +206,7 @@ def get_sat(sat_name, sat_number, folder):
                             return indices
                         chunk_diff = next_chunk - current_chunk
                         if chunk_diff != 1:
-                            if chunk_diff < 1:
-                                print("duplication error in responses file")
-                            elif chunk_diff > 1:
-                                print("skipping error in responses file")
+                            print("error in responses file")
                             print(f"line {i}, chunk {(current_chunk)}")
                             return indices # end program if file is invalid
                     last_chunk = int(lines[-1].split(",")[0])
@@ -354,9 +352,7 @@ if do_s2:
     s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
                               folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
                                       "_T31UCU_20250301T152054.SAFE"))
-    print("splitting")
     ndwi, mndwi, awei_sh, awei_nsh = s2_indices
-    print("done")
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total processing time: {round(TOTAL_TIME, 2)} seconds")
