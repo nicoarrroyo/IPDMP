@@ -257,7 +257,9 @@ def get_sat(sat_name, sat_number, folder):
             
             no_coords = False # check if reservoirs have coordinates
             try: # try to access coordinates
-                lines[j].split(",")[1+num_of_reservoirs]
+                coords = lines[j].split(",")[1+num_of_reservoirs]
+                if len(coords) < 5: # may be "\n" in the coords position
+                    no_coords = True
             except: # if unable to access, they do not exist
                 no_coords = True
             
@@ -265,15 +267,16 @@ def get_sat(sat_name, sat_number, folder):
                 reservoir_rows.append(j-1)
                 data_correction = True
                 i = reservoir_rows[0]
-        globals()["reservoir_rows"] = reservoir_rows
+        print(f"found {len(reservoir_rows)} chunks containing "
+               "reservoirs with no coordinate data")
         
+        # %%%% 5.4 Outputting Images
+        print("outputting images...")
         while i < len(index_chunks[0]):
             if break_flag:
                 break
             
-            # %%%% 5.4 Outputting Images
             # plot index chunks
-            print("outputting images...")
             max_indices_chunk = np.zeros(len(indices))
             fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunks)
             for count, index_label in enumerate(index_labels):
@@ -318,9 +321,9 @@ def get_sat(sat_name, sat_number, folder):
             global response_time
             response_time_start = time.monotonic()
             if data_correction:
-                print(f"found {len(reservoir_rows)} chunks containing "
-                       "reservoirs with no coordinate data")
-                print("this chunk should contain "
+                print("this chunk "
+                      f"({reservoir_rows_index+1}/{len(reservoir_rows)})"
+                      " should contain "
                       f"{int(lines[i+1].split(',')[1])} reservoirs")
             n_reservoirs = input("how many reservoirs? ")
             while True:
@@ -344,10 +347,11 @@ def get_sat(sat_name, sat_number, folder):
                                 entry = lines[j]
                                 wr.write(f"{entry}")
                         reservoir_rows_index += 1
-                        i = reservoir_rows[reservoir_rows_index]
                         if reservoir_rows_index >= len(reservoir_rows):
                             i = last_chunk + 1
                             data_correction = False
+                            break
+                        i = reservoir_rows[reservoir_rows_index]
                         response_time += time.monotonic() - response_time_start
                         break
                     
