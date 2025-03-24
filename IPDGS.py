@@ -43,7 +43,7 @@ compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True  # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -76,9 +76,10 @@ def get_sat(sat_name, sat_number, folder):
     print("==========")
     print("| STEP 1 |")
     print("==========")
-    print("opening images and creating image arrays", end="... ")
+    print("opening images and creating image arrays")
     start_time = time.monotonic()
     
+    print("establishing paths", end="... ")
     file_paths = []
     satellite = f"\\{sat_name} {sat_number}\\"
     path = HOME + satellite + folder + "\\GRANULE"
@@ -114,16 +115,17 @@ def get_sat(sat_name, sat_number, folder):
                 file_paths.append(path_20 + prefix + "_B" + band + "_20m.jp2")
         else:
             file_paths.append(path_60 + prefix + "_B" + band + "_60m.jp2")
+    print("complete!")
     image_arrays, size = compress_image(compression, file_paths)
     
     time_taken = time.monotonic() - start_time
-    print(f"complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 2. Masking Clouds
     print("==========")
     print("| STEP 2 |")
     print("==========")
-    print("masking clouds", end="... ")
+    print("masking clouds")
     start_time = time.monotonic()
     
     path = (HOME + satellite + folder + 
@@ -131,20 +133,20 @@ def get_sat(sat_name, sat_number, folder):
     image_arrays = mask_sentinel(path, high_res, image_arrays, compression)
     
     time_taken = time.monotonic() - start_time
-    print(f"complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 3. Calculating Water Indices
     print("==========")
     print("| STEP 3 |")
     print("==========")
-    print("populating water index arrays", end="... ")
+    print("populating water index arrays", end="")
     start_time = time.monotonic()
     
     blue, green, nir, swir1, swir2 = image_arrays
     indices = get_indices(blue, green, nir, swir1, swir2)
     
     time_taken = time.monotonic() - start_time
-    print(f"complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 4. Showing Indices
     print("==========")
@@ -159,8 +161,7 @@ def get_sat(sat_name, sat_number, folder):
         plot_indices(indices, sat_number, plot_size, compression, 
                      dpi, save_images, res)
         time_taken = time.monotonic() - start_time
-        print("image display complete! "
-              f"time taken: {round(time_taken, 2)} seconds")
+        print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     else:
         print("not displaying water index images")
     # %%% 5. Data Labelling
@@ -172,20 +173,24 @@ def get_sat(sat_name, sat_number, folder):
         start_time = time.monotonic()
         
         # %%%% 5.1 Searching for, Opening, and Converting RGB Image
-        print("opening " + res + " resolution true colour image", end="... ")
+        print("opening " + res + " resolution true colour image.", end="")
         path = HOME + satellite + folder
         
         tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
         tci_file_name = prefix + f"_TCI_{res}.jp2"
         with Image.open(tci_path + tci_file_name) as tci_image:
+            print(".", end="")
             tci_array = np.array(tci_image)
         
         tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
         tci_60_file_name = prefix + "_TCI_60m.jp2"
         
-        c = 5 # compression for this operation
-        tci_60_array, size = compress_image(c, tci_60_path + tci_60_file_name)
-        side_length = size[0]
+        c = 5 # compress 60m resolution TCI for faster plotting
+        with Image.open(tci_60_path + tci_60_file_name) as img:
+            size = (img.width//c, img.height//c)
+            tci_60_array = np.array(img.resize(size))
+            print(".", end=" ")
+            side_length = img.width//c
         print("complete!")
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
@@ -198,7 +203,7 @@ def get_sat(sat_name, sat_number, folder):
         print("complete!")
         
         # %%%% 5.3 Preparing File for Labelling
-        print("preparing file for labelling...")
+        print("preparing file for labelling", end="... ")
         index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
         break_flag = False
         
@@ -210,7 +215,6 @@ def get_sat(sat_name, sat_number, folder):
         try: # check if file exists
             with open(data_file, "r") as re: # read-write file
                 lines = re.readlines()
-                globals()["lines"] = lines
                 try: # check if file has data in it
                     for i in range(1, len(lines) - 1): # check file validity
                         try:
@@ -244,6 +248,7 @@ def get_sat(sat_name, sat_number, folder):
             except IOError:
                 print("could not open file - please close the responses file")
                 input("press enter to retry")
+        print("complete!")
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
         rewriting = False
@@ -324,7 +329,7 @@ def get_sat(sat_name, sat_number, folder):
                 print("this chunk "
                       f"({reservoir_rows_index+1}/{len(reservoir_rows)})"
                       " should contain "
-                      f"{int(lines[i+1].split(',')[1])} reservoirs")
+                      f"{int(lines[i+1].split(',')[1])} reservoir(s)")
             n_reservoirs = input("how many reservoirs? ")
             while True:
                 blank_entry_check(file=data_file)
