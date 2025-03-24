@@ -36,7 +36,7 @@ from image_functions import compress_image, plot_indices, mask_sentinel
 from image_functions import prompt_roi
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
-from misc_functions import table_print, split_array, blank_entry_check
+from misc_functions import table_print, split_array, rewrite, blank_entry_check
 
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
@@ -287,15 +287,12 @@ def get_sat(sat_name, sat_number, folder):
                     entry = f"{i},{n_reservoirs}"
                     if n_reservoirs != 0:
                         print("please draw a square around the reservoir(s)")
-                        raw_coords = np.array(prompt_roi(tci_chunks[i], n_reservoirs))
-                        print("raw coords ", raw_coords)
-                        print("len tci_chunks ", len(tci_chunks[0]))
+                        raw_coords = prompt_roi(tci_chunks[i], n_reservoirs)
+                        raw_coords = np.array(raw_coords)
                         chunk_coords = raw_coords * len(tci_chunks[0]) / 500
-                        print("chunk coords ", chunk_coords)
-                        globals()["chunk_coords"] = chunk_coords
                         for coord in chunk_coords:
                             entry = f"{entry},{coord}"
-                        print("entry", entry)
+                        print("entry: ", entry)
                     with open(data_file, mode="a") as ap: # append
                         if not rewriting:
                             ap.write(f"\n{entry}")
@@ -325,8 +322,7 @@ def get_sat(sat_name, sat_number, folder):
                         for j in range(n_backs):
                             rows.pop() # remove the last "n_backs" rows
                         with open(data_file, mode="w") as wr: # write
-                            for j in range(len(rows)):
-                                wr.write(f"{rows[j][0]},{rows[j][1]}\n")
+                            rewrite(write_file=wr, rows=rows)
                         break
                     print("error: non-integer response."
                           "\ntype 'break' to save and quit"
