@@ -43,7 +43,7 @@ compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True  # use finer 10m spatial resolution (slower)
+high_res = False  # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -231,10 +231,8 @@ def get_sat(sat_name, sat_number, folder):
                             return indices # end program if file is invalid
                     last_chunk = int(lines[-1].split(",")[0])
                 except: # otherwise start at first point
-                    print("restarting data")
-                    with open(data_file, mode="w") as create:
-                        create.write("chunk,reservoirs") # input headers
-                        last_chunk = -1 # must be new sheet, no last chunk
+                    print("no data")
+                    return indices
         except: # otherwise create a file
             print("new file")
             with open(data_file, mode="w") as create:
@@ -249,6 +247,7 @@ def get_sat(sat_name, sat_number, folder):
                 print("could not open file - please close the responses file")
                 input("press enter to retry")
         print("complete!")
+        blank_entry_check(file=data_file)
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
         rewriting = False
