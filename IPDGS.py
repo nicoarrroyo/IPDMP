@@ -45,7 +45,7 @@ compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True  # use finer 10m spatial resolution (slower)
+high_res = False  # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -254,7 +254,7 @@ def get_sat(sat_name, sat_number, folder):
         print("complete!")
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
-        rewriting = False
+        first = True
         
         # find chunks with no reservoir coordinate data
         reservoir_rows = []
@@ -365,11 +365,10 @@ def get_sat(sat_name, sat_number, folder):
                         break
                     
                     with open(data_file, mode="a") as ap: # append
-                        if not rewriting:
-                            ap.write(f"\n{entry}")
-                        else:
+                        if first:
                             ap.write(f"{entry}")
-                    rewriting = False
+                        elif not first:
+                            ap.write(f"\n{entry}")
                     print("generating next chunk...")
                     response_time += time.monotonic() - response_time_start
                     i += 1
@@ -384,7 +383,6 @@ def get_sat(sat_name, sat_number, folder):
                         if data_correction:
                             print("cannot use 'back' during data correction")
                             break
-                        rewriting = True
                         try:
                             n_backs = int(n_reservoirs.split(" ")[1])
                         except:
