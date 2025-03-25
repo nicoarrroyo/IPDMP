@@ -62,23 +62,46 @@ def rewrite(write_file, rows):
         entry = f"{rows[j][0]},{rows[j][1]}"
         for k in range(2, len(rows[j])): # add coordinates
             entry = f"{entry},{rows[j][k]}"
-        write_file.write(f"\n{entry}")
+        write_file.write(f"{entry}\n")
 
 def blank_entry_check(file):
-    k = 0
-    popped = False
-    with open(file, mode="r") as re: # read
-        rows = list(csv.reader(re))
-    while k < len(rows): # check for blank entries
-        if len(rows[k]) < 2:
-            rows.pop(k)
-            print(f"eliminated blank entry on line {k} (chunk {k-2})")
-            k -= 1
-            popped = True
-        k += 1
-    if popped:
-        with open(file, mode="w") as wr: # write
-            for j in range(len(rows)):
-                wr.write(f"{rows[j][0]},{rows[j][1]}\n")
-        with open(file, mode="w") as wr: # write
-            rewrite(write_file=wr, rows=rows)
+    print("checking for blank entries", end="... ")
+    for i in range(10):
+        k = 0
+        popped = False
+        with open(file, mode="r") as re: # read
+            rows = list(csv.reader(re))
+        while k < len(rows): # check for blank entries
+            if len(rows[k]) < 2:
+                rows.pop(k)
+                print(f"eliminated blank entry on line {k} (chunk {k-2})")
+                k -= 1
+                popped = True
+            k += 1
+        if popped:
+            with open(file, mode="w") as wr: # write
+                rewrite(write_file=wr, rows=rows)
+    print("complete!")
+
+import sys
+import time
+
+def spinner(stop_event, message="Processing"):
+    """
+    A simple spinner that runs until stop_event is set.
+    The spinner updates the ellipsis by overwriting the same line.
+    """
+    frames = ["   ", ".  ", ".. ", "...", " ..", "  .", "   ", "  .", " ..", "...", ".. ", ".  "]
+    frames = [" | ", " / ", " - ", " \ ", " | ", " / ", " - ", " \ "]
+    frames = [" \ ", " | ", " / ", " | "]
+    frames = ["   ", "~  ", "~~ ", "~~~", " ~~", "  ~", "   ", "  ~", " ~~", "~~~", "~~ ", "~  "]
+    i = 0
+    while not stop_event.is_set():
+        frame = frames[i % len(frames)]
+        sys.stdout.write("\r" + message + frame)
+        sys.stdout.flush()
+        time.sleep(0.1)
+        i += 1
+    # Clear the spinner message on stop
+    sys.stdout.write("\r" + message + " done!      \n")
+    sys.stdout.flush()
