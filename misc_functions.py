@@ -61,27 +61,59 @@ def rewrite(write_file, rows):
     for j in range(len(rows)):
         entry = f"{rows[j][0]},{rows[j][1]}"
         for k in range(2, len(rows[j])): # add coordinates
-            entry = f"{entry},{rows[j][k]}"
+            if len(rows[j][k]) > 5: # ensure entry is a coordinate
+                entry = f"{entry},{rows[j][k]}"
         write_file.write(f"{entry}\n")
 
-def blank_entry_check(file):
+def blank_entry_check_old(file):
     print("checking for blank entries", end="... ")
-    for i in range(10):
+    no_pops = False
+    while not no_pops: # keep going until you have a run-through with no pops
         k = 0
-        popped = False
+        no_pops = True
         with open(file, mode="r") as re: # read
             rows = list(csv.reader(re))
-        while k < len(rows): # check for blank entries
-            if len(rows[k]) < 2:
+        while k < len(rows): # check for blank / non-digit entries
+            try:
+                rows[k][0] # try to access to check if entry exists
+                # then check if it's a digit and if it's shorter than a header
+                if not rows[k][0].isdigit() and len(rows[k][0]) < 4:
+                    rows.pop(k)
+                    print(f"eliminated blank entry on line {k} (chunk {k-2})")
+                    k -= 1
+                    no_pops = False
+            except:
                 rows.pop(k)
                 print(f"eliminated blank entry on line {k} (chunk {k-2})")
                 k -= 1
-                popped = True
+                no_pops = False
             k += 1
-        if popped:
+        if not no_pops:
             with open(file, mode="w") as wr: # write
                 rewrite(write_file=wr, rows=rows)
     print("complete!")
+
+def blank_entry_check(file):
+    print("checking for blank entries...", end="... ")
+    
+    cleaned_rows = []
+    invalid_rows = []
+    with open(file, mode="r") as re: # read the file once
+        rows = csv.reader(re)
+        for i, row in enumerate(rows):
+            if row and row[0].isdigit() or row and "chunk" in row[0]:
+                cleaned_rows.append(row) # only keep valid rows
+            else:
+                invalid_rows.append(i)
+    
+    if not invalid_rows:
+        print("complete!")
+    else:
+        with open(file, mode="w", newline="") as wr: # write cleaned rows back
+            csv_writer = csv.writer(wr)
+            csv_writer.writerows(cleaned_rows)
+        print(f"complete! {len(invalid_rows)} invalid entries were removed on ", 
+              invalid_rows)
 
 import sys
 import time
