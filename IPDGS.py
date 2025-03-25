@@ -30,6 +30,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import csv
+# import threading
 
 # %%% Internal Function Imports
 from image_functions import compress_image, plot_indices, mask_sentinel
@@ -37,16 +38,19 @@ from image_functions import prompt_roi
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
 from misc_functions import table_print, split_array, rewrite, blank_entry_check
+# from misc_functions import spinner
 
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False  # use finer 10m spatial resolution (slower)
+high_res = True  # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
+drive_link = ("https://drive.google.com/drive/folders/1z4jRh6LlInO5ivhA9s"
+              "9CN0U2azSXtrBm?usp=sharing")
 try: # personal pc mode
     HOME = ("C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\"
             "Individual Project\\Downloads")
@@ -212,6 +216,7 @@ def get_sat(sat_name, sat_number, folder):
         
         lines = []
         data_file = "responses_" + str(n_chunks) + "_chunks.csv"
+        blank_entry_check(file=data_file) # remove all blank entries
         try: # check if file exists
             with open(data_file, "r") as re: # read-write file
                 lines = re.readlines()
@@ -231,7 +236,7 @@ def get_sat(sat_name, sat_number, folder):
                             return indices # end program if file is invalid
                     last_chunk = int(lines[-1].split(",")[0])
                 except: # otherwise start at first point
-                    print("no data")
+                    print("error - no data")
                     return indices
         except: # otherwise create a file
             print("new file")
@@ -247,7 +252,6 @@ def get_sat(sat_name, sat_number, folder):
                 print("could not open file - please close the responses file")
                 input("press enter to retry")
         print("complete!")
-        blank_entry_check(file=data_file)
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
         rewriting = False
@@ -270,9 +274,10 @@ def get_sat(sat_name, sat_number, folder):
             if num_of_reservoirs != 0 and no_coords:
                 reservoir_rows.append(j-1)
                 data_correction = True
-                i = reservoir_rows[0]
-        print(f"found {len(reservoir_rows)} chunks containing "
-               "reservoirs with no coordinate data")
+        if data_correction:
+            print(f"found {len(reservoir_rows)} chunks containing "
+                   "reservoirs with no coordinate data")
+            i = reservoir_rows[0]
         
         # %%%% 5.4 Outputting Images
         print("outputting images...")
