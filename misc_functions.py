@@ -65,34 +65,6 @@ def rewrite(write_file, rows):
                 entry = f"{entry},{rows[j][k]}"
         write_file.write(f"{entry}\n")
 
-def blank_entry_check_old(file):
-    print("checking for blank entries", end="... ")
-    no_pops = False
-    while not no_pops: # keep going until you have a run-through with no pops
-        k = 0
-        no_pops = True
-        with open(file, mode="r") as re: # read
-            rows = list(csv.reader(re))
-        while k < len(rows): # check for blank / non-digit entries
-            try:
-                rows[k][0] # try to access to check if entry exists
-                # then check if it's a digit and if it's shorter than a header
-                if not rows[k][0].isdigit() and len(rows[k][0]) < 4:
-                    rows.pop(k)
-                    print(f"eliminated blank entry on line {k} (chunk {k-2})")
-                    k -= 1
-                    no_pops = False
-            except:
-                rows.pop(k)
-                print(f"eliminated blank entry on line {k} (chunk {k-2})")
-                k -= 1
-                no_pops = False
-            k += 1
-        if not no_pops:
-            with open(file, mode="w") as wr: # write
-                rewrite(write_file=wr, rows=rows)
-    print("complete!")
-
 def blank_entry_check(file):
     print("checking for blank entries...", end="... ")
     
