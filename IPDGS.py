@@ -14,8 +14,10 @@
 - sentinel 2
     - functional index calculation, plot outputs, and plot saving
     - new general function for landsat and/or sentinel
+        - now removed landsat, focusing entirely on sentinel
 - machine learning
     - new section to allow user to manually label chunks of an image
+    - also able to outline a rectangle containing the reservoir
 - cloud masking
     - now functional and included before index calculation
 - compositing
@@ -61,8 +63,8 @@ except: # uni mode
     HOME = ("C:\\Users\\c55626na\\OneDrive - "
             "The University of Manchester\\Individual Project")
     os.chdir(HOME)
-    plot_size = (10, 10) # larger plots increase detail and pixel count
-    plot_size_chunks = (12, 12)
+    plot_size = (5, 5) # larger plots increase detail and pixel count
+    plot_size_chunks = (7, 7)
 
 # %% General Mega Giga Function
 do_s2 = True
