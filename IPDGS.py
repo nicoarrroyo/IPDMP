@@ -45,7 +45,7 @@ compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False  # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -61,8 +61,8 @@ except: # uni mode
     HOME = ("C:\\Users\\c55626na\\OneDrive - "
             "The University of Manchester\\Individual Project")
     os.chdir(HOME)
-    plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (7, 7)
+    plot_size = (10, 10) # larger plots increase detail and pixel count
+    plot_size_chunks = (12, 12)
 
 # %% General Mega Giga Function
 do_s2 = True
@@ -359,6 +359,7 @@ def get_sat(sat_name, sat_number, folder):
                         if reservoir_rows_index >= len(reservoir_rows):
                             i = last_chunk + 1
                             data_correction = False
+                            first = True
                             break
                         i = reservoir_rows[reservoir_rows_index]
                         response_time += time.monotonic() - response_time_start
@@ -367,6 +368,7 @@ def get_sat(sat_name, sat_number, folder):
                     with open(data_file, mode="a") as ap: # append
                         if first:
                             ap.write(f"{entry}")
+                            first = False
                         elif not first:
                             ap.write(f"\n{entry}")
                     print("generating next chunk...")
