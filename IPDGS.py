@@ -40,7 +40,7 @@ from image_functions import prompt_roi
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
 from misc_functions import table_print, split_array, rewrite, blank_entry_check
-# from misc_functions import spinner
+from misc_functions import check_file_permission # , spinner
 
 # %%% General Image and Plot Properties
 compression = 1 # 1 for full-sized images, bigger integer for smaller images
@@ -246,13 +246,7 @@ def get_sat(sat_name, sat_number, folder):
                 create.write("chunk,reservoirs,coordinates") # input headers
                 last_chunk = -1 # must be new sheet, no last chunk
         
-        while True:
-            try: # check if file is open
-                with open(data_file, mode="a") as ap:
-                    break
-            except IOError:
-                print("could not open file - please close the responses file")
-                input("press enter to retry")
+        check_file_permission(file_name=data_file) # check if file is open
         print("complete!")
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
@@ -353,6 +347,7 @@ def get_sat(sat_name, sat_number, folder):
                     
                     if data_correction: # add coordinates to data
                         lines[i+1] = f"{entry}\n"
+                        check_file_permission(file_name=data_file)
                         with open(data_file, mode="w") as wr: # write
                             for j in range(len(lines)):
                                 entry = lines[j]
@@ -367,6 +362,7 @@ def get_sat(sat_name, sat_number, folder):
                         response_time += time.monotonic() - response_time_start
                         break
                     
+                    check_file_permission(file_name=data_file)
                     with open(data_file, mode="a") as ap: # append
                         if first:
                             ap.write(f"{entry}")
@@ -393,6 +389,7 @@ def get_sat(sat_name, sat_number, folder):
                             n_backs = 1
                         i -= n_backs
                         print("returning to chunk", i)
+                        check_file_permission(file_name=data_file)
                         with open(data_file, mode="r") as re: # read
                             rows = list(csv.reader(re))
                         for j in range(n_backs):
