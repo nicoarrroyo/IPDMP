@@ -425,7 +425,10 @@ if do_s2:
     s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
                               folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
                                       "_T31UCU_20250301T152054.SAFE"))
+    stop_event, thread = start_spinner(message="splitting indices")
     ndwi, mndwi, awei_sh, awei_nsh = s2_indices
+    end_spinner(stop_event, thread)
+    
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total processing time: {round(TOTAL_TIME, 2)} seconds")
