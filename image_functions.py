@@ -4,31 +4,57 @@ import os
 from PIL import Image, ImageTk
 import tkinter as tk
 
-def compress_image(factor, file_path_s):
+def image_to_array(file_path_s):
+    """
+
+    Parameters
+    ----------
+    file_path_s : list
+        a list containing all the file paths 
+
+    Returns
+    -------
+    image_arrays : list of numpy arrays
+        A list containing some number of numpy arrays converted from images. 
+
+    """
     if not isinstance(file_path_s, list):
-        print("opening and converting image", end="")
         with Image.open(file_path_s) as img:
-            print(".", end="")
-            new_size = (img.width//factor, img.height//factor)
-            img = img.resize(new_size)
             image_array = np.array(img)
-            print("..", end="")
-        print(" complete!")
-        return image_array, new_size
+        return image_array
     else:
         image_arrays = []
-        print("opening and converting images", end="")
         for file_path in file_path_s:
             with Image.open(file_path) as img:
-                print(".", end="")
-                new_size = (img.width // factor, img.height // factor)
-                img = img.resize(new_size)
                 image_arrays.append(np.array(img))
-                print(".", end="")
-        print(" complete!")
-        return image_arrays, new_size
+        return image_arrays
 
-def plot_indices(data, sat_n, size, comp, dpi, save_image, res):
+def plot_indices(data, sat_n, size, dpi, save_image, res):
+    """
+
+    Parameters
+    ----------
+    data : list of numpy arrays
+        A list containing some number of numpy arrays converted from images. 
+        In this case, these arrays contain index values to be plotted. 
+    sat_n : int
+        The satellite number to be used as a part of the plot and file titles.
+    size : tuple
+        The required size of the image plots.
+    dpi : int
+        Dots-per-inch to which the image must be plotted. A higher value is 
+        more intensive but provides clearer images. 
+    save_image : bool
+        Boolean variable to check if the user wants the image saved.
+    res : string
+        The resolution of the image array being passed and plotted. This can 
+        be 10m, 20m, or 60m for Sentinel 2. 
+
+    Returns
+    -------
+    None.
+
+    """
     indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     for i, water_index in enumerate(data):
         plt.figure(figsize=(size))
@@ -38,7 +64,7 @@ def plot_indices(data, sat_n, size, comp, dpi, save_image, res):
         else:
             sat_name = "Sentinel"
             sat_letter = "S"
-        plt.title(f"{sat_name} {sat_n} {indices[i]} C{comp} DPI{dpi} R{res}", 
+        plt.title(f"{sat_name} {sat_n} {indices[i]} DPI{dpi} R{res}", 
                   fontsize=8)
         
         ax = plt.gca()
@@ -51,7 +77,7 @@ def plot_indices(data, sat_n, size, comp, dpi, save_image, res):
         
         if save_image:
             print(f"saving {indices[i]} image", end="... ")
-            plot_name = f"{sat_letter}{sat_n}_{indices[i]}_C{comp}_DPI{dpi}_R{res}.png"
+            plot_name = f"{sat_letter}{sat_n}_{indices[i]}_DPI{dpi}_R{res}.png"
             
             # check for file name already existing and increment file name
             base_name, extension = os.path.splitext(plot_name)
@@ -68,9 +94,50 @@ def plot_indices(data, sat_n, size, comp, dpi, save_image, res):
         print(f"{indices[i]} image display complete!")
 
 def upscale_image_array(img_array, factor=2):
+    """
+
+    Parameters
+    ----------
+    img_array : numpy array
+        Numpy array containing data about an image. This image may be of lower 
+        resolution that others to which it is being compared, so it must be 
+        scaled up to match their pixel-count. 
+    factor : int, optional
+        The default is 2. This upscales the image from 10m to 20m. 
+
+    Returns
+    -------
+    img_array : numpy array
+        The 20m resolution image array is upscaled to match the 10m reoslution.
+
+    """
     return np.repeat(np.repeat(img_array, factor, axis=0), factor, axis=1)
 
 def get_rgb(blue_path, green_path, red_path, save_image, res, show_image):
+    """
+
+    Parameters
+    ----------
+    blue_path : string
+        File path to the blue file.
+    green_path : string
+        File path to the green file.
+    red_path : string
+        File path to the red file.
+    save_image : bool
+        Boolean variable to check if the user wants the image saved.
+    res : string
+        The resolution of the image array being passed and plotted. This can 
+        be 10m, 20m, or 60m for Sentinel 2. 
+    show_image : bool
+        Boolean variable to check if the user wants the image outputted.
+
+    Returns
+    -------
+    rgb_array : numpy array
+        The RGB image array file that is generated or found.
+
+    """
     bands = []
     print("creating RGB image", end="... ")
     for path in (blue_path, green_path, red_path):
@@ -90,16 +157,37 @@ def get_rgb(blue_path, green_path, red_path, save_image, res, show_image):
         print("complete!")
     return rgb_array
 
-def mask_sentinel(path, high_res, image_arrays, comp):
+def mask_sentinel(path, high_res, image_arrays):
+    """
+    
+    Parameters
+    ----------
+    path : string
+        The file path to the cloud probability file in Sentinel 2 imagery. 
+    high_res : bool
+        The True/False variable to check which resolution of cloud probability 
+        file is needed. This resolution can be either 10m (which is when 
+        high_res is set to true), 20m (also means high_res is set to True but 
+        some images only have 20m resolution e.g. SWIR1 and SWIR2) or 60m 
+        (which is the case when high_res is set to False). 
+    image_arrays : list of numpy arrays
+        A list containing some number of numpy arrays converted from images. 
+    
+    Returns
+    -------
+    image_arrays : list of numpy arrays
+        A list containing some number of numpy arrays converted from images. 
+    
+    """
     if high_res:
         image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
         image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
         path = path + "MSK_CLDPRB_20m.jp2"
-        clouds_array, size = compress_image(comp, path)
+        clouds_array = image_to_array(path)
         clouds_array = upscale_image_array(clouds_array, factor=2)
     else:
         path = path + "MSK_CLDPRB_60m.jp2"
-        clouds_array, size = compress_image(comp, path)
+        clouds_array = image_to_array(path)
     
     clouds_array = np.where(clouds_array > 50, 100, clouds_array)
     cloud_positions = np.argwhere(clouds_array == 100)
@@ -110,6 +198,21 @@ def mask_sentinel(path, high_res, image_arrays, comp):
     return image_arrays
 
 def find_rgb_file(path):
+    """
+    
+    Parameters
+    ----------
+    path : string
+        Any file path that can be searched fully to find a an RGB image file. 
+    
+    Returns
+    -------
+    bool
+        A bool variable to indicate whether an RGB image file has been found. 
+    rgb_path or full_path : string
+        If the RGB image file is found, this is the path to that file. 
+    
+    """
     for item in os.listdir(path):
         full_path = os.path.join(path, item)
         if os.path.isdir(full_path): # if item is a folder
@@ -126,10 +229,25 @@ def prompt_roi(image_array, n):
     Opens a Tkinter window displaying the image (as a numpy array).
     Allows the user to select multiple ROIs by click-and-drag.
     The ROI is automatically saved upon mouse release.
-    When done, click the final button to close the window and return a list of ROI coordinates.
+    When done, click the final button to close the window and return a 
+    list of ROI coordinates.
     
-    Returns:
-        A list of ints (ulx, uly, brx, bry) for each ROI.
+    Parameters
+    ----------
+    image_array : numpy array
+        A numpy array converted from an image. 
+    n : int
+        An integer representing the number regions of interest (ROIs) that 
+        were identified by the user. 
+    
+    Returns
+    -------
+    rois : list
+        List of integers (upper-left x-coordinate (ulx), 
+                          upper-left y-coordinate (uly), 
+                          bottom-right x-coordinate (brx), 
+                          bottom-right y-coordinate (bry)) for each ROI. 
+    
     """
     # Convert the numpy array to a PIL image
     image = Image.fromarray(image_array)
