@@ -93,26 +93,6 @@ def plot_indices(data, sat_n, size, dpi, save_image, res):
         plt.show()
         print(f"{indices[i]} image display complete!")
 
-def upscale_image_array(img_array, factor=2):
-    """
-
-    Parameters
-    ----------
-    img_array : numpy array
-        Numpy array containing data about an image. This image may be of lower 
-        resolution that others to which it is being compared, so it must be 
-        scaled up to match their pixel-count. 
-    factor : int, optional
-        The default is 2. This upscales the image from 10m to 20m. 
-
-    Returns
-    -------
-    img_array : numpy array
-        The 20m resolution image array is upscaled to match the 10m reoslution.
-
-    """
-    return np.repeat(np.repeat(img_array, factor, axis=0), factor, axis=1)
-
 def get_rgb(blue_path, green_path, red_path, save_image, res, show_image):
     """
 
@@ -156,6 +136,26 @@ def get_rgb(blue_path, green_path, red_path, save_image, res, show_image):
         rgb_image.show()
         print("complete!")
     return rgb_array
+
+def upscale_image_array(img_array, factor=2):
+    """
+
+    Parameters
+    ----------
+    img_array : numpy array
+        Numpy array containing data about an image. This image may be of lower 
+        resolution that others to which it is being compared, so it must be 
+        scaled up to match their pixel-count. 
+    factor : int, optional
+        The default is 2. This upscales the image from 10m to 20m. 
+
+    Returns
+    -------
+    img_array : numpy array
+        The 20m resolution image array is upscaled to match the 10m reoslution.
+
+    """
+    return np.repeat(np.repeat(img_array, factor, axis=0), factor, axis=1)
 
 def mask_sentinel(path, high_res, image_arrays):
     """
