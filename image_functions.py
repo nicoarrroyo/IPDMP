@@ -6,17 +6,17 @@ import tkinter as tk
 
 def image_to_array(file_path_s):
     """
-
+    
     Parameters
     ----------
     file_path_s : list
         a list containing all the file paths 
-
+        
     Returns
     -------
     image_arrays : list of numpy arrays
         A list containing some number of numpy arrays converted from images. 
-
+        
     """
     if not isinstance(file_path_s, list):
         with Image.open(file_path_s) as img:
@@ -31,7 +31,7 @@ def image_to_array(file_path_s):
 
 def plot_indices(data, sat_n, size, dpi, save_image, res):
     """
-
+    
     Parameters
     ----------
     data : list of numpy arrays
@@ -49,11 +49,11 @@ def plot_indices(data, sat_n, size, dpi, save_image, res):
     res : string
         The resolution of the image array being passed and plotted. This can 
         be 10m, 20m, or 60m for Sentinel 2. 
-
+    
     Returns
     -------
     None.
-
+    
     """
     indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     for i, water_index in enumerate(data):
@@ -95,7 +95,7 @@ def plot_indices(data, sat_n, size, dpi, save_image, res):
 
 def get_rgb(blue_path, green_path, red_path, save_image, res, show_image):
     """
-
+    
     Parameters
     ----------
     blue_path : string
@@ -111,12 +111,12 @@ def get_rgb(blue_path, green_path, red_path, save_image, res, show_image):
         be 10m, 20m, or 60m for Sentinel 2. 
     show_image : bool
         Boolean variable to check if the user wants the image outputted.
-
+    
     Returns
     -------
     rgb_array : numpy array
         The RGB image array file that is generated or found.
-
+    
     """
     bands = []
     print("creating RGB image", end="... ")
@@ -139,7 +139,7 @@ def get_rgb(blue_path, green_path, red_path, save_image, res, show_image):
 
 def upscale_image_array(img_array, factor=2):
     """
-
+    
     Parameters
     ----------
     img_array : numpy array
@@ -148,12 +148,12 @@ def upscale_image_array(img_array, factor=2):
         scaled up to match their pixel-count. 
     factor : int, optional
         The default is 2. This upscales the image from 10m to 20m. 
-
+    
     Returns
     -------
     img_array : numpy array
         The 20m resolution image array is upscaled to match the 10m reoslution.
-
+    
     """
     return np.repeat(np.repeat(img_array, factor, axis=0), factor, axis=1)
 
@@ -253,13 +253,13 @@ def prompt_roi(image_array, n):
     image = Image.fromarray(image_array)
     image = image.resize((500, 500))  # Resize the image to fit in the window
     width, height = image.size
-
+    
     rois = []          # List to store confirmed ROI coordinates
     rects = []         # List to store the drawn rectangles
     current_roi = None # To temporarily hold the current ROI coordinates
     current_rect = None
     start_x = start_y = 0
-
+    
     error_counter = 0
     while error_counter < 2:
         try:
@@ -269,7 +269,7 @@ def prompt_roi(image_array, n):
             root.resizable(False, False)
             canvas = tk.Canvas(root, width=width, height=height)
             canvas.pack()
-
+    
             # Display the image on the canvas
             tk_image = ImageTk.PhotoImage(image)
             canvas.create_image(0, 0, anchor="nw", image=tk_image)
@@ -286,7 +286,7 @@ def prompt_roi(image_array, n):
     if error_counter >= 2:
         print("Broken prompt_roi function")
         return
-
+    
     # Create the lines for following the cursor
     vertical_line = canvas.create_line(0, 0, 0, height, fill="red", dash=(4, 2))
     horizontal_line = canvas.create_line(0, 0, width, 0, fill="red", dash=(4, 2))
@@ -294,7 +294,7 @@ def prompt_roi(image_array, n):
     # Helper function to update the status bar message.
     def set_status(msg):
         status_label.config(text=msg)
-
+    
     # Event handlers for drawing the ROI rectangle
     def on_button_press(event):
         nonlocal start_x, start_y, current_rect, current_roi
@@ -305,7 +305,7 @@ def prompt_roi(image_array, n):
         current_rect = canvas.create_rectangle(start_x, start_y, start_x, start_y, 
                                                outline="red", width=2)
         current_roi = None  # Reset current ROI
-
+    
     def on_move_press(event):
         nonlocal current_rect
         # Update the rectangle as the mouse is dragged
@@ -313,7 +313,7 @@ def prompt_roi(image_array, n):
         # Update the follower lines by resetting their coordinates
         canvas.coords(vertical_line, event.x, 0, event.x, height)
         canvas.coords(horizontal_line, 0, event.y, width, event.y)
-
+    
     def on_button_release(event):
         nonlocal current_roi
         # Finalize the ROI on mouse release
@@ -325,12 +325,12 @@ def prompt_roi(image_array, n):
         current_roi = (ulx, uly, brx, bry)
         # Auto-save the ROI upon release
         save_roi()
-
+    
     # Event handler for mouse motion (unpressed button) to update the lines
     def on_mouse_motion(event):
         canvas.coords(vertical_line, event.x, 0, event.x, height)
         canvas.coords(horizontal_line, 0, event.y, width, event.y)
-
+    
     # Function to save the current ROI automatically
     def save_roi():
         nonlocal rois, current_roi, rects, current_rect
@@ -339,7 +339,7 @@ def prompt_roi(image_array, n):
                 # Ensure the ROI coordinates are within bounds
                 current_roi = [max(0, int(roi)) for roi in current_roi]
                 current_roi = [min(width, int(roi)) for roi in current_roi]
-
+                
                 rois.append(current_roi)
                 rects.append(current_rect)  # Keep track of the rectangle reference
                 canvas.itemconfig(current_rect, outline="green")
@@ -351,7 +351,7 @@ def prompt_roi(image_array, n):
                 set_status("No region of interest selected")
         else:
             set_status(f"Too many selections, expected: {n}. Overwrite a selection.")
-
+    
     # Button callback to finish the ROI selection and close the window
     def finish():
         nonlocal rois
@@ -362,7 +362,7 @@ def prompt_roi(image_array, n):
             set_status(f"{n - len(rois)} selection(s) remaining")
         else:
             root.destroy()
-
+    
     def overwrite():
         nonlocal rois, current_roi, current_rect, rects
         # Remove the current drawing if any.
@@ -391,14 +391,14 @@ def prompt_roi(image_array, n):
     canvas.config(cursor="none")
     canvas.bind("<Enter>", lambda event: canvas.config(cursor="none"))
     canvas.bind("<Leave>", lambda event: canvas.config(cursor=""))
-
+    
     # Create button frame and add "Overwrite" and "Finish" buttons only.
     button_frame = tk.Frame(root)
     button_frame.pack(fill=tk.X, pady=10)
-
+    
     overwrite_button = tk.Button(button_frame, text="Overwrite", command=overwrite)
     overwrite_button.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
-
+    
     # Set initial text based on expected number of ROIs.
     finish_button = tk.Button(button_frame, text="Finish", command=finish)
     finish_button.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
@@ -406,6 +406,6 @@ def prompt_roi(image_array, n):
     # Create the status bar below the buttons
     status_label = tk.Label(root, text="", bd=1, relief=tk.SUNKEN, anchor=tk.W)
     status_label.pack(fill=tk.X, padx=2, pady=2)
-
+    
     root.mainloop()
     return rois
