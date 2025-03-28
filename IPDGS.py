@@ -32,7 +32,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import csv
-# import threading
 
 # %%% Internal Function Imports
 from image_functions import image_to_array, plot_indices, mask_sentinel
@@ -40,7 +39,7 @@ from image_functions import prompt_roi
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
 from misc_functions import table_print, split_array, rewrite, blank_entry_check
-from misc_functions import check_file_permission # , spinner
+from misc_functions import check_file_permission, start_spinner, end_spinner
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
@@ -80,10 +79,10 @@ def get_sat(sat_name, sat_number, folder):
     print("==========")
     print("| STEP 1 |")
     print("==========")
-    print("opening images and creating image arrays")
+    stop_event, thread = start_spinner(message="opening images and "
+                                       "creating image arrays")
     start_time = time.monotonic()
     
-    print("establishing paths", end="... ")
     file_paths = []
     satellite = f"\\{sat_name} {sat_number}\\"
     path = HOME + satellite + folder + "\\GRANULE"
@@ -119,20 +118,18 @@ def get_sat(sat_name, sat_number, folder):
                 file_paths.append(path_20 + prefix + "_B" + band + "_20m.jp2")
         else:
             file_paths.append(path_60 + prefix + "_B" + band + "_60m.jp2")
-    print("complete!")
     
-    print("opening and converting images", end="... ")
-    image_arrays = image_to_array(file_paths)
-    print("complete!")
+    image_arrays = image_to_array(file_paths) # this is the long operation
     
     time_taken = time.monotonic() - start_time
+    end_spinner(stop_event, thread)
     print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 2. Masking Clouds
     print("==========")
     print("| STEP 2 |")
     print("==========")
-    print("masking clouds")
+    stop_event, thread = start_spinner(message="masking clouds")
     start_time = time.monotonic()
     
     path = (HOME + satellite + folder + 
@@ -140,13 +137,14 @@ def get_sat(sat_name, sat_number, folder):
     image_arrays = mask_sentinel(path, high_res, image_arrays)
     
     time_taken = time.monotonic() - start_time
+    end_spinner(stop_event, thread)
     print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 3. Calculating Water Indices
     print("==========")
     print("| STEP 3 |")
     print("==========")
-    print("populating water index arrays", end="")
+    stop_event, thread = start_spinner(message="populating water index arrays")
     start_time = time.monotonic()
     
     # first convert to int. np.uint16 type is bad for algebraic operations!
@@ -156,6 +154,7 @@ def get_sat(sat_name, sat_number, folder):
     indices = get_indices(blue, green, nir, swir1, swir2)
     
     time_taken = time.monotonic() - start_time
+    end_spinner(stop_event, thread)
     print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 4. Showing Indices
@@ -173,7 +172,9 @@ def get_sat(sat_name, sat_number, folder):
         print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     else:
         print("not displaying water index images")
+    
     # %%% 5. Data Labelling
+    global response_time
     print("==========")
     print("| STEP 5 |")
     print("==========")
@@ -182,7 +183,8 @@ def get_sat(sat_name, sat_number, folder):
         start_time = time.monotonic()
         
         # %%%% 5.1 Searching for, Opening, and Converting RGB Image
-        print("opening " + res + " resolution true colour image", end="...")
+        stop_event, thread = start_spinner(message=f"opening {res} "
+                                           "resolution true colour image")
         path = HOME + satellite + folder
         
         tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
@@ -196,19 +198,20 @@ def get_sat(sat_name, sat_number, folder):
             size = (img.width//c, img.height//c)
             tci_60_array = np.array(img.resize(size))
             side_length = img.width//c
-        print("complete!")
+        end_spinner(stop_event, thread)
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
-        print("creating", n_chunks, "chunks from satellite imagery", end="... ")
+        stop_event, thread = start_spinner(message=f"creating {n_chunks} chunks"
+                                           " from satellite imagery")
         index_chunks = []
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
         chunk_length = side_length / np.sqrt(len(tci_chunks))
-        print("complete!")
+        end_spinner(stop_event, thread)
         
         # %%%% 5.3 Preparing File for Labelling
-        print("preparing file for labelling", end="... ")
+        stop_event, thread = start_spinner(message="preparing file for labelling")
         index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
         break_flag = False
         
@@ -234,9 +237,12 @@ def get_sat(sat_name, sat_number, folder):
                 last_chunk = int(lines[-1].split(",")[0])
                 break
             except (ValueError, IndexError) as e:
+                end_spinner(stop_event, thread)
                 print(f"error - file with invalid data: {e}")
                 print("type 'quit' to exit, or 'new' for a fresh file")
+                response_time_start = time.monotonic()
                 ans = input("press enter to retry ")
+                response_time += time.monotonic() - response_time_start
                 if ans.lower() == 'quit':
                     return indices
                 elif ans.lower() == 'new':
@@ -246,8 +252,7 @@ def get_sat(sat_name, sat_number, folder):
                         file.write("0, 1") # dummy file to start up
                     continue
         
-        check_file_permission(file_name=data_file) # check if file is open
-        print("complete!")
+        end_spinner(stop_event, thread)
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
         first = True
@@ -323,7 +328,6 @@ def get_sat(sat_name, sat_number, folder):
             plt.show()
             
             # %%%% 5.5 User Labelling
-            global response_time
             response_time_start = time.monotonic()
             if data_correction:
                 print("this chunk "
