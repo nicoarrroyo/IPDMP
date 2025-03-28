@@ -35,7 +35,7 @@ import csv
 # import threading
 
 # %%% Internal Function Imports
-from image_functions import compress_image, plot_indices, mask_sentinel
+from image_functions import image_to_array, plot_indices, mask_sentinel
 from image_functions import prompt_roi
 from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
@@ -43,12 +43,11 @@ from misc_functions import table_print, split_array, rewrite, blank_entry_check
 from misc_functions import check_file_permission # , spinner
 
 # %%% General Image and Plot Properties
-compression = 1 # 1 for full-sized images, bigger integer for smaller images
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 4999 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
-show_index_plots = False
+high_res = False # use finer 10m spatial resolution (slower)
+show_index_plots = True
 label_data = True
 
 drive_link = ("https://drive.google.com/drive/folders/1z4jRh6LlInO5ivhA9s"
@@ -74,8 +73,7 @@ def get_sat(sat_name, sat_number, folder):
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
-    table_print(compression=compression, DPI=dpi, 
-                n_chunks=n_chunks, save_images=save_images, high_res=high_res, 
+    table_print(n_chunks=n_chunks, save_images=save_images, high_res=high_res, 
                 show_plots=show_index_plots, labelling=label_data)
     
     # %%% 1. Opening Images and Creating Image Arrays
@@ -105,14 +103,14 @@ def get_sat(sat_name, sat_number, folder):
         path_20 = (path + "IMG_DATA\\R20m\\") # swir1 and swir2
     else:
         res = "60m"
-        path_60 = (path + "IMG_DATA\\R60m\\")
+        path_60 = (path + "IMG_DATA\\R60m\\") # all bands
     
     (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
      processing_baseline_number, relative_orbit_number, tile_number_field, 
      product_discriminator_and_format) = folder.split("_")
     prefix = (f"{tile_number_field}_{datatake_start_sensing_time}")
     bands = get_sentinel_bands(sat_number, high_res)
-    
+    globals()["bands"] = bands
     for band in bands:
         if high_res:
             if band == "02" or band == "03" or band == "08":
@@ -122,7 +120,10 @@ def get_sat(sat_name, sat_number, folder):
         else:
             file_paths.append(path_60 + prefix + "_B" + band + "_60m.jp2")
     print("complete!")
-    image_arrays, size = compress_image(compression, file_paths)
+    
+    print("opening and converting images", end="... ")
+    image_arrays = image_to_array(file_paths)
+    print("complete!")
     
     time_taken = time.monotonic() - start_time
     print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
@@ -136,7 +137,7 @@ def get_sat(sat_name, sat_number, folder):
     
     path = (HOME + satellite + folder + 
             "\\GRANULE\\" + subdirs[0] + "\\QI_DATA\\")
-    image_arrays = mask_sentinel(path, high_res, image_arrays, compression)
+    image_arrays = mask_sentinel(path, high_res, image_arrays)
     
     time_taken = time.monotonic() - start_time
     print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
@@ -164,8 +165,7 @@ def get_sat(sat_name, sat_number, folder):
         else:
             print("displaying water index images...")
         start_time = time.monotonic()
-        plot_indices(indices, sat_number, plot_size, compression, 
-                     dpi, save_images, res)
+        plot_indices(indices, sat_number, plot_size, dpi, save_images, res)
         time_taken = time.monotonic() - start_time
         print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     else:
@@ -184,19 +184,16 @@ def get_sat(sat_name, sat_number, folder):
         
         tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
         tci_file_name = prefix + f"_TCI_{res}.jp2"
-        with Image.open(tci_path + tci_file_name) as tci_image:
-            print(".", end="")
-            tci_array = np.array(tci_image)
+        tci_array = image_to_array(tci_path + tci_file_name)
         
         tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
         tci_60_file_name = prefix + "_TCI_60m.jp2"
-        
         c = 5 # compress 60m resolution TCI for faster plotting
         with Image.open(tci_60_path + tci_60_file_name) as img:
             size = (img.width//c, img.height//c)
             tci_60_array = np.array(img.resize(size))
-            print(".", end=" ")
             side_length = img.width//c
+            print(".", end=" ")
         print("complete!")
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
@@ -219,32 +216,106 @@ def get_sat(sat_name, sat_number, folder):
         lines = []
         data_file = "responses_" + str(n_chunks) + "_chunks.csv"
         blank_entry_check(file=data_file) # remove all blank entries
-        try: # check if file exists
-            with open(data_file, "r") as re: # read-write file
-                lines = re.readlines()
-                try: # check if file has data in it
-                    for i in range(1, len(lines) - 1): # check file validity
-                        try:
-                            current_chunk = int(lines[i].split(",")[0])
-                            next_chunk = int(lines[i+1].split(",")[0])
-                        except:
-                            print("bad data in responses file")
-                            print(f"line {i+2}, chunk {(current_chunk+1)}")
-                            return indices
-                        chunk_diff = next_chunk - current_chunk
-                        if chunk_diff != 1:
-                            print("error in responses file")
-                            print(f"line {i+2}, chunk {(current_chunk+1)}")
-                            return indices # end program if file is invalid
-                    last_chunk = int(lines[-1].split(",")[0])
-                except: # otherwise start at first point
-                    print("error - no data")
+# =============================================================================
+#         try: # check if file exists
+#             with open(data_file, "r") as re: # read
+#                 lines = re.readlines()
+#             try: # check if file has data in it
+#                 for i in range(1, len(lines) - 1): # check file validity
+#                     try:
+#                         current_chunk = int(lines[i].split(",")[0])
+#                         next_chunk = int(lines[i+1].split(",")[0])
+#                     except:
+#                         print("bad data in responses file")
+#                         print(f"line {i+2}, chunk {(current_chunk+1)}")
+#                         return indices
+#                     chunk_diff = next_chunk - current_chunk
+#                     if chunk_diff != 1:
+#                         print("error in responses file")
+#                         print(f"line {i+2}, chunk {(current_chunk+1)}")
+#                         return indices # end program if file is invalid
+#                 last_chunk = int(lines[-1].split(",")[0])
+#             except: # otherwise start at first point
+#                 print("no data found")
+#                 while True:
+#                     print("please check the file for errors")
+#                     print("press enter to start a new file")
+#                     check_file_permission(file_name=data_file)
+#                     ans = input("type quit to exit ")
+#                     if "quit" in ans:
+#                         return indices
+#                     print("new file")
+#                     with open(data_file, mode="w") as create:
+#                         create.write("chunk,reservoirs,coordinates")
+#                         last_chunk = -1 # must be new sheet, no last chunk
+#         except: # otherwise create a file
+#             print("new file")
+#             with open(data_file, mode="w") as create:
+#                 create.write("chunk,reservoirs,coordinates") # input headers
+#                 last_chunk = -1 # must be new sheet, no last chunk
+# =============================================================================
+        
+# =============================================================================
+#         while True:
+#             # check if file exists
+#             try:
+#                 with open(data_file, "r") as re: # read file
+#                     lines = re.readlines()
+#                 # check if file has valid data
+#                 try:
+#                     for i in range(1, len(lines) - 1):
+#                         current_chunk = int(lines[i].split(",")[0])
+#                         next_chunk = int(lines[i+1].split(",")[0])
+#                         chunk_diff = next_chunk - current_chunk
+#                         if chunk_diff != 1:
+#                             print(f"line {i+2}, chunk {(current_chunk+1)}")
+#                             raise Exception("file validity error")
+#                     last_chunk = int(lines[-1].split(",")[0])
+#                     break
+#                 # file has invalid data
+#                 except:
+#                     print("error - file with invalid data")
+#                     print("press enter to try again, otherwise: ")
+#                     ans = input("type 'quit' to exit, 'new' for a wiped file ")
+#                     if "quit" in ans:
+#                         return indices
+#                     elif "new" in ans:
+#                         raise Exception("creating new file")
+#             # file doesn't exist
+#             except:
+#                 # create a new file
+#                 print("new file")
+#                 with open(data_file, mode="w") as create:
+#                     create.write("chunk,reservoirs,coordinates") # input headers
+#                     last_chunk = -1 # must be new sheet, no last chunk
+#                 break
+# =============================================================================
+        while True:
+            # file will always exist due to blank_entry_check call
+            with open(data_file, "r") as file:
+                lines = file.readlines()
+            try:
+                # Validate file data
+                for i in range(1, len(lines) - 1):
+                    current_chunk = int(lines[i].split(",")[0])
+                    next_chunk = int(lines[i + 1].split(",")[0])
+                    if next_chunk - current_chunk != 1:
+                        print(f"Line {i + 2}, expected chunk {current_chunk + 1}")
+                        raise ValueError("File validity error")
+                last_chunk = int(lines[-1].split(",")[0])
+                break
+            except (ValueError, IndexError) as e:
+                print(f"error - file with invalid data: {e}")
+                print("type 'quit' to exit, or 'new' for a fresh file")
+                ans = input("press enter to retry ")
+                if ans.lower() == 'quit':
                     return indices
-        except: # otherwise create a file
-            print("new file")
-            with open(data_file, mode="w") as create:
-                create.write("chunk,reservoirs,coordinates") # input headers
-                last_chunk = -1 # must be new sheet, no last chunk
+                elif ans.lower() == 'new':
+                    print("creating new file...")
+                    with open(data_file, "w") as file:
+                        file.write("chunk,reservoirs,coordinates\n")
+                        file.write("0, 1") # dummy file to start up
+                    continue
         
         check_file_permission(file_name=data_file) # check if file is open
         print("complete!")
