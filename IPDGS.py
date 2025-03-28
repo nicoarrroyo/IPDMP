@@ -44,7 +44,7 @@ from misc_functions import check_file_permission # , spinner
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 4999 # number of chunks into which images are split
+n_chunks = 5000 # number of chunks into which images are split
 save_images = False
 high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
@@ -110,7 +110,7 @@ def get_sat(sat_name, sat_number, folder):
      product_discriminator_and_format) = folder.split("_")
     prefix = (f"{tile_number_field}_{datatake_start_sensing_time}")
     bands = get_sentinel_bands(sat_number, high_res)
-    globals()["bands"] = bands
+    
     for band in bands:
         if high_res:
             if band == "02" or band == "03" or band == "08":
@@ -119,19 +119,10 @@ def get_sat(sat_name, sat_number, folder):
                 file_paths.append(path_20 + prefix + "_B" + band + "_20m.jp2")
         else:
             file_paths.append(path_60 + prefix + "_B" + band + "_60m.jp2")
-    globals()["file_paths"] = file_paths
     print("complete!")
     
     print("opening and converting images", end="... ")
     image_arrays = image_to_array(file_paths)
-    blue, green, nir, swir1, swir2 = image_arrays
-    swir1_up = np.repeat(np.repeat(swir1, 2, axis=0), 2, axis=1)
-    swir2_up = np.repeat(np.repeat(swir2, 2, axis=0), 2, axis=1)
-    indices_no_mask = get_indices(blue, green, nir, swir1_up, swir2_up)
-    ndwi_no_mask, mndwi_no_mask, awei_sh_no_mask, awei_nsh_no_mask = indices_no_mask
-    globals()["ndwi_no_mask"] = ndwi_no_mask
-    globals()["mndwi_no_mask"] = mndwi_no_mask
-    
     print("complete!")
     
     time_taken = time.monotonic() - start_time
@@ -158,11 +149,11 @@ def get_sat(sat_name, sat_number, folder):
     print("populating water index arrays", end="")
     start_time = time.monotonic()
     
+    # first convert to int. np.uint16 type is bad for algebraic operations!
+    for i, image_array in enumerate(image_arrays):
+        image_arrays[i] = image_array.astype(int)
     blue, green, nir, swir1, swir2 = image_arrays
     indices = get_indices(blue, green, nir, swir1, swir2)
-    ndwi_masked, mndwi_masked, awei_sh_masked, awei_nsh_masked = indices
-    globals()["ndwi_masked"] = ndwi_masked
-    globals()["mndwi_masked"] = mndwi_masked
     
     time_taken = time.monotonic() - start_time
     print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
@@ -191,7 +182,7 @@ def get_sat(sat_name, sat_number, folder):
         start_time = time.monotonic()
         
         # %%%% 5.1 Searching for, Opening, and Converting RGB Image
-        print("opening " + res + " resolution true colour image.", end="")
+        print("opening " + res + " resolution true colour image", end="...")
         path = HOME + satellite + folder
         
         tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
@@ -205,7 +196,6 @@ def get_sat(sat_name, sat_number, folder):
             size = (img.width//c, img.height//c)
             tci_60_array = np.array(img.resize(size))
             side_length = img.width//c
-            print(".", end=" ")
         print("complete!")
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
