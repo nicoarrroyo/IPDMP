@@ -1,5 +1,8 @@
 import numpy as np
 import csv
+import sys
+import time
+import threading
 
 def table_print(**kwargs):
     if not kwargs:
@@ -39,8 +42,6 @@ def rewrite(write_file, rows):
 
 def blank_entry_check(file):
     check_file_permission(file_name=file)
-    print("checking for blank entries...", end="... ")
-    
     cleaned_rows = []
     invalid_rows = []
     with open(file, mode="r") as re: # read the file once
@@ -52,13 +53,12 @@ def blank_entry_check(file):
                 invalid_rows.append(i)
     
     if not invalid_rows:
-        print("complete!")
+        pass
     else:
         with open(file, mode="w", newline="") as wr: # write cleaned rows back
             csv_writer = csv.writer(wr)
             csv_writer.writerows(cleaned_rows)
-        print(f"complete! {len(invalid_rows)} invalid entries were removed on ", 
-              invalid_rows)
+        print(f"{len(invalid_rows)} invalid entries were removed on", invalid_rows)
 
 def check_file_permission(file_name):
     while True:
@@ -69,25 +69,47 @@ def check_file_permission(file_name):
             print("could not open file - please close the responses file")
             input("press enter to retry")
 
-import sys
-import time
-
-def spinner(stop_event, message="Processing"):
+def spinner(stop_event, message):
     """
     A simple spinner that runs until stop_event is set.
     The spinner updates the ellipsis by overwriting the same line.
     """
-    frames = ["   ", ".  ", ".. ", "...", " ..", "  .", "   ", "  .", " ..", "...", ".. ", ".  "]
-    frames = [" | ", " / ", " - ", " \ ", " | ", " / ", " - ", " \ "]
-    frames = [" \ ", " | ", " / ", " | "]
-    frames = ["   ", "~  ", "~~ ", "~~~", " ~~", "  ~", "   ", "  ~", " ~~", "~~~", "~~ ", "~  "]
+    chase = ["   ", ".  ", ".. ", "...", " ..", "  .", "   ", 
+             "  .", " ..", "...", ".. ", ".  "]
+    wobble = [" \ ", " | ", " / ", " | "]
+    woosh = ["|   ", ")   ", " )  ", "  ) ", "   )", "   |", 
+             "   |", "  ( ", " (  ", "(   ", "|   "]
+    ellipses = ["   ", ".  ", ".. ", "..."]
+    dude = [" :D ", " :) ", " :\ ", " :( ", " :\ ", " :) "]
+    
+    frames = chase
+    frames = wobble
+    frames = woosh
+    frames = ellipses
+    frames = dude
+    
+    frames = wobble
     i = 0
     while not stop_event.is_set():
         frame = frames[i % len(frames)]
         sys.stdout.write("\r" + message + frame)
         sys.stdout.flush()
-        time.sleep(0.1)
+        time.sleep(0.2)
         i += 1
     # Clear the spinner message on stop
-    sys.stdout.write("\r" + message + " done!      \n")
+    sys.stdout.write("\r" + message + "... complete! \n")
     sys.stdout.flush()
+
+def start_spinner(message):
+    # Create an event for signaling the spinner to stop
+    stop_event = threading.Event()
+    
+    # Use a thread to run the spinner concurrently
+    thread = threading.Thread(target=spinner, args=(stop_event, message))
+    thread.start()
+    return stop_event, thread
+
+def end_spinner(stop_event, thread):
+    # Turn off the spinner once processing is done
+    stop_event.set()
+    thread.join()
