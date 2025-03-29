@@ -81,7 +81,7 @@ def rewrite(write_file, rows):
     for j in range(len(rows)):
         entry = f"{rows[j][0]},{rows[j][1]}"
         for k in range(2, len(rows[j])): # add coordinates
-            if len(rows[j][k]) > 5: # ensure entry is a coordinate
+            if len(rows[j][k]) >= 5: # ensure entry is a coordinate
                 entry = f"{entry},{rows[j][k]}"
         write_file.write(f"{entry}\n")
 
