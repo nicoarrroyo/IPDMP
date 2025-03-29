@@ -221,7 +221,7 @@ def get_sat(sat_name, sat_number, folder):
         lines = []
         data_file = "responses_" + str(n_chunks) + "_chunks.csv"
         header = ("chunk,reservoirs,water bodies,reservoir "
-        "coordinates,spacer,spacer,spacer,spacer,water body coordinates")
+        "coordinates,,,,,water body coordinates\n")
         blank_entry_check(file=data_file) # remove all blank entries
         
         while True:
@@ -251,13 +251,12 @@ def get_sat(sat_name, sat_number, folder):
                     print("creating new file...")
                     with open(data_file, "w") as file:
                         file.write(header)
-                        file.write("\n0, 1") # dummy file to start up
+                        file.write("0, 1\n") # dummy file to start up
                     continue
         
         end_spinner(stop_event, thread)
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
-        first = True
         
         # find chunks with no reservoir coordinate data
 # =============================================================================
@@ -270,8 +269,13 @@ def get_sat(sat_name, sat_number, folder):
 #             no_coords = False # check if reservoirs have coordinates
 #             try: # try to access coordinates
 #                 coords = lines[j].split(",")[1+num_of_reservoirs]
-#                 if len(coords) < 5: # may be "\n" in the coords position
-#                     no_coords = True
+#                 for coord in coords:
+#                     if not isinstance(coord, np.ndarray): #  new way
+#                         no_coords = True
+# # =============================================================================
+# #                 if len(coords) < 5: # may be "\n" in the coords position  
+# #                     no_coords = True
+# # =============================================================================
 #             except: # if unable to access, they do not exist
 #                 no_coords = True
 #             
@@ -343,14 +347,11 @@ def get_sat(sat_name, sat_number, folder):
             n_reservoirs = input("how many reservoirs? ")
             entry_list = []
             while True:
-                #blank_entry_check(file=data_file)
+                blank_entry_check(file=data_file)
                 
                 try:
-                    print("try start")
                     n_reservoirs = int(n_reservoirs)
-                    entry_list = [i,n_reservoirs,"blank"]
-                    print("entry list start", entry_list)
-                    print("entry list start length", len(entry_list))
+                    entry_list = [i,n_reservoirs,""]
                     while n_reservoirs > 5:
                         print("maximum of 5 reservoirs")
                         n_reservoirs = input("how many reservoirs? ")
@@ -362,9 +363,7 @@ def get_sat(sat_name, sat_number, folder):
                         for coord in chunk_coords:
                             entry_list.append(coord)
                     while len(entry_list) < 8:
-                        entry_list.append("spacer")
-                        print("entry list ending", entry_list)
-                    print("entry list ended", entry_list)
+                        entry_list.append("")
                     break
 # =============================================================================
 #                     if data_correction: # add coordinates to data
@@ -386,7 +385,6 @@ def get_sat(sat_name, sat_number, folder):
 # =============================================================================
                 # handling non-integer responses
                 except:
-                    print("except start")
                     if "break" in n_reservoirs:
                         print("taking a break")
                         response_time += time.monotonic() - response_time_start
@@ -500,11 +498,7 @@ def get_sat(sat_name, sat_number, folder):
                 first_csv_entry = False
             # save results to the responses csv file
             with open(data_file, mode="a") as ap: # append
-                if first:
-                    ap.write(f"{csv_entry}")
-                elif not first:
-                    ap.write(f"\n{csv_entry}")
-                first = False
+                ap.write(f"\n{csv_entry}")
             
             # next chunk
             print("generating next chunk...")
