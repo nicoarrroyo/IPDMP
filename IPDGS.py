@@ -43,9 +43,9 @@ from misc_functions import check_file_permission, start_spinner, end_spinner
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 4999 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -220,6 +220,8 @@ def get_sat(sat_name, sat_number, folder):
         
         lines = []
         data_file = "responses_" + str(n_chunks) + "_chunks.csv"
+        header = ("chunk,reservoirs,water bodies,reservoir "
+        "coordinates,spacer,spacer,spacer,spacer,water body coordinates")
         blank_entry_check(file=data_file) # remove all blank entries
         
         while True:
@@ -241,15 +243,15 @@ def get_sat(sat_name, sat_number, folder):
                 print(f"error - file with invalid data: {e}")
                 print("type 'quit' to exit, or 'new' for a fresh file")
                 response_time_start = time.monotonic()
-                ans = input("press enter to retry ")
+                ans = input("press enter to retry: ")
                 response_time += time.monotonic() - response_time_start
                 if ans.lower() == 'quit':
                     return indices
                 elif ans.lower() == 'new':
                     print("creating new file...")
                     with open(data_file, "w") as file:
-                        file.write("chunk,reservoirs,coordinates\n")
-                        file.write("0, 1") # dummy file to start up
+                        file.write(header)
+                        file.write("\n0, 1") # dummy file to start up
                     continue
         
         end_spinner(stop_event, thread)
@@ -258,27 +260,29 @@ def get_sat(sat_name, sat_number, folder):
         first = True
         
         # find chunks with no reservoir coordinate data
-        reservoir_rows = []
-        reservoir_rows_index = 0
-        data_correction = False
-        for j in range(1, len(lines)): # starting from headers line
-            num_of_reservoirs = int(lines[j].split(",")[1])
-            
-            no_coords = False # check if reservoirs have coordinates
-            try: # try to access coordinates
-                coords = lines[j].split(",")[1+num_of_reservoirs]
-                if len(coords) < 5: # may be "\n" in the coords position
-                    no_coords = True
-            except: # if unable to access, they do not exist
-                no_coords = True
-            
-            if num_of_reservoirs != 0 and no_coords:
-                reservoir_rows.append(j-1)
-                data_correction = True
-        if data_correction:
-            print(f"found {len(reservoir_rows)} chunks containing "
-                   "reservoirs with no coordinate data")
-            i = reservoir_rows[0]
+# =============================================================================
+#         reservoir_rows = []
+#         reservoir_rows_index = 0
+#         data_correction = False
+#         for j in range(1, len(lines)): # starting from headers line
+#             num_of_reservoirs = int(lines[j].split(",")[1])
+#             
+#             no_coords = False # check if reservoirs have coordinates
+#             try: # try to access coordinates
+#                 coords = lines[j].split(",")[1+num_of_reservoirs]
+#                 if len(coords) < 5: # may be "\n" in the coords position
+#                     no_coords = True
+#             except: # if unable to access, they do not exist
+#                 no_coords = True
+#             
+#             if num_of_reservoirs != 0 and no_coords:
+#                 reservoir_rows.append(j-1)
+#                 data_correction = True
+#         if data_correction:
+#             print(f"found {len(reservoir_rows)} chunks containing "
+#                    "reservoirs with no coordinate data")
+#             i = reservoir_rows[0]
+# =============================================================================
         
         # %%%% 5.4 Outputting Images
         print("outputting images...")
@@ -329,64 +333,70 @@ def get_sat(sat_name, sat_number, folder):
             
             # %%%% 5.5 User Labelling
             response_time_start = time.monotonic()
-            if data_correction:
-                print("this chunk "
-                      f"({reservoir_rows_index+1}/{len(reservoir_rows)})"
-                      " should contain "
-                      f"{int(lines[i+1].split(',')[1])} reservoir(s)")
+# =============================================================================
+#             if data_correction:
+#                 print("this chunk "
+#                       f"({reservoir_rows_index+1}/{len(reservoir_rows)})"
+#                       " should contain "
+#                       f"{int(lines[i+1].split(',')[1])} reservoir(s)")
+# =============================================================================
             n_reservoirs = input("how many reservoirs? ")
+            entry_list = []
             while True:
-                blank_entry_check(file=data_file)
+                #blank_entry_check(file=data_file)
                 
                 try:
+                    print("try start")
                     n_reservoirs = int(n_reservoirs)
-                    entry = f"{i},{n_reservoirs}"
+                    entry_list = [f"{i},{n_reservoirs},blank"]
+                    print("entry list start", entry_list)
+                    print("entry list start length", len(entry_list))
+                    while n_reservoirs > 5:
+                        print("maximum of 5 reservoirs")
+                        n_reservoirs = input("how many reservoirs? ")
                     if n_reservoirs != 0:
                         print("please draw a square around the reservoir(s)")
                         raw_coords = prompt_roi(tci_chunks[i], n_reservoirs)
                         raw_coords = np.array(raw_coords)
                         chunk_coords = raw_coords * len(tci_chunks[0]) / 500
                         for coord in chunk_coords:
-                            entry = f"{entry},{coord}"
-                    
-                    if data_correction: # add coordinates to data
-                        lines[i+1] = f"{entry}\n"
-                        check_file_permission(file_name=data_file)
-                        with open(data_file, mode="w") as wr: # write
-                            for j in range(len(lines)):
-                                entry = lines[j]
-                                wr.write(f"{entry}")
-                        reservoir_rows_index += 1
-                        if reservoir_rows_index >= len(reservoir_rows):
-                            i = last_chunk + 1
-                            data_correction = False
-                            first = True
-                            break
-                        i = reservoir_rows[reservoir_rows_index]
-                        response_time += time.monotonic() - response_time_start
-                        break
-                    
-                    check_file_permission(file_name=data_file)
-                    with open(data_file, mode="a") as ap: # append
-                        if first:
-                            ap.write(f"{entry}")
-                            first = False
-                        elif not first:
-                            ap.write(f"\n{entry}")
-                    print("generating next chunk...")
-                    response_time += time.monotonic() - response_time_start
-                    i += 1
-                    break
+                            entry_list.append(coord)
+                    while len(entry_list) < 8:
+                        entry_list.append("spacer")
+                        print("entry list ending", entry_list)
+                    print("entry list ended", entry_list)
+# =============================================================================
+#                     if data_correction: # add coordinates to data
+#                         lines[i+1] = f"{entry}\n"
+#                         check_file_permission(file_name=data_file)
+#                         with open(data_file, mode="w") as wr: # write
+#                             for j in range(len(lines)):
+#                                 entry = lines[j]
+#                                 wr.write(f"{entry}")
+#                         reservoir_rows_index += 1
+#                         if reservoir_rows_index >= len(reservoir_rows):
+#                             i = last_chunk + 1
+#                             data_correction = False
+#                             first = True
+#                             break
+#                         i = reservoir_rows[reservoir_rows_index]
+#                         response_time += time.monotonic() - response_time_start
+#                         break
+# =============================================================================
+                # handling non-integer responses
                 except:
+                    print("except start")
                     if "break" in n_reservoirs:
                         print("taking a break")
                         response_time += time.monotonic() - response_time_start
                         break_flag = True
                         break
                     elif "back" in n_reservoirs:
-                        if data_correction:
-                            print("cannot use 'back' during data correction")
-                            break
+# =============================================================================
+#                         if data_correction:
+#                             print("cannot use 'back' during data correction")
+#                             break
+# =============================================================================
                         try:
                             n_backs = int(n_reservoirs.split(" ")[1])
                         except:
@@ -405,6 +415,99 @@ def get_sat(sat_name, sat_number, folder):
                           "\ntype 'break' to save and quit"
                           "\ntype 'back' to go to previous chunk")
                     n_reservoirs = input("how many reservoirs? ")
+            if break_flag:
+                break
+            
+            response_time_start = time.monotonic()
+            n_bodies = input("how many non-reservoir water bodies? ")
+            while True:
+                blank_entry_check(file=data_file)
+                
+                try:
+                    n_bodies = int(n_bodies)
+                    entry_list[2] = n_bodies
+                    if n_bodies != 0:
+                        print("please draw a square around the water bodies")
+                        raw_coords = prompt_roi(tci_chunks[i], n_bodies)
+                        raw_coords = np.array(raw_coords)
+                        chunk_coords = raw_coords * len(tci_chunks[0]) / 500
+                        for coord in chunk_coords:
+                            entry_list.append(coord)
+                    
+# =============================================================================
+#                     if data_correction: # add coordinates to data
+#                         lines[i+1] = f"{entry}\n"
+#                         check_file_permission(file_name=data_file)
+#                         with open(data_file, mode="w") as wr: # write
+#                             for j in range(len(lines)):
+#                                 entry = lines[j]
+#                                 wr.write(f"{entry}")
+#                         reservoir_rows_index += 1
+#                         if reservoir_rows_index >= len(reservoir_rows):
+#                             i = last_chunk + 1
+#                             data_correction = False
+#                             first = True
+#                             break
+#                         i = reservoir_rows[reservoir_rows_index]
+#                         response_time += time.monotonic() - response_time_start
+#                         break
+# =============================================================================
+                # handling non-integer responses
+                except:
+                    if "break" in n_bodies:
+                        print("taking a break")
+                        response_time += time.monotonic() - response_time_start
+                        break_flag = True
+                        break
+                    elif "back" in n_bodies:
+# =============================================================================
+#                         if data_correction:
+#                             print("cannot use 'back' during data correction")
+#                             break
+# =============================================================================
+                        try:
+                            n_backs = int(n_bodies.split(" ")[1])
+                        except:
+                            n_backs = 1
+                        i -= n_backs
+                        print("returning to chunk", i)
+                        check_file_permission(file_name=data_file)
+                        with open(data_file, mode="r") as re: # read
+                            rows = list(csv.reader(re))
+                        for j in range(n_backs):
+                            rows.pop() # remove the last "n_backs" rows
+                        with open(data_file, mode="w") as wr: # write
+                            rewrite(write_file=wr, rows=rows)
+                        break
+                    print("error: non-integer response."
+                          "\ntype 'break' to save and quit"
+                          "\ntype 'back' to go to previous chunk")
+                    n_bodies = input("how many reservoirs? ")
+            
+            response_time += time.monotonic() - response_time_start
+            
+            # convert entry_list to a string for csv
+            check_file_permission(file_name=data_file)
+            csv_entry = ""
+            first_csv_entry = True
+            for entry in entry_list:
+                if first_csv_entry:
+                    csv_entry = f"{entry}"
+                elif not first_csv_entry:
+                    csv_entry = f"{csv_entry},{entry}"
+                first_csv_entry = False
+            # save results to the responses csv file
+            with open(data_file, mode="a") as ap: # append
+                if first:
+                    ap.write(f"{entry}")
+                elif not first:
+                    ap.write(f"\n{entry}")
+                first = False
+            
+            # next chunk
+            print("generating next chunk...")
+            i += 1
+            break
     else:
         print("not labelling data")
     print(f"responding time: {round(response_time, 2)} seconds")            
