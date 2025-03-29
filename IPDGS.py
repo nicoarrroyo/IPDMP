@@ -348,7 +348,7 @@ def get_sat(sat_name, sat_number, folder):
                 try:
                     print("try start")
                     n_reservoirs = int(n_reservoirs)
-                    entry_list = [f"{i},{n_reservoirs},blank"]
+                    entry_list = [i,n_reservoirs,"blank"]
                     print("entry list start", entry_list)
                     print("entry list start length", len(entry_list))
                     while n_reservoirs > 5:
@@ -365,6 +365,7 @@ def get_sat(sat_name, sat_number, folder):
                         entry_list.append("spacer")
                         print("entry list ending", entry_list)
                     print("entry list ended", entry_list)
+                    break
 # =============================================================================
 #                     if data_correction: # add coordinates to data
 #                         lines[i+1] = f"{entry}\n"
@@ -433,6 +434,7 @@ def get_sat(sat_name, sat_number, folder):
                         chunk_coords = raw_coords * len(tci_chunks[0]) / 500
                         for coord in chunk_coords:
                             entry_list.append(coord)
+                    break
                     
 # =============================================================================
 #                     if data_correction: # add coordinates to data
@@ -482,7 +484,7 @@ def get_sat(sat_name, sat_number, folder):
                     print("error: non-integer response."
                           "\ntype 'break' to save and quit"
                           "\ntype 'back' to go to previous chunk")
-                    n_bodies = input("how many reservoirs? ")
+                    n_bodies = input("how many non-reservoir water bodies? ")
             
             response_time += time.monotonic() - response_time_start
             
@@ -499,15 +501,14 @@ def get_sat(sat_name, sat_number, folder):
             # save results to the responses csv file
             with open(data_file, mode="a") as ap: # append
                 if first:
-                    ap.write(f"{entry}")
+                    ap.write(f"{csv_entry}")
                 elif not first:
-                    ap.write(f"\n{entry}")
+                    ap.write(f"\n{csv_entry}")
                 first = False
             
             # next chunk
             print("generating next chunk...")
             i += 1
-            break
     else:
         print("not labelling data")
     print(f"responding time: {round(response_time, 2)} seconds")            
