@@ -293,7 +293,7 @@ def prompt_roi(image_array, n):
         try:
             # Create the Tkinter window and canvas
             root = tk.Tk()
-            root.title("Select Multiple ROIs")
+            root.title("Select Regions of Interest (ROIs)")
             root.resizable(False, False)
             canvas = tk.Canvas(root, width=width, height=height)
             canvas.pack()
@@ -371,7 +371,7 @@ def prompt_roi(image_array, n):
                 rois.append(current_roi)
                 rects.append(current_rect)  # Keep track of the rectangle reference
                 canvas.itemconfig(current_rect, outline="green")
-                set_status(("Saved ROI", current_roi))
+                set_status((f"Saved ROI {current_roi}. {n-len(rois)} left"))
                 # Reset current selection variables for the next ROI
                 current_roi = None
                 current_rect = None
