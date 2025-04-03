@@ -33,8 +33,8 @@ IPDGS is designed to:
 1.  **Clone the repository:**
 
     ```bash
-    git clone <your-repository-url>
-    cd <your-repository-name>
+    git clone https://github.com/nicoarrroyo/IPMLS/tree/main
+    cd IPMLS
     ```
 
 2.  **Install the required dependencies:**
@@ -43,7 +43,7 @@ IPDGS is designed to:
     pip install numpy matplotlib Pillow tkinter
     ```
 
-    * Ensure you have Python 3.x installed.
+    * Ensure you have Python 3.11.11 installed.
 
 ### Usage
 
@@ -91,12 +91,13 @@ IPDGS is designed to:
 
 ### License
 
-[Specify the license you are using, e.g., MIT License]
+[-]
 
 ### Acknowledgements
 
-* [Any acknowledgements to libraries, datasets, or individuals]
+* [-]
 
 ### Contact
 
-* [Your Name/Contact Information]
+* Nicolas Arroyo
+* nicolas.renato.arroyo@gmail.com
