@@ -257,6 +257,7 @@ def get_sat(sat_name, sat_number, folder):
         end_spinner(stop_event, thread)
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
+        first = True
         
         # find chunks with no reservoir coordinate data
 # =============================================================================
@@ -498,7 +499,11 @@ def get_sat(sat_name, sat_number, folder):
                 first_csv_entry = False
             # save results to the responses csv file
             with open(data_file, mode="a") as ap: # append
-                ap.write(f"\n{csv_entry}")
+                if first:
+                    ap.write(f"{csv_entry}")
+                elif not first:
+                    ap.write(f"\n{csv_entry}")
+                first = False
             
             # next chunk
             print("generating next chunk...")
