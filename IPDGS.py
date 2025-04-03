@@ -257,7 +257,6 @@ def get_sat(sat_name, sat_number, folder):
         end_spinner(stop_event, thread)
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
-        first = True
         
         # find chunks with no reservoir coordinate data
 # =============================================================================
@@ -378,7 +377,6 @@ def get_sat(sat_name, sat_number, folder):
 #                         if reservoir_rows_index >= len(reservoir_rows):
 #                             i = last_chunk + 1
 #                             data_correction = False
-#                             first = True
 #                             break
 #                         i = reservoir_rows[reservoir_rows_index]
 #                         response_time += time.monotonic() - response_time_start
@@ -411,10 +409,11 @@ def get_sat(sat_name, sat_number, folder):
                         with open(data_file, mode="w") as wr: # write
                             rewrite(write_file=wr, rows=rows)
                         break
-                    print("error: non-integer response."
-                          "\ntype 'break' to save and quit"
-                          "\ntype 'back' to go to previous chunk")
-                    n_reservoirs = input("how many reservoirs? ")
+                    else:
+                        print("error: non-integer response."
+                              "\ntype 'break' to save and quit"
+                              "\ntype 'back' to go to previous chunk")
+                        n_reservoirs = input("how many reservoirs? ")
             if break_flag:
                 break
             
@@ -480,10 +479,11 @@ def get_sat(sat_name, sat_number, folder):
                         with open(data_file, mode="w") as wr: # write
                             rewrite(write_file=wr, rows=rows)
                         break
-                    print("error: non-integer response."
-                          "\ntype 'break' to save and quit"
-                          "\ntype 'back' to go to previous chunk")
-                    n_bodies = input("how many non-reservoir water bodies? ")
+                    else:
+                        print("error: non-integer response."
+                              "\ntype 'break' to save and quit"
+                              "\ntype 'back' to go to previous chunk")
+                        n_bodies = input("how many non-reservoir water bodies? ")
             
             response_time += time.monotonic() - response_time_start
             
@@ -499,11 +499,7 @@ def get_sat(sat_name, sat_number, folder):
                 first_csv_entry = False
             # save results to the responses csv file
             with open(data_file, mode="a") as ap: # append
-                if first:
-                    ap.write(f"{csv_entry}")
-                elif not first:
-                    ap.write(f"\n{csv_entry}")
-                first = False
+                ap.write(f"\n{csv_entry}")
             
             # next chunk
             print("generating next chunk...")
