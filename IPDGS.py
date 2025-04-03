@@ -1,27 +1,39 @@
-""" Individual Project Data Generation Software (IPDGS-25-03) """
-""" Update Notes (from previous version IPMLS-25-02)
-- name change
-    - from Individual Project Machine Learning Software (IPMLS) to
-        Individual Project Data Generation Software (IPDGS)
-    - Individual Project Random Forest Model (IPRFM) made for model development
-    - IPMLS is the combination of IPDGS and IPRFM
-- earth engine
-    - gee removed entirely, switch to local files
-- optimisations
-    - low resolution option for sentinel 2
-- output plots
-    - minimums and interpolation removed
-- sentinel 2
-    - functional index calculation, plot outputs, and plot saving
-    - new general function for landsat and/or sentinel
-        - now removed landsat, focusing entirely on sentinel
-- machine learning
-    - new section to allow user to manually label chunks of an image
-    - also able to outline a rectangle containing the reservoir
-- cloud masking
-    - now functional and included before index calculation
-- compositing
-- separating general water and reservoir water
+""" Individual Project Data Generation Software (IPDGS)
+
+Description:
+    
+IPDGS processes Sentinel-2 imagery to generate labelled data for the 
+Individual Project Random Forest Model (IPRFM) as part of the overarching 
+Individual Project Machine Learning Software (IPMLS). It extracts water body 
+information from satellite imagery and provides a UI for data labelling. The 
+purpose of IPDGS is to create training and test data for IPRFM.
+
+Workflow:
+    
+1. Data Ingestion:
+  - Reads Sentinel-2 image folders and locates necessary image bands.
+
+2. Preprocessing:
+  - Upscales lower-resolution bands if needed.
+  - Applies cloud masking using Sentinel-2 cloud probability data.
+
+3. Index Computation:
+  - Calculates water indices (NDWI, MNDWI, AWEI-SH, AWEI-NSH).
+
+4. Visualization (Optional):
+  - Displays calculated water index images.
+  - Offers image saving.
+
+5. Labelling:
+  - Provides a Tkinter GUI for manual region of interest (ROI) (water body) 
+  labelling via rectangle selection.
+  - Uses chunk-based processing; saves the quantity of water reservoirs and 
+  water bodies, labelled ROI coordinates, and chunk numbers to a CSV file.
+
+Output:
+    
+- Labelled data in CSV format, with chunk IDs, counts of water bodies, and 
+their coordinates.
 """
 # %% Start
 # %%% External Library Imports
@@ -34,24 +46,19 @@ from PIL import Image
 import csv
 
 # %%% Internal Function Imports
-from image_functions import image_to_array, plot_indices, mask_sentinel
-from image_functions import prompt_roi
-from calculation_functions import get_indices
-from satellite_functions import get_sentinel_bands
-from misc_functions import table_print, split_array, rewrite, blank_entry_check
-from misc_functions import check_file_permission, start_spinner, end_spinner
-from misc_functions import combine_sort_unique
+from data_handling import rewrite, blank_entry_check, check_file_permission
+from image_handling import image_to_array, mask_sentinel, plot_indices
+from misc import get_sentinel_bands, split_array, combine_sort_unique
+from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 4999 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
-drive_link = ("https://drive.google.com/drive/folders/1z4jRh6LlInO5ivhA9s"
-              "9CN0U2azSXtrBm?usp=sharing")
 try: # personal pc mode
     HOME = ("C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\"
             "Individual Project\\Downloads")
@@ -152,7 +159,13 @@ def get_sat(sat_name, sat_number, folder):
     for i, image_array in enumerate(image_arrays):
         image_arrays[i] = image_array.astype(int)
     blue, green, nir, swir1, swir2 = image_arrays
-    indices = get_indices(blue, green, nir, swir1, swir2)
+    
+    ndwi = ((green - nir) / (green + nir))
+    mndwi = ((green - swir1) / (green + swir1))
+    awei_sh = (green + 2.5 * blue - 1.5 * (nir + swir1) - 0.25 * swir2)
+    awei_nsh = (4 * (green - swir1) - (0.25 * nir + 2.75 * swir2))
+    
+    indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
     time_taken = time.monotonic() - start_time
     end_spinner(stop_event, thread)
@@ -264,10 +277,8 @@ def get_sat(sat_name, sat_number, folder):
         data_correction = False
         
         with open(data_file, "r") as file:
-            lines = file.readlines() # recreate lines just in case
-            globals()["lines"] = lines
+            lines = file.readlines() # reread lines in case of changes
         for j in range(1, len(lines)): # starting from the "headers" line
-            print("RESERVOIR start")
             # check for reservoirs without coordinates
             num_of_reservoirs = int(lines[j].split(",")[1])
             res_no_coords = False # check if reservoirs have coordinates
@@ -279,19 +290,13 @@ def get_sat(sat_name, sat_number, folder):
                 res_no_coords = True
             if num_of_reservoirs != 0 and res_no_coords:
                 reservoir_rows.append(j-1)
-                print("appended reservoir")
                 data_correction = True
-            print("RESERVOIR END")
-            print("BODY START")
+            
             # check for non-reservoir water bodies without coordinates
             num_of_bodies = int(lines[j].split(",")[2])
             body_no_coords = False # check if water bodies have coordinates
             try: # try to access coordinates
                 body_coord = lines[j].split(",")[7+num_of_bodies]
-                print("row index", j)
-                print("num_of_bodies", num_of_bodies)
-                print("body_coord", body_coord)
-                print("body_coord[0]", body_coord[0])
                 if body_coord[0] != "[":
                     print(type(body_coord))
                     body_no_coords = True
@@ -299,19 +304,25 @@ def get_sat(sat_name, sat_number, folder):
                 body_no_coords = True
             if num_of_bodies != 0 and body_no_coords:
                 body_rows.append(j-1)
-                print("appended body")
                 data_correction = True
-            print("BODY end")
         invalid_rows = combine_sort_unique(reservoir_rows, body_rows)
-        globals()["res_rows"] = reservoir_rows
-        globals()["body_rows"] = body_rows
-        globals()["invalid_rows"] = invalid_rows
         
         if data_correction:
             print(f"found {len(invalid_rows)} chunks containing "
                    "incomplete or missing no coordinate data")
             i = invalid_rows[0]
             invalid_rows_index = 0
+        else:
+            """
+            RESERVOIR HIGHLIGHTING SECTION
+            - take each chunk that has a reservoir with coordinates
+            - imprint a rectangle on the chunk at those coordinates
+            """
+# =============================================================================
+#             for j in range(1, len(lines)): # starting from the "headers" line
+#                 
+# =============================================================================
+        
         # %%%% 5.4 Outputting Images
         print("outputting images...")
         while i < len(index_chunks[0]):
@@ -419,25 +430,18 @@ def get_sat(sat_name, sat_number, folder):
                         if data_correction:
                             print("cannot use 'back' during data correction")
                             break
-                        print("before")
-                        print(i)
                         try:
                             n_backs = int(n_reservoirs.split(" ")[1])
                         except:
                             n_backs = 1
                         i -= n_backs
-                        # print("returning to chunk", i)
                         check_file_permission(file_name=data_file)
                         with open(data_file, mode="r") as re: # read
                             rows = list(csv.reader(re))
-                        print(rows)
                         for j in range(n_backs):
                             rows.pop() # remove the last "n_backs" rows
                         with open(data_file, mode="w") as wr: # write
                             rewrite(write_file=wr, rows=rows)
-                        print("after")
-                        print(i)
-                        print(rows)
                         break
                     else:
                         print("error: non-integer response."
@@ -445,6 +449,7 @@ def get_sat(sat_name, sat_number, folder):
                               "\ntype 'back' to go to previous chunk")
                         n_reservoirs = input("how many reservoirs? ")
             
+            # save results to the responses csv file
             if break_flag:
                 break
             elif not break_flag and not back_flag:
@@ -470,7 +475,6 @@ def get_sat(sat_name, sat_number, folder):
                     else:
                         i = invalid_rows[invalid_rows_index]
                 else: # convert entry_list to a string for csv
-                    # save results to the responses csv file
                     with open(data_file, mode="a") as ap: # append
                         ap.write(f"\n{csv_entry}")
     else:
