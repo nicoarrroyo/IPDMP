@@ -40,10 +40,11 @@ from calculation_functions import get_indices
 from satellite_functions import get_sentinel_bands
 from misc_functions import table_print, split_array, rewrite, blank_entry_check
 from misc_functions import check_file_permission, start_spinner, end_spinner
+from misc_functions import combine_sort_unique
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 4999 # number of chunks into which images are split
+n_chunks = 5000 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
@@ -251,43 +252,66 @@ def get_sat(sat_name, sat_number, folder):
                     print("creating new file...")
                     with open(data_file, "w") as file:
                         file.write(header)
-                        file.write("0, 1\n") # dummy file to start up
+                        file.write("0, 1, 0\n") # dummy file to start up
                     continue
-        
         end_spinner(stop_event, thread)
         
         i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
         
         # find chunks with no reservoir coordinate data
-# =============================================================================
-#         reservoir_rows = []
-#         reservoir_rows_index = 0
-#         data_correction = False
-#         for j in range(1, len(lines)): # starting from headers line
-#             num_of_reservoirs = int(lines[j].split(",")[1])
-#             
-#             no_coords = False # check if reservoirs have coordinates
-#             try: # try to access coordinates
-#                 coords = lines[j].split(",")[1+num_of_reservoirs]
-#                 for coord in coords:
-#                     if not isinstance(coord, np.ndarray): #  new way
-#                         no_coords = True
-# # =============================================================================
-# #                 if len(coords) < 5: # may be "\n" in the coords position  
-# #                     no_coords = True
-# # =============================================================================
-#             except: # if unable to access, they do not exist
-#                 no_coords = True
-#             
-#             if num_of_reservoirs != 0 and no_coords:
-#                 reservoir_rows.append(j-1)
-#                 data_correction = True
-#         if data_correction:
-#             print(f"found {len(reservoir_rows)} chunks containing "
-#                    "reservoirs with no coordinate data")
-#             i = reservoir_rows[0]
-# =============================================================================
+        reservoir_rows = []
+        body_rows = []
+        data_correction = False
         
+        with open(data_file, "r") as file:
+            lines = file.readlines() # recreate lines just in case
+            globals()["lines"] = lines
+        for j in range(1, len(lines)): # starting from the "headers" line
+            print("RESERVOIR start")
+            # check for reservoirs without coordinates
+            num_of_reservoirs = int(lines[j].split(",")[1])
+            res_no_coords = False # check if reservoirs have coordinates
+            try: # try to access coordinates
+                res_coord = lines[j].split(",")[2+num_of_reservoirs]
+                if res_coord[0] != "[":
+                    res_no_coords = True
+            except: # if unable to access, they do not exist
+                res_no_coords = True
+            if num_of_reservoirs != 0 and res_no_coords:
+                reservoir_rows.append(j-1)
+                print("appended reservoir")
+                data_correction = True
+            print("RESERVOIR END")
+            print("BODY START")
+            # check for non-reservoir water bodies without coordinates
+            num_of_bodies = int(lines[j].split(",")[2])
+            body_no_coords = False # check if water bodies have coordinates
+            try: # try to access coordinates
+                body_coord = lines[j].split(",")[7+num_of_bodies]
+                print("row index", j)
+                print("num_of_bodies", num_of_bodies)
+                print("body_coord", body_coord)
+                print("body_coord[0]", body_coord[0])
+                if body_coord[0] != "[":
+                    print(type(body_coord))
+                    body_no_coords = True
+            except: # if unable to access, they do not exist
+                body_no_coords = True
+            if num_of_bodies != 0 and body_no_coords:
+                body_rows.append(j-1)
+                print("appended body")
+                data_correction = True
+            print("BODY end")
+        invalid_rows = combine_sort_unique(reservoir_rows, body_rows)
+        globals()["res_rows"] = reservoir_rows
+        globals()["body_rows"] = body_rows
+        globals()["invalid_rows"] = invalid_rows
+        
+        if data_correction:
+            print(f"found {len(invalid_rows)} chunks containing "
+                   "incomplete or missing no coordinate data")
+            i = invalid_rows[0]
+            invalid_rows_index = 0
         # %%%% 5.4 Outputting Images
         print("outputting images...")
         while i < len(index_chunks[0]):
@@ -332,19 +356,17 @@ def get_sat(sat_name, sat_number, folder):
                              marker=",", color="red")
             axes[1].plot(chunk_ulx+chunk_length, chunk_uly+chunk_length, 
                          marker=",", color="red")
-            
             plt.show()
             
             # %%%% 5.5 User Labelling
             blank_entry_check(file=data_file)
             response_time_start = time.monotonic()
-# =============================================================================
-#             if data_correction:
-#                 print("this chunk "
-#                       f"({reservoir_rows_index+1}/{len(reservoir_rows)})"
-#                       " should contain "
-#                       f"{int(lines[i+1].split(',')[1])} reservoir(s)")
-# =============================================================================
+            if data_correction:
+                print("this chunk "
+                      f"({invalid_rows_index+1}/{len(invalid_rows)})"
+                      " should contain "
+                      f"{lines[i+1].split(',')[1]} reservoir and "
+                      f"{lines[i+1].split(',')[2]} non-reservoir water bodies")
             n_reservoirs = input("how many reservoirs? ")
             n_bodies = ""
             entry_list = []
@@ -383,23 +405,6 @@ def get_sat(sat_name, sat_number, folder):
                     print("generating next chunk...")
                     i += 1
                     break # exit loop and continue to next chunk
-# =============================================================================
-#                     if data_correction: # add coordinates to data
-#                         lines[i+1] = f"{entry}\n"
-#                         check_file_permission(file_name=data_file)
-#                         with open(data_file, mode="w") as wr: # write
-#                             for j in range(len(lines)):
-#                                 entry = lines[j]
-#                                 wr.write(f"{entry}")
-#                         reservoir_rows_index += 1
-#                         if reservoir_rows_index >= len(reservoir_rows):
-#                             i = last_chunk + 1
-#                             data_correction = False
-#                             break
-#                         i = reservoir_rows[reservoir_rows_index]
-#                         response_time += time.monotonic() - response_time_start
-#                         break
-# =============================================================================
                 # handle non-integer responses
                 except:
                     n_reservoirs = str(n_reservoirs)
@@ -411,11 +416,9 @@ def get_sat(sat_name, sat_number, folder):
                         break
                     elif "back" in n_bodies or "back" in n_reservoirs:
                         back_flag = True
-# =============================================================================
-#                         if data_correction:
-#                             print("cannot use 'back' during data correction")
-#                             break
-# =============================================================================
+                        if data_correction:
+                            print("cannot use 'back' during data correction")
+                            break
                         print("before")
                         print(i)
                         try:
@@ -441,12 +444,10 @@ def get_sat(sat_name, sat_number, folder):
                               "\ntype 'break' to save and quit"
                               "\ntype 'back' to go to previous chunk")
                         n_reservoirs = input("how many reservoirs? ")
-                        n_bodies = input("how many non-reservoir water bodies? ")
             
             if break_flag:
                 break
             elif not break_flag and not back_flag:
-                # convert entry_list to a string for csv
                 check_file_permission(file_name=data_file)
                 csv_entry = ""
                 first_csv_entry = True
@@ -456,9 +457,22 @@ def get_sat(sat_name, sat_number, folder):
                     elif not first_csv_entry:
                         csv_entry = f"{csv_entry},{entry}"
                     first_csv_entry = False
-                # save results to the responses csv file
-                with open(data_file, mode="a") as ap: # append
-                    ap.write(f"\n{csv_entry}")
+                if data_correction: # add coordinates to data
+                    lines[i] = f"{csv_entry}\n"
+                    with open(data_file, mode="w") as wr: # write
+                        for j in range(len(lines)):
+                            current_entry = lines[j]
+                            wr.write(f"{current_entry}")
+                    invalid_rows_index += 1
+                    if invalid_rows_index >= len(invalid_rows):
+                        i = last_chunk + 1
+                        data_correction = False
+                    else:
+                        i = invalid_rows[invalid_rows_index]
+                else: # convert entry_list to a string for csv
+                    # save results to the responses csv file
+                    with open(data_file, mode="a") as ap: # append
+                        ap.write(f"\n{csv_entry}")
     else:
         print("not labelling data")
     print(f"responding time: {round(response_time, 2)} seconds")            
