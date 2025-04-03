@@ -81,8 +81,7 @@ def rewrite(write_file, rows):
     for j in range(len(rows)):
         entry = f"{rows[j][0]},{rows[j][1]}"
         for k in range(2, len(rows[j])): # add coordinates
-            if len(rows[j][k]) >= 5: # ensure entry is a coordinate
-                entry = f"{entry},{rows[j][k]}"
+            entry = f"{entry},{rows[j][k]}"
         write_file.write(f"{entry}\n")
 
 def blank_entry_check(file):
@@ -118,7 +117,7 @@ def blank_entry_check(file):
         with open(file, mode="w", newline="") as wr: # write cleaned rows back
             csv_writer = csv.writer(wr)
             csv_writer.writerows(cleaned_rows)
-        print(f"{len(invalid_rows)} invalid entries were removed on", invalid_rows)
+        # print(f"{len(invalid_rows)} invalid entries were removed on", invalid_rows)
 
 def check_file_permission(file_name):
     """
