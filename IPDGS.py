@@ -278,6 +278,7 @@ def get_sat(sat_name, sat_number, folder):
         
         with open(data_file, "r") as file:
             lines = file.readlines() # reread lines in case of changes
+            globals()["lines"] = lines
         for j in range(1, len(lines)): # starting from the "headers" line
             # check for reservoirs without coordinates
             num_of_reservoirs = int(lines[j].split(",")[1])
@@ -318,10 +319,10 @@ def get_sat(sat_name, sat_number, folder):
             - take each chunk that has a reservoir with coordinates
             - imprint a rectangle on the chunk at those coordinates
             """
-# =============================================================================
-#             for j in range(1, len(lines)): # starting from the "headers" line
-#                 
-# =============================================================================
+            i = 0
+            while j < len(lines):
+                num_of_reservoirs = int(lines[j].split(",")[1])
+                num_of_bodies = int(lines[j].split(",")[2])
         
         # %%%% 5.4 Outputting Images
         print("outputting images...")
