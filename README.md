@@ -56,7 +56,7 @@ IPDGS is designed to:
         * `show_index_plots`: Display water index plots (True) or not (False).
         * `label_data`: Enable the data labelling tool (True) or not (False).
         * `n_chunks`: Number of chunks to split the image into for labelling.
-        * `HOME`: The main directory where the Sentinel-2 data is located. You will need to modify this variable to point to the correct path on your system.
+        * NOT OPTIONAL - `HOME`: The main directory where the Sentinel-2 data is located. You will need to modify this variable to point to the correct path on your system.
 3.  **Run the `IPDGS.py` script:**
 
     ```bash
