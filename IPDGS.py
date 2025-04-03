@@ -336,6 +336,7 @@ def get_sat(sat_name, sat_number, folder):
             plt.show()
             
             # %%%% 5.5 User Labelling
+            blank_entry_check(file=data_file)
             response_time_start = time.monotonic()
 # =============================================================================
 #             if data_correction:
@@ -350,9 +351,10 @@ def get_sat(sat_name, sat_number, folder):
                 blank_entry_check(file=data_file)
                 
                 try:
+                    # handle number of reservoirs entry
                     n_reservoirs = int(n_reservoirs)
                     entry_list = [i,n_reservoirs,""]
-                    while n_reservoirs > 5:
+                    while n_reservoirs > 5: # NOTE add user input type check
                         print("maximum of 5 reservoirs")
                         n_reservoirs = input("how many reservoirs? ")
                     if n_reservoirs != 0:
@@ -364,7 +366,20 @@ def get_sat(sat_name, sat_number, folder):
                             entry_list.append(coord)
                     while len(entry_list) < 8:
                         entry_list.append("")
-                    break
+                    
+                    # handle number of non-reservoir water bodies entry
+                    n_bodies = input("how many non-reservoir water bodies? ")
+                    n_bodies = int(n_bodies)
+                    entry_list[2] = n_bodies
+                    if n_bodies != 0:
+                        print("please draw a square around the water bodies")
+                        raw_coords = prompt_roi(tci_chunks[i], n_bodies)
+                        raw_coords = np.array(raw_coords)
+                        chunk_coords = raw_coords * len(tci_chunks[0]) / 500
+                        for coord in chunk_coords:
+                            entry_list.append(coord)
+                    response_time += time.monotonic() - response_time_start
+                    break # exit loop and continue to next chunk
 # =============================================================================
 #                     if data_correction: # add coordinates to data
 #                         lines[i+1] = f"{entry}\n"
@@ -382,14 +397,14 @@ def get_sat(sat_name, sat_number, folder):
 #                         response_time += time.monotonic() - response_time_start
 #                         break
 # =============================================================================
-                # handling non-integer responses
+                # handle non-integer responses
                 except:
-                    if "break" in n_reservoirs:
+                    if "break" in n_reservoirs or "break" in n_bodies:
                         print("taking a break")
                         response_time += time.monotonic() - response_time_start
                         break_flag = True
                         break
-                    elif "back" in n_reservoirs:
+                    elif "back" in n_reservoirs or "back" in n_bodies:
 # =============================================================================
 #                         if data_correction:
 #                             print("cannot use 'back' during data correction")
@@ -414,78 +429,80 @@ def get_sat(sat_name, sat_number, folder):
                               "\ntype 'break' to save and quit"
                               "\ntype 'back' to go to previous chunk")
                         n_reservoirs = input("how many reservoirs? ")
-            if break_flag:
-                break
-            
-            response_time_start = time.monotonic()
-            n_bodies = input("how many non-reservoir water bodies? ")
-            while True:
-                blank_entry_check(file=data_file)
-                
-                try:
-                    n_bodies = int(n_bodies)
-                    entry_list[2] = n_bodies
-                    if n_bodies != 0:
-                        print("please draw a square around the water bodies")
-                        raw_coords = prompt_roi(tci_chunks[i], n_bodies)
-                        raw_coords = np.array(raw_coords)
-                        chunk_coords = raw_coords * len(tci_chunks[0]) / 500
-                        for coord in chunk_coords:
-                            entry_list.append(coord)
-                    break
-                    
-# =============================================================================
-#                     if data_correction: # add coordinates to data
-#                         lines[i+1] = f"{entry}\n"
-#                         check_file_permission(file_name=data_file)
-#                         with open(data_file, mode="w") as wr: # write
-#                             for j in range(len(lines)):
-#                                 entry = lines[j]
-#                                 wr.write(f"{entry}")
-#                         reservoir_rows_index += 1
-#                         if reservoir_rows_index >= len(reservoir_rows):
-#                             i = last_chunk + 1
-#                             data_correction = False
-#                             first = True
-#                             break
-#                         i = reservoir_rows[reservoir_rows_index]
-#                         response_time += time.monotonic() - response_time_start
-#                         break
-# =============================================================================
-                # handling non-integer responses
-                except:
-                    if "break" in n_bodies:
-                        print("taking a break")
-                        response_time += time.monotonic() - response_time_start
-                        break_flag = True
-                        break
-                    elif "back" in n_bodies:
-# =============================================================================
-#                         if data_correction:
-#                             print("cannot use 'back' during data correction")
-#                             break
-# =============================================================================
-                        try:
-                            n_backs = int(n_bodies.split(" ")[1])
-                        except:
-                            n_backs = 1
-                        i -= n_backs
-                        print("returning to chunk", i)
-                        check_file_permission(file_name=data_file)
-                        with open(data_file, mode="r") as re: # read
-                            rows = list(csv.reader(re))
-                        for j in range(n_backs):
-                            rows.pop() # remove the last "n_backs" rows
-                        with open(data_file, mode="w") as wr: # write
-                            rewrite(write_file=wr, rows=rows)
-                        break
-                    else:
-                        print("error: non-integer response."
-                              "\ntype 'break' to save and quit"
-                              "\ntype 'back' to go to previous chunk")
                         n_bodies = input("how many non-reservoir water bodies? ")
-            
-            response_time += time.monotonic() - response_time_start
+# =============================================================================
+#             if break_flag:
+#                 break
+#             
+#             response_time_start = time.monotonic()
+#             n_bodies = input("how many non-reservoir water bodies? ")
+#             while True:
+#                 blank_entry_check(file=data_file)
+#                 
+#                 try:
+#                     n_bodies = int(n_bodies)
+#                     entry_list[2] = n_bodies
+#                     if n_bodies != 0:
+#                         print("please draw a square around the water bodies")
+#                         raw_coords = prompt_roi(tci_chunks[i], n_bodies)
+#                         raw_coords = np.array(raw_coords)
+#                         chunk_coords = raw_coords * len(tci_chunks[0]) / 500
+#                         for coord in chunk_coords:
+#                             entry_list.append(coord)
+#                     break
+#                     
+# # =============================================================================
+# #                     if data_correction: # add coordinates to data
+# #                         lines[i+1] = f"{entry}\n"
+# #                         check_file_permission(file_name=data_file)
+# #                         with open(data_file, mode="w") as wr: # write
+# #                             for j in range(len(lines)):
+# #                                 entry = lines[j]
+# #                                 wr.write(f"{entry}")
+# #                         reservoir_rows_index += 1
+# #                         if reservoir_rows_index >= len(reservoir_rows):
+# #                             i = last_chunk + 1
+# #                             data_correction = False
+# #                             first = True
+# #                             break
+# #                         i = reservoir_rows[reservoir_rows_index]
+# #                         response_time += time.monotonic() - response_time_start
+# #                         break
+# # =============================================================================
+#                 # handling non-integer responses
+#                 except:
+#                     if "break" in n_bodies:
+#                         print("taking a break")
+#                         response_time += time.monotonic() - response_time_start
+#                         break_flag = True
+#                         break
+#                     elif "back" in n_bodies:
+# # =============================================================================
+# #                         if data_correction:
+# #                             print("cannot use 'back' during data correction")
+# #                             break
+# # =============================================================================
+#                         try:
+#                             n_backs = int(n_bodies.split(" ")[1])
+#                         except:
+#                             n_backs = 1
+#                         i -= n_backs
+#                         print("returning to chunk", i)
+#                         check_file_permission(file_name=data_file)
+#                         with open(data_file, mode="r") as re: # read
+#                             rows = list(csv.reader(re))
+#                         for j in range(n_backs):
+#                             rows.pop() # remove the last "n_backs" rows
+#                         with open(data_file, mode="w") as wr: # write
+#                             rewrite(write_file=wr, rows=rows)
+#                         break
+#                     else:
+#                         print("error: non-integer response."
+#                               "\ntype 'break' to save and quit"
+#                               "\ntype 'back' to go to previous chunk")
+#                         n_bodies = input("how many non-reservoir water bodies? ")
+#            response_time += time.monotonic() - response_time_start
+# =============================================================================
             
             # convert entry_list to a string for csv
             check_file_permission(file_name=data_file)
@@ -500,10 +517,10 @@ def get_sat(sat_name, sat_number, folder):
             # save results to the responses csv file
             with open(data_file, mode="a") as ap: # append
                 ap.write(f"\n{csv_entry}")
-            
-            # next chunk
-            print("generating next chunk...")
-            i += 1
+            if not break_flag:
+                # next chunk
+                print("generating next chunk...")
+                i += 1
     else:
         print("not labelling data")
     print(f"responding time: {round(response_time, 2)} seconds")            
