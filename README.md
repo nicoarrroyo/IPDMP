@@ -99,5 +99,4 @@ IPDGS is designed to:
 
 ### Contact
 
-* Nicolas Arroyo
-* nicolas.renato.arroyo@gmail.com
+* Nicolas Arroyo, nicolas.renato.arroyo@gmail.com, he/him
