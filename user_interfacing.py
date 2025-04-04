@@ -205,15 +205,6 @@ def prompt_roi(image_array, n):
                 rects.append(current_rect)  # Keep track of the rectangle reference
                 canvas.itemconfig(current_rect, outline="green")
                 
-                # Create a semi-transparent grey image for filling
-                img = Image.new('RGBA', (1, 1), (128, 128, 128, 51)) # Grey with 20% opacity
-                tk_img = ImageTk.PhotoImage(img)
-                
-                # Fill the rectangle with the grey image
-                canvas.itemconfig(current_rect, outline="green", fill="") # Remove default fill
-                canvas.itemconfig(current_rect, stipple="gray25") # Add a stipple fill
-                canvas.itemconfig(current_rect, fill=tk_img) # Add the image fill
-                
                 current_roi_converted = np.array(current_roi) * len(image_array) / width
                 set_status((f"Saved ROI {current_roi_converted}. {n-len(rois)} left"))
                 # Reset current selection variables for the next ROI
