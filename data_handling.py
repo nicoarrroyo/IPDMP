@@ -1,5 +1,4 @@
 import csv
-import os
 
 def rewrite(write_file, rows):
     """
@@ -71,11 +70,11 @@ def check_file_permission(file_name):
     ----------
     file_name : string
         The name of the file being checked.
-
+        
     Returns
     -------
     None.
-
+    
     """
     while True:
         try: # check if file is open
@@ -85,35 +84,25 @@ def check_file_permission(file_name):
             print("could not open file - please close the responses file")
             input("press enter to retry")
 
-def find_rgb_file(path):
+def extract_coordinates(coord_string):
     """
-    This searches a directory completely for a file that contains the phrase 
-    "RGB", and "10m" for the resolution, and "bright" as the custom RGB 
-    composite is too dark. The "bright" is added manually after aritifically 
-    brightening the file in the GNU Image Manipulation Program. Again, this 
-    function is quite outdated and is no longer used as the 
-    true-colour image (TCI) is much more usable. 
+    Extracts coordinates from a string (including square brackets) and returns 
+    them as a list of floats.
     
-    Parameters
-    ----------
-    path : string
-        Any file path that can be searched fully to find a an RGB image file. 
-    
-    Returns
-    -------
-    bool
-        A bool variable to indicate whether an RGB image file has been found. 
-    rgb_path or full_path : string
-        If the RGB image file is found, this is the path to that file. 
-    
+    Args:
+      coord_string (str): A string containing coordinates within square 
+      brackets, separated by spaces.
+      
+    Returns:
+      list: A list of floats representing the coordinates.
     """
-    for item in os.listdir(path):
-        full_path = os.path.join(path, item)
-        if os.path.isdir(full_path): # if item is a folder
-            found_rgb, rgb_path = find_rgb_file(full_path)
-            if found_rgb:  
-                return True, rgb_path
-        else: # if item is a file
-            if "RGB" in item and "10m" in item and "bright" in item:
-                return True, full_path
-    return False, None
+    try:
+        # Remove square brackets and split the string into individual numeric strings
+        coord_string = coord_string.replace('[', '').replace(']', '')
+        coord_strings = coord_string.split()
+        
+        # Convert each numeric string to a float
+        coordinates = [float(coord) for coord in coord_strings]
+    except:
+        coordinates = []
+    return coordinates
