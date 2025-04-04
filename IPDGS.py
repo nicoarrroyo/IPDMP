@@ -339,13 +339,21 @@ def get_sat(sat_name, sat_number, folder):
             axes[0].set_title(f"TCI Chunk {i}", fontsize=10)
             axes[0].tick_params(axis="both", labelsize=6)
             
-            axes[1].imshow(tci_60_array)
-            axes[1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
-            axes[1].axis("off")
-            
             chunk_length = side_length / np.sqrt(len(tci_chunks))
             chunk_uly = chunk_length * (i // np.sqrt(len(tci_chunks)))
             chunk_ulx = (i * chunk_length) % side_length
+            
+            axes[1].imshow(tci_60_array)
+            axes[1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
+            axes[1].axis("on")
+            
+            chunks_per_side = np.sqrt(len(tci_chunks))
+            axes[1].set_xticks(np.linspace(0, side_length, 8))
+            axes[1].set_yticks(np.linspace(0, side_length, 8))
+            
+            axes_tick_labels = np.linspace(0, chunks_per_side, 8).astype(int)
+            axes[1].set_xticklabels(axes_tick_labels, fontsize=6)
+            axes[1].set_yticklabels(axes_tick_labels, fontsize=6)
             
             axes[1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
             for k in range(int(chunk_length)): # make a square around the chunk
@@ -368,7 +376,7 @@ def get_sat(sat_name, sat_number, folder):
                 print("this chunk "
                       f"({invalid_rows_index+1}/{len(invalid_rows)})"
                       " should contain "
-                      f"{lines[i+1].split(',')[1]} reservoir and "
+                      f"{lines[i+1].split(',')[1]} reservoirs and "
                       f"{lines[i+1].split(',')[2]} non-reservoir water bodies")
             n_reservoirs = input("how many reservoirs? ")
             n_bodies = ""
