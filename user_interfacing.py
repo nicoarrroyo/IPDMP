@@ -243,7 +243,7 @@ def prompt_roi(image_array, n):
     
     def select_all():
         nonlocal current_roi
-        current_roi = [1, 1, width-1, height-1]
+        current_roi = [0, 0, width, height]
         save_roi()
     
     def hide_cursor(event):
