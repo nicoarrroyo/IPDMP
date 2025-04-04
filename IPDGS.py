@@ -55,7 +55,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -356,8 +356,8 @@ def get_sat(sat_name, sat_number, folder):
             axes_tick_labels = np.linspace(0, chunks_per_side, 8).astype(int)
             axes[1][1].set_xticklabels(axes_tick_labels, fontsize=label_size)
             axes[1][1].set_yticklabels(axes_tick_labels, fontsize=label_size)
-            axes[0][1].set_xlabel("Chunk Column", fontsize=label_size+1)
-            axes[0][1].set_ylabel("Chunk Row", fontsize=label_size+1)
+            axes[1][1].set_xlabel("Chunk Column", fontsize=label_size+1)
+            axes[1][1].set_ylabel("Chunk Row", fontsize=label_size+1)
             
             # draw a red square around the current chunk
             tci_tracker_square = plt.Rectangle((chunk_ulx, chunk_uly), 
@@ -369,10 +369,10 @@ def get_sat(sat_name, sat_number, folder):
             plt.tight_layout()
             plt.show()
             max_index = [0, 0]
-            max_index[0] = round(np.amax(index_chunks[0][i]), 2)
+            max_index[0] = round(np.nanmax(index_chunks[0][i]), 2)
             print(f"MAX {index_labels[0]}: {max_index[0]}", end=" | ")
-            max_index[1] = round(np.amax(index_chunks[1][i]), 2)
-            print(f"MAX {index_labels[0]}: {max_index[1]}")
+            max_index[1] = round(np.nanmax(index_chunks[1][i]), 2)
+            print(f"MAX {index_labels[1]}: {max_index[1]}")
             
             # %%%% 5.5 User Labelling
             blank_entry_check(file=data_file)
