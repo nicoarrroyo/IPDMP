@@ -47,7 +47,7 @@ import csv
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
-from data_handling import extract_coordinates
+# from data_handling import extract_coordinates
 from image_handling import image_to_array, mask_sentinel, plot_indices
 from misc import get_sentinel_bands, split_array, combine_sort_unique
 from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
@@ -314,20 +314,6 @@ def get_sat(sat_name, sat_number, folder):
             i = invalid_rows[0]
             invalid_rows_index = 0
         
-        two_class_ammend = True
-        print("ammending data file to fit two-class format")
-        if two_class_ammend:
-            """
-            RESERVOIR HIGHLIGHTING SECTION
-            - take each chunk that has a reservoir with coordinates
-            - imprint a rectangle on the chunk at those coordinates
-            """
-            res_coords_list = np.zeros(shape=lines)
-            for j in range(1, len(lines)):
-                num_of_reservoirs = int(lines[j].split(",")[1])
-                for k in range(num_of_reservoirs):
-                    res_coords_list[j] = (extract_coordinates(lines[j][4+k]))
-        globals()["res_coords_list"] = res_coords_list
         # %%%% 5.4 Outputting Images
         print("outputting images...")
         while i < len(index_chunks[0]):
