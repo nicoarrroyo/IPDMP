@@ -42,7 +42,6 @@ MAIN_START_TIME = time.monotonic()
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image
 import csv
 
 # %%% Internal Function Imports
@@ -56,7 +55,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -71,7 +70,7 @@ except: # uni mode
             "The University of Manchester\\Individual Project")
     os.chdir(HOME)
     plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (6, 6)
+    plot_size_chunks = (11, 11)
 
 # %% General Mega Giga Function
 do_s2 = True
@@ -209,11 +208,7 @@ def get_sat(sat_name, sat_number, folder):
         
         tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
         tci_60_file_name = prefix + "_TCI_60m.jp2"
-        c = 5 # compress 60m resolution TCI for faster plotting
-        with Image.open(tci_60_path + tci_60_file_name) as img:
-            size = (img.width//c, img.height//c)
-            tci_60_array = np.array(img.resize(size))
-            tracker_plot_side_length = img.width//c
+        tci_60_array = image_to_array(tci_60_path + tci_60_file_name)
         end_spinner(stop_event, thread)
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
@@ -223,8 +218,6 @@ def get_sat(sat_name, sat_number, folder):
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
-        n_zoomed_chunks = 4
-        tci_zoom_chunks = split_array(array=tci_array, n_chunks=n_zoomed_chunks)
         end_spinner(stop_event, thread)
         
         # %%%% 5.3 Preparing File for Labelling
@@ -318,96 +311,67 @@ def get_sat(sat_name, sat_number, folder):
         
         # %%%% 5.4 Outputting Images
         print("outputting images...")
+        title_size = 15
+        label_size = 8
+        
         while i < len(index_chunks[0]):
             if break_flag:
                 break
             
             fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
-            # top left: plot NDWI chunk
+            # plot 1, top left: NDWI chunk (full resolution)
             axes[0][0].imshow(index_chunks[0][i])
-            axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", fontsize=10)
-            axes[0][0].tick_params(axis="both", labelsize=6)
+            axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", fontsize=title_size)
+            axes[0][0].tick_params(axis="both", labelsize=label_size)
+            
+            # plot 2, top right: MNDWI chunk (merged resolution)
+            axes[0][1].imshow(index_chunks[1][i])
+            axes[0][1].set_title(f"{index_labels[1]} Chunk {i}", fontsize=title_size)
+            axes[0][1].tick_params(axis="both", labelsize=label_size)
+            
+            # plot 3, bottom left: TCI chunk (full resolution)
+            axes[1][0].imshow(tci_chunks[i])
+            axes[1][0].set_title(f"TCI Chunk {i}", fontsize=title_size)
+            axes[1][0].tick_params(axis="both", labelsize=label_size)
+            
+            # plot 4, bottom right: tracker TCI (60m resolution)
+            axes[1][1].imshow(tci_60_array)
+            axes[1][1].set_title("Tracker TCI", fontsize=title_size)
+            axes[1][1].axis("on")
             
             # calculate chunk geometry
             chunks_per_side = int(np.sqrt(len(tci_chunks)))
-            chunk_row = i // chunks_per_side
             chunk_col = i % chunks_per_side
+            chunk_row = i // chunks_per_side
             
-            # calculate dimensions in the compressed 60m array
-            tracker_plot_chunk_length = tracker_plot_side_length / chunks_per_side
-            chunk_uly = tracker_plot_chunk_length * (i // chunks_per_side)
-            chunk_ulx = (i * tracker_plot_chunk_length) % tracker_plot_side_length
+            # calculate dimensions in the 60m array
+            side_length = tci_60_array.shape[0] # assuming square image
+            chunk_length = side_length / chunks_per_side
+            chunk_ulx = chunk_col * chunk_length
+            chunk_uly = chunk_row * chunk_length
             
-            
-            # top right: plot 60m resolution tci "tracker" image
-            axes[0][1].imshow(tci_60_array)
-            axes[0][1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
-            axes[0][1].axis("on")
-            
-            # axes on tci "tracker" image are "number of chunks"
-            axes[0][1].set_xticks(np.linspace(0, tracker_plot_side_length, 8))
-            axes[0][1].set_yticks(np.linspace(0, tracker_plot_side_length, 8))
-            
+            # axes on TCI "tracker" image are "number of chunks"
+            axes[1][1].set_xticks(np.linspace(0, side_length, 8))
+            axes[1][1].set_yticks(np.linspace(0, side_length, 8))
             axes_tick_labels = np.linspace(0, chunks_per_side, 8).astype(int)
-            axes[0][1].set_xticklabels(axes_tick_labels, fontsize=4)
-            axes[0][1].set_yticklabels(axes_tick_labels, fontsize=4)
+            axes[1][1].set_xticklabels(axes_tick_labels, fontsize=label_size)
+            axes[1][1].set_yticklabels(axes_tick_labels, fontsize=label_size)
+            axes[0][1].set_xlabel("Chunk Column", fontsize=label_size+1)
+            axes[0][1].set_ylabel("Chunk Row", fontsize=label_size+1)
             
-            axes[0][1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
-            for k in range(int(tracker_plot_chunk_length)): # make a square around the chunk
-                axes[0][1].plot(chunk_ulx+k, chunk_uly, 
-                             marker=",", color="red")
-                axes[0][1].plot(chunk_ulx+k, chunk_uly+tracker_plot_chunk_length, 
-                             marker=",", color="red")
-                axes[0][1].plot(chunk_ulx, chunk_uly+k, 
-                             marker=",", color="red")
-                axes[0][1].plot(chunk_ulx+tracker_plot_chunk_length, chunk_uly+k, 
-                             marker=",", color="red")
-            axes[0][1].plot(chunk_ulx+tracker_plot_chunk_length, chunk_uly+tracker_plot_chunk_length, 
-                         marker=",", color="red")
-            
-            # plot 10m resolution tci chunk
-            axes[1][0].imshow(tci_chunks[i])
-            axes[1][0].set_title(f"TCI Chunk {i}", fontsize=10)
-            axes[1][0].tick_params(axis="both", labelsize=4)
-            
-            # plot 10m resolution "stalker" image chunk
-            current_chunk_row = i // chunks_per_side
-            current_chunk_column = i % chunks_per_side
-            print(tracker_plot_side_length)
-            print(current_chunk_row, current_chunk_column)
-            if current_chunk_row < (chunks_per_side / 2) and current_chunk_column < (chunks_per_side / 2):
-                # top_left = True
-                wanted_stalker_chunk = tci_zoom_chunks[0]
-            elif current_chunk_row > (chunks_per_side / 2) and current_chunk_column < (chunks_per_side / 2):
-                # top_right = True
-                wanted_stalker_chunk = tci_zoom_chunks[1]
-            elif current_chunk_row < (chunks_per_side / 2) and current_chunk_column > (chunks_per_side / 2):
-                # bottom_left = True
-                wanted_stalker_chunk = tci_zoom_chunks[2]
-            elif current_chunk_row > (chunks_per_side / 2) and current_chunk_column > (chunks_per_side / 2):
-                # bottom_right = True
-                wanted_stalker_chunk = tci_zoom_chunks[3]
-            
-            axes[1][1].imshow(wanted_stalker_chunk)
-            axes[1][1].set_title("Stalker Chunk", fontsize=8)
-            axes[1][1].tick_params(axis="both", labelsize=4)
-            
-            axes[1][1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
-            for k in range(int(tracker_plot_chunk_length)): # make a square around the chunk
-                axes[1][1].plot(chunk_ulx+k, chunk_uly, 
-                             marker=",", color="red")
-                axes[1][1].plot(chunk_ulx+k, chunk_uly+tracker_plot_chunk_length, 
-                             marker=",", color="red")
-                axes[1][1].plot(chunk_ulx, chunk_uly+k, 
-                             marker=",", color="red")
-                axes[1][1].plot(chunk_ulx+tracker_plot_chunk_length, chunk_uly+k, 
-                             marker=",", color="red")
-            axes[1][1].plot(chunk_ulx+tracker_plot_chunk_length, chunk_uly+tracker_plot_chunk_length, 
-                         marker=",", color="red")
+            # draw a red square around the current chunk
+            tci_tracker_square = plt.Rectangle((chunk_ulx, chunk_uly), 
+                                           chunk_length, chunk_length, 
+                                           linewidth=1, edgecolor="r", 
+                                           facecolor=None)
+            axes[1][1].add_patch(tci_tracker_square)
             
             plt.tight_layout()
             plt.show()
-            max_index = round(np.amax(index_chunks[0][i]), 2)
+            max_index = [0, 0]
+            max_index[0] = round(np.amax(index_chunks[0][i]), 2)
+            print(f"MAX {index_labels[0]}: {max_index}", end=" | ")
+            max_index[1] = round(np.amax(index_chunks[1][i]), 2)
             print(f"MAX {index_labels[0]}: {max_index}")
             
             # %%%% 5.5 User Labelling
