@@ -370,9 +370,9 @@ def get_sat(sat_name, sat_number, folder):
             plt.show()
             max_index = [0, 0]
             max_index[0] = round(np.amax(index_chunks[0][i]), 2)
-            print(f"MAX {index_labels[0]}: {max_index}", end=" | ")
+            print(f"MAX {index_labels[0]}: {max_index[0]}", end=" | ")
             max_index[1] = round(np.amax(index_chunks[1][i]), 2)
-            print(f"MAX {index_labels[0]}: {max_index}")
+            print(f"MAX {index_labels[0]}: {max_index[1]}")
             
             # %%%% 5.5 User Labelling
             blank_entry_check(file=data_file)
