@@ -56,7 +56,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -213,7 +213,7 @@ def get_sat(sat_name, sat_number, folder):
         with Image.open(tci_60_path + tci_60_file_name) as img:
             size = (img.width//c, img.height//c)
             tci_60_array = np.array(img.resize(size))
-            side_length = img.width//c
+            tracker_plot_side_length = img.width//c
         end_spinner(stop_event, thread)
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
@@ -223,6 +223,8 @@ def get_sat(sat_name, sat_number, folder):
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
+        n_zoomed_chunks = 4
+        tci_zoom_chunks = split_array(array=tci_array, n_chunks=n_zoomed_chunks)
         end_spinner(stop_event, thread)
         
         # %%%% 5.3 Preparing File for Labelling
@@ -314,122 +316,99 @@ def get_sat(sat_name, sat_number, folder):
             i = invalid_rows[0]
             invalid_rows_index = 0
         
-        # %%%% 5.4 Outputting Images (Modified 2x2 Layout)
+        # %%%% 5.4 Outputting Images
         print("outputting images...")
         while i < len(index_chunks[0]):
             if break_flag:
                 break
-
-            # Create a 2x2 subplot figure
-            fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks) # Changed to 2x2
-
-            # --- Plot 1: Top-Left (axes[0][0]) - First Index Chunk ---
-            first_index_chunk = index_chunks[0][i]
-            axes[0, 0].imshow(first_index_chunk)
-            axes[0, 0].set_title(f"{index_labels[0]} Chunk {i}", fontsize=8) # Using index_labels[0]
-            axes[0, 0].tick_params(axis="both", labelsize=6)
-            max_index_val = round(np.amax(first_index_chunk), 2)
-            print(f"MAX {index_labels[0]}: {max_index_val}", end=" | ") # Print max for first index only
-
-            # --- Calculate Chunk Geometry ---
-            chunks_per_side = int(np.sqrt(len(tci_chunks))) # Chunks per side of the full image
+            
+            fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
+            # top left: plot NDWI chunk
+            axes[0][0].imshow(index_chunks[0][i])
+            axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", fontsize=10)
+            axes[0][0].tick_params(axis="both", labelsize=6)
+            
+            # calculate chunk geometry
+            chunks_per_side = int(np.sqrt(len(tci_chunks)))
             chunk_row = i // chunks_per_side
             chunk_col = i % chunks_per_side
-
-            # Calculate dimensions in the compressed 60m TCI array (tci_60_array)
-            tracker_side_length = tci_60_array.shape[0] # Assuming square
-            tracker_chunk_length = tracker_side_length / chunks_per_side # Float division is fine here
-
-            # Top-left corner of the *current TCI chunk* in the tracker image coordinates
-            tracker_chunk_ulx = chunk_col * tracker_chunk_length
-            tracker_chunk_uly = chunk_row * tracker_chunk_length
-            tracker_chunk_lrx = tracker_chunk_ulx + tracker_chunk_length
-            tracker_chunk_lry = tracker_chunk_uly + tracker_chunk_length
-
-            # --- Plot 2: Top-Right (axes[0][1]) - Tracker Image (tci_60_array) ---
-            axes[0, 1].imshow(tci_60_array)
-            axes[0, 1].set_title(f"Tracker (C{c} TCI 60m Res.)", fontsize=8)
-            axes[0, 1].axis("on")
-            axes[0, 1].set_xticks(np.linspace(0, tracker_side_length, 8))
-            axes[0, 1].set_yticks(np.linspace(0, tracker_side_length, 8))
+            
+            # calculate dimensions in the compressed 60m array
+            tracker_plot_chunk_length = tracker_plot_side_length / chunks_per_side
+            chunk_uly = tracker_plot_chunk_length * (i // chunks_per_side)
+            chunk_ulx = (i * tracker_plot_chunk_length) % tracker_plot_side_length
+            
+            
+            # top right: plot 60m resolution tci "tracker" image
+            axes[0][1].imshow(tci_60_array)
+            axes[0][1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
+            axes[0][1].axis("on")
+            
+            # axes on tci "tracker" image are "number of chunks"
+            axes[0][1].set_xticks(np.linspace(0, tracker_plot_side_length, 8))
+            axes[0][1].set_yticks(np.linspace(0, tracker_plot_side_length, 8))
+            
             axes_tick_labels = np.linspace(0, chunks_per_side, 8).astype(int)
-            axes[0, 1].set_xticklabels(axes_tick_labels, fontsize=6)
-            axes[0, 1].set_yticklabels(axes_tick_labels, fontsize=6)
-            axes[0, 1].set_xlabel("Chunk Col", fontsize=6)
-            axes[0, 1].set_ylabel("Chunk Row", fontsize=6)
-
-
-            # Draw RED square for the current TCI chunk on the tracker
-            rect_tci = plt.Rectangle((tracker_chunk_ulx, tracker_chunk_uly), 
-                                     tracker_chunk_length, tracker_chunk_length,
-                                     linewidth=1, edgecolor='r', facecolor='none')
-            axes[0, 1].add_patch(rect_tci)
-
-
-            # --- Plot 3: Bottom-Left (axes[1][0]) - High-Resolution TCI Chunk ---
-            axes[1, 0].imshow(tci_chunks[i])
-            axes[1, 0].set_title(f"High-Res TCI Chunk {i}", fontsize=8)
-            axes[1, 0].tick_params(axis="both", which='both', bottom=False, top=False, left=False, right=False,
-                                   labelbottom=False, labelleft=False) # Hide ticks and labels
-
-            # --- Plot 4: Bottom-Right (axes[1][1]) - Stalker Plot ---
-            # Define the "stalker" area (3x3 tracker chunks centered on the current chunk)
-            stalker_radius_chunks = 10 # 1 chunk radius gives 3x3 total area
-            stalker_ul_chunk_row = max(0, chunk_row - stalker_radius_chunks)
-            stalker_ul_chunk_col = max(0, chunk_col - stalker_radius_chunks)
-            # +1 because slicing is exclusive on the right/bottom edge
-            stalker_lr_chunk_row = min(chunks_per_side, chunk_row + stalker_radius_chunks + 1)
-            stalker_lr_chunk_col = min(chunks_per_side, chunk_col + stalker_radius_chunks + 1)
-
-            # Convert stalker chunk coordinates to tracker image pixel coordinates (integers needed for slicing)
-            stalker_ulx_px = int(stalker_ul_chunk_col * tracker_chunk_length)
-            stalker_uly_px = int(stalker_ul_chunk_row * tracker_chunk_length)
-            stalker_lrx_px = int(stalker_lr_chunk_col * tracker_chunk_length)
-            stalker_lry_px = int(stalker_lr_chunk_row * tracker_chunk_length)
-
-            # Ensure coordinates are within the bounds of the tci_60_array
-            stalker_ulx_px = max(0, stalker_ulx_px)
-            stalker_uly_px = max(0, stalker_uly_px)
-            stalker_lrx_px = min(tci_60_array.shape[1], stalker_lrx_px)
-            stalker_lry_px = min(tci_60_array.shape[0], stalker_lry_px)
-
-
-            # Extract the stalker chunk from the tracker array
-            stalker_chunk_array = tci_60_array[stalker_uly_px:stalker_lry_px, stalker_ulx_px:stalker_lrx_px]
-
-            # Plot the stalker chunk
-            axes[1, 1].imshow(stalker_chunk_array)
-            axes[1, 1].set_title("Stalker (Zoomed Tracker)", fontsize=8)
-            axes[1, 1].tick_params(axis="both", which='both', bottom=False, top=False, left=False, right=False,
-                                   labelbottom=False, labelleft=False) # Hide ticks and labels
-
-            # Calculate the position of the *original TCI chunk* within the *stalker chunk*
-            # (relative coordinates)
-            relative_tci_ulx = tracker_chunk_ulx - stalker_ulx_px
-            relative_tci_uly = tracker_chunk_uly - stalker_uly_px
-
-            # Draw RED square for the current TCI chunk *within the stalker plot*
-            rect_tci_in_stalker = plt.Rectangle((relative_tci_ulx, 
-                                                 relative_tci_uly), 
-                                                tracker_chunk_length, 
-                                                tracker_chunk_length,
-                                                linewidth=1.5, edgecolor='r', 
-                                                facecolor='none', linestyle='--')
-            axes[1, 1].add_patch(rect_tci_in_stalker)
-
-
-            # Draw BLUE square for the stalker area *on the tracker plot* (axes[0, 1])
-            stalker_width_px = stalker_lrx_px - stalker_ulx_px
-            stalker_height_px = stalker_lry_px - stalker_uly_px
-            rect_stalker = plt.Rectangle((stalker_ulx_px, stalker_uly_px), 
-                                         stalker_width_px, stalker_height_px,
-                                        linewidth=1, edgecolor='b', facecolor='none')
-            axes[0, 1].add_patch(rect_stalker)
-
-
-            # --- Final Touches ---
-            plt.tight_layout(pad=0.5) # Adjust padding between subplots
+            axes[0][1].set_xticklabels(axes_tick_labels, fontsize=4)
+            axes[0][1].set_yticklabels(axes_tick_labels, fontsize=4)
+            
+            axes[0][1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
+            for k in range(int(tracker_plot_chunk_length)): # make a square around the chunk
+                axes[0][1].plot(chunk_ulx+k, chunk_uly, 
+                             marker=",", color="red")
+                axes[0][1].plot(chunk_ulx+k, chunk_uly+tracker_plot_chunk_length, 
+                             marker=",", color="red")
+                axes[0][1].plot(chunk_ulx, chunk_uly+k, 
+                             marker=",", color="red")
+                axes[0][1].plot(chunk_ulx+tracker_plot_chunk_length, chunk_uly+k, 
+                             marker=",", color="red")
+            axes[0][1].plot(chunk_ulx+tracker_plot_chunk_length, chunk_uly+tracker_plot_chunk_length, 
+                         marker=",", color="red")
+            
+            # plot 10m resolution tci chunk
+            axes[1][0].imshow(tci_chunks[i])
+            axes[1][0].set_title(f"TCI Chunk {i}", fontsize=10)
+            axes[1][0].tick_params(axis="both", labelsize=4)
+            
+            # plot 10m resolution "stalker" image chunk
+            current_chunk_row = i // chunks_per_side
+            current_chunk_column = i % chunks_per_side
+            print(tracker_plot_side_length)
+            print(current_chunk_row, current_chunk_column)
+            if current_chunk_row < (chunks_per_side / 2) and current_chunk_column < (chunks_per_side / 2):
+                # top_left = True
+                wanted_stalker_chunk = tci_zoom_chunks[0]
+            elif current_chunk_row > (chunks_per_side / 2) and current_chunk_column < (chunks_per_side / 2):
+                # top_right = True
+                wanted_stalker_chunk = tci_zoom_chunks[1]
+            elif current_chunk_row < (chunks_per_side / 2) and current_chunk_column > (chunks_per_side / 2):
+                # bottom_left = True
+                wanted_stalker_chunk = tci_zoom_chunks[2]
+            elif current_chunk_row > (chunks_per_side / 2) and current_chunk_column > (chunks_per_side / 2):
+                # bottom_right = True
+                wanted_stalker_chunk = tci_zoom_chunks[3]
+            
+            axes[1][1].imshow(wanted_stalker_chunk)
+            axes[1][1].set_title("Stalker Chunk", fontsize=8)
+            axes[1][1].tick_params(axis="both", labelsize=4)
+            
+            axes[1][1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
+            for k in range(int(tracker_plot_chunk_length)): # make a square around the chunk
+                axes[1][1].plot(chunk_ulx+k, chunk_uly, 
+                             marker=",", color="red")
+                axes[1][1].plot(chunk_ulx+k, chunk_uly+tracker_plot_chunk_length, 
+                             marker=",", color="red")
+                axes[1][1].plot(chunk_ulx, chunk_uly+k, 
+                             marker=",", color="red")
+                axes[1][1].plot(chunk_ulx+tracker_plot_chunk_length, chunk_uly+k, 
+                             marker=",", color="red")
+            axes[1][1].plot(chunk_ulx+tracker_plot_chunk_length, chunk_uly+tracker_plot_chunk_length, 
+                         marker=",", color="red")
+            
+            plt.tight_layout()
             plt.show()
+            max_index = round(np.amax(index_chunks[0][i]), 2)
+            print(f"MAX {index_labels[0]}: {max_index}")
             
             # %%%% 5.5 User Labelling
             blank_entry_check(file=data_file)
