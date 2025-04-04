@@ -106,8 +106,8 @@ def prompt_roi(image_array, n):
     rois : list
         List of floats (upper-left x-coordinate (ulx), 
                         upper-left y-coordinate (uly), 
-                        bottom-right x-coordinate (brx), 
-                        bottom-right y-coordinate (bry)) for each ROI. 
+                        lower-right x-coordinate (lrx), 
+                        lower-right y-coordinate (lry)) for each ROI. 
     
     """
     # Convert the numpy array to a PIL image
@@ -181,9 +181,9 @@ def prompt_roi(image_array, n):
         end_x, end_y = event.x, event.y
         ulx = min(start_x, end_x)
         uly = min(start_y, end_y)
-        brx = max(end_x, start_x)
-        bry = max(end_y, start_y)
-        current_roi = (ulx, uly, brx, bry)
+        lrx = max(end_x, start_x)
+        lry = max(end_y, start_y)
+        current_roi = (ulx, uly, lrx, lry)
         # Auto-save the ROI upon release
         save_roi()
     
