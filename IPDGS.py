@@ -47,6 +47,7 @@ import csv
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
+from data_handling import extract_coordinates
 from image_handling import image_to_array, mask_sentinel, plot_indices
 from misc import get_sentinel_bands, split_array, combine_sort_unique
 from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
@@ -160,6 +161,7 @@ def get_sat(sat_name, sat_number, folder):
         image_arrays[i] = image_array.astype(int)
     blue, green, nir, swir1, swir2 = image_arrays
     
+    np.seterr(divide="ignore", invalid="ignore")
     ndwi = ((green - nir) / (green + nir))
     mndwi = ((green - swir1) / (green + swir1))
     awei_sh = (green + 2.5 * blue - 1.5 * (nir + swir1) - 0.25 * swir2)
@@ -221,7 +223,6 @@ def get_sat(sat_name, sat_number, folder):
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
-        chunk_length = side_length / np.sqrt(len(tci_chunks))
         end_spinner(stop_event, thread)
         
         # %%%% 5.3 Preparing File for Labelling
@@ -299,7 +300,6 @@ def get_sat(sat_name, sat_number, folder):
             try: # try to access coordinates
                 body_coord = lines[j].split(",")[7+num_of_bodies]
                 if body_coord[0] != "[":
-                    print(type(body_coord))
                     body_no_coords = True
             except: # if unable to access, they do not exist
                 body_no_coords = True
@@ -313,17 +313,21 @@ def get_sat(sat_name, sat_number, folder):
                    "incomplete or missing no coordinate data")
             i = invalid_rows[0]
             invalid_rows_index = 0
-        else:
+        
+        two_class_ammend = True
+        print("ammending data file to fit two-class format")
+        if two_class_ammend:
             """
             RESERVOIR HIGHLIGHTING SECTION
             - take each chunk that has a reservoir with coordinates
             - imprint a rectangle on the chunk at those coordinates
             """
-            i = 0
-            while j < len(lines):
+            res_coords_list = np.zeros(shape=lines)
+            for j in range(1, len(lines)):
                 num_of_reservoirs = int(lines[j].split(",")[1])
-                num_of_bodies = int(lines[j].split(",")[2])
-        
+                for k in range(num_of_reservoirs):
+                    res_coords_list[j] = (extract_coordinates(lines[j][4+k]))
+        globals()["res_coords_list"] = res_coords_list
         # %%%% 5.4 Outputting Images
         print("outputting images...")
         while i < len(index_chunks[0]):
@@ -331,8 +335,8 @@ def get_sat(sat_name, sat_number, folder):
                 break
             
             # plot index chunks
-            max_indices_chunk = np.zeros(len(indices))
-            fig, axes = plt.subplots(1, len(indices), figsize=plot_size_chunks)
+            max_indices_chunk = np.zeros(len(index_labels))
+            fig, axes = plt.subplots(1, len(index_labels), figsize=plot_size_chunks)
             for count, index_label in enumerate(index_labels):
                 axes[count].imshow(index_chunks[count][i])
                 axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
@@ -353,6 +357,7 @@ def get_sat(sat_name, sat_number, folder):
             axes[1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
             axes[1].axis("off")
             
+            chunk_length = side_length / np.sqrt(len(tci_chunks))
             chunk_uly = chunk_length * (i // np.sqrt(len(tci_chunks)))
             chunk_ulx = (i * chunk_length) % side_length
             
