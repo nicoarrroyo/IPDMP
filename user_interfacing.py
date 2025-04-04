@@ -3,6 +3,7 @@ import time
 import threading
 from PIL import Image, ImageTk
 import tkinter as tk
+import numpy as np
 
 def table_print(**kwargs):
     """
@@ -103,10 +104,10 @@ def prompt_roi(image_array, n):
     Returns
     -------
     rois : list
-        List of integers (upper-left x-coordinate (ulx), 
-                          upper-left y-coordinate (uly), 
-                          bottom-right x-coordinate (brx), 
-                          bottom-right y-coordinate (bry)) for each ROI. 
+        List of floats (upper-left x-coordinate (ulx), 
+                        upper-left y-coordinate (uly), 
+                        bottom-right x-coordinate (brx), 
+                        bottom-right y-coordinate (bry)) for each ROI. 
     
     """
     # Convert the numpy array to a PIL image
@@ -203,7 +204,18 @@ def prompt_roi(image_array, n):
                 rois.append(current_roi)
                 rects.append(current_rect)  # Keep track of the rectangle reference
                 canvas.itemconfig(current_rect, outline="green")
-                set_status((f"Saved ROI {current_roi}. {n-len(rois)} left"))
+                
+                # Create a semi-transparent grey image for filling
+                img = Image.new('RGBA', (1, 1), (128, 128, 128, 51)) # Grey with 20% opacity
+                tk_img = ImageTk.PhotoImage(img)
+                
+                # Fill the rectangle with the grey image
+                canvas.itemconfig(current_rect, outline="green", fill="") # Remove default fill
+                canvas.itemconfig(current_rect, stipple="gray25") # Add a stipple fill
+                canvas.itemconfig(current_rect, fill=tk_img) # Add the image fill
+                
+                current_roi_converted = np.array(current_roi) * len(image_array) / width
+                set_status((f"Saved ROI {current_roi_converted}. {n-len(rois)} left"))
                 # Reset current selection variables for the next ROI
                 current_roi = None
                 current_rect = None
@@ -238,6 +250,11 @@ def prompt_roi(image_array, n):
         else:
             set_status("No regions of interest saved")
     
+    def select_all():
+        nonlocal current_roi
+        current_roi = [1, 1, width-1, height-1]
+        save_roi()
+    
     def hide_cursor(event):
         canvas.config(cursor="none")
     
@@ -252,14 +269,15 @@ def prompt_roi(image_array, n):
     canvas.bind("<Enter>", lambda event: canvas.config(cursor="none"))
     canvas.bind("<Leave>", lambda event: canvas.config(cursor=""))
     
-    # Create button frame and add "Overwrite" and "Finish" buttons only.
     button_frame = tk.Frame(root)
     button_frame.pack(fill=tk.X, pady=10)
     
     overwrite_button = tk.Button(button_frame, text="Overwrite", command=overwrite)
     overwrite_button.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
     
-    # Set initial text based on expected number of ROIs.
+    all_button = tk.Button(button_frame, text="Select Entire Frame", command=select_all)
+    all_button.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
+    
     finish_button = tk.Button(button_frame, text="Finish", command=finish)
     finish_button.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
     
@@ -268,4 +286,5 @@ def prompt_roi(image_array, n):
     status_label.pack(fill=tk.X, padx=2, pady=2)
     
     root.mainloop()
-    return rois
+    rois_converted = np.array(rois) * len(image_array) / width
+    return rois_converted
