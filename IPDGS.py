@@ -56,7 +56,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -385,11 +385,6 @@ def get_sat(sat_name, sat_number, folder):
                         n_reservoirs = input("how many reservoirs? ")
                     if n_reservoirs != 0:
                         print("please draw a square around the reservoir(s)")
-# =============================================================================
-#                         raw_coords = prompt_roi(tci_chunks[i], n_reservoirs)
-#                         raw_coords = np.array(raw_coords)
-#                         chunk_coords = raw_coords * len(tci_chunks[0]) / 500
-# =============================================================================
                         chunk_coords = prompt_roi(tci_chunks[i], n_reservoirs)
                         for coord in chunk_coords:
                             entry_list.append(coord)
@@ -402,11 +397,6 @@ def get_sat(sat_name, sat_number, folder):
                     entry_list[2] = n_bodies
                     if n_bodies != 0:
                         print("please draw a square around the water bodies")
-# =============================================================================
-#                         raw_coords = prompt_roi(tci_chunks[i], n_bodies)
-#                         raw_coords = np.array(raw_coords)
-#                         chunk_coords = raw_coords * len(tci_chunks[0]) / 500
-# =============================================================================
                         chunk_coords = prompt_roi(tci_chunks[i], n_bodies)
                         for coord in chunk_coords:
                             entry_list.append(coord)
