@@ -56,7 +56,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
@@ -71,7 +71,7 @@ except: # uni mode
             "The University of Manchester\\Individual Project")
     os.chdir(HOME)
     plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (7, 7)
+    plot_size_chunks = (6, 6)
 
 # %% General Mega Giga Function
 do_s2 = True
@@ -223,6 +223,8 @@ def get_sat(sat_name, sat_number, folder):
         for index in indices:
             index_chunks.append(split_array(array=index, n_chunks=n_chunks))
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
+        n_zoomed_chunks = 4
+        tci_zoom_chunks = split_array(array=tci_array, n_chunks=n_zoomed_chunks)
         end_spinner(stop_event, thread)
         
         # %%%% 5.3 Preparing File for Labelling
@@ -320,54 +322,105 @@ def get_sat(sat_name, sat_number, folder):
             if break_flag:
                 break
             
-            # plot index chunks
-            max_indices_chunk = np.zeros(len(index_labels))
-            fig, axes = plt.subplots(1, len(index_labels), figsize=plot_size_chunks)
-            for count, index_label in enumerate(index_labels):
-                axes[count].imshow(index_chunks[count][i])
-                axes[count].set_title(f"{index_label} Chunk {i}", fontsize=6)
-                axes[count].tick_params(axis="both", labelsize=4)
-            plt.tight_layout()
-            plt.show()
-            for count, max_index in enumerate(max_indices_chunk):
-                max_index = round(np.amax(index_chunks[count][i]), 2)
-                print(f"MAX {index_labels[count]}: {max_index}", end=" | ")
+            fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
+            # plot NDWI chunk
+            axes[0][0].imshow(index_chunks[0][i])
+            axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", fontsize=10)
+            axes[0][0].tick_params(axis="both", labelsize=6)
             
-            # plot tci chunks
-            fig, axes = plt.subplots(1, 2, figsize=plot_size_chunks)
-            axes[0].imshow(tci_chunks[i])
-            axes[0].set_title(f"TCI Chunk {i}", fontsize=10)
-            axes[0].tick_params(axis="both", labelsize=6)
-            
-            chunk_length = side_length / np.sqrt(len(tci_chunks))
-            chunk_uly = chunk_length * (i // np.sqrt(len(tci_chunks)))
+            # plot 60m resolution tci "tracker" image
+            chunks_per_side = np.sqrt(len(tci_chunks))
+            chunk_length = side_length / chunks_per_side
+            chunk_uly = chunk_length * (i // chunks_per_side)
             chunk_ulx = (i * chunk_length) % side_length
             
-            axes[1].imshow(tci_60_array)
-            axes[1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
-            axes[1].axis("on")
+            zoom_chunks_per_side = np.sqrt(len(tci_zoom_chunks))
+            zoom_chunk_length = side_length / zoom_chunks_per_side
+            zoom_chunk_uly = zoom_chunk_length * (i // zoom_chunks_per_side)
+            zoom_chunk_ulx = (i * zoom_chunk_length) % side_length
             
-            chunks_per_side = np.sqrt(len(tci_chunks))
-            axes[1].set_xticks(np.linspace(0, side_length, 8))
-            axes[1].set_yticks(np.linspace(0, side_length, 8))
+            axes[0][1].imshow(tci_60_array)
+            axes[0][1].set_title(f"C{c} TCI 60m Resolution", fontsize=8)
+            axes[0][1].axis("on")
+            
+            # axes on tci "tracker" image are "number of chunks"
+            axes[0][1].set_xticks(np.linspace(0, side_length, 8))
+            axes[0][1].set_yticks(np.linspace(0, side_length, 8))
             
             axes_tick_labels = np.linspace(0, chunks_per_side, 8).astype(int)
-            axes[1].set_xticklabels(axes_tick_labels, fontsize=6)
-            axes[1].set_yticklabels(axes_tick_labels, fontsize=6)
+            axes[0][1].set_xticklabels(axes_tick_labels, fontsize=4)
+            axes[0][1].set_yticklabels(axes_tick_labels, fontsize=4)
             
-            axes[1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
+            axes[0][1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
             for k in range(int(chunk_length)): # make a square around the chunk
-                axes[1].plot(chunk_ulx+k, chunk_uly, 
+                axes[0][1].plot(chunk_ulx+k, chunk_uly, 
                              marker=",", color="red")
-                axes[1].plot(chunk_ulx+k, chunk_uly+chunk_length, 
+                axes[0][1].plot(chunk_ulx+k, chunk_uly+chunk_length, 
                              marker=",", color="red")
-                axes[1].plot(chunk_ulx, chunk_uly+k, 
+                axes[0][1].plot(chunk_ulx, chunk_uly+k, 
                              marker=",", color="red")
-                axes[1].plot(chunk_ulx+chunk_length, chunk_uly+k, 
+                axes[0][1].plot(chunk_ulx+chunk_length, chunk_uly+k, 
                              marker=",", color="red")
-            axes[1].plot(chunk_ulx+chunk_length, chunk_uly+chunk_length, 
+            axes[0][1].plot(chunk_ulx+chunk_length, chunk_uly+chunk_length, 
                          marker=",", color="red")
+            
+            for k in range(int(zoom_chunk_length)): # make a square around the stalker chunk
+                axes[0][1].plot(zoom_chunk_ulx+k, zoom_chunk_uly, 
+                             marker=",", color="green")
+                axes[0][1].plot(zoom_chunk_ulx+k, zoom_chunk_uly+zoom_chunk_length, 
+                             marker=",", color="green")
+                axes[0][1].plot(zoom_chunk_ulx, zoom_chunk_uly+k, 
+                             marker=",", color="green")
+                axes[0][1].plot(zoom_chunk_ulx+zoom_chunk_length, zoom_chunk_uly+k, 
+                             marker=",", color="green")
+            axes[0][1].plot(zoom_chunk_ulx+zoom_chunk_length, 
+                            zoom_chunk_uly+zoom_chunk_length, 
+                            marker=",", color="green")
+            
+            # plot 10m resolution tci chunk
+            axes[1][0].imshow(tci_chunks[i])
+            axes[1][0].set_title(f"TCI Chunk {i}", fontsize=10)
+            axes[1][0].tick_params(axis="both", labelsize=4)
+            
+            # plot 10m resolution "stalker" image chunk
+            current_chunk_row = i // chunks_per_side
+            current_chunk_column = i % chunks_per_side
+            print(side_length)
+            print(current_chunk_row, current_chunk_column)
+            if current_chunk_row < (chunks_per_side / 2) and current_chunk_column < (chunks_per_side / 2):
+                # top_left = True
+                wanted_stalker_chunk = tci_zoom_chunks[0]
+            elif current_chunk_row > (chunks_per_side / 2) and current_chunk_column < (chunks_per_side / 2):
+                # top_right = True
+                wanted_stalker_chunk = tci_zoom_chunks[1]
+            elif current_chunk_row < (chunks_per_side / 2) and current_chunk_column > (chunks_per_side / 2):
+                # bottom_left = True
+                wanted_stalker_chunk = tci_zoom_chunks[2]
+            elif current_chunk_row > (chunks_per_side / 2) and current_chunk_column > (chunks_per_side / 2):
+                # bottom_right = True
+                wanted_stalker_chunk = tci_zoom_chunks[3]
+            
+            axes[1][1].imshow(wanted_stalker_chunk)
+            axes[1][1].set_title("Stalker Chunk", fontsize=8)
+            axes[1][1].tick_params(axis="both", labelsize=4)
+            
+            axes[1][1].plot(chunk_ulx, chunk_uly, marker=",", color="red")
+            for k in range(int(chunk_length)): # make a square around the chunk
+                axes[1][1].plot(chunk_ulx+k, chunk_uly, 
+                             marker=",", color="red")
+                axes[1][1].plot(chunk_ulx+k, chunk_uly+chunk_length, 
+                             marker=",", color="red")
+                axes[1][1].plot(chunk_ulx, chunk_uly+k, 
+                             marker=",", color="red")
+                axes[1][1].plot(chunk_ulx+chunk_length, chunk_uly+k, 
+                             marker=",", color="red")
+            axes[1][1].plot(chunk_ulx+chunk_length, chunk_uly+chunk_length, 
+                         marker=",", color="red")
+            
+            plt.tight_layout()
             plt.show()
+            max_index = round(np.amax(index_chunks[0][i]), 2)
+            print(f"MAX {index_labels[0]}: {max_index}")
             
             # %%%% 5.5 User Labelling
             blank_entry_check(file=data_file)
