@@ -43,6 +43,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import csv
+from PIL import Image
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
@@ -55,17 +56,21 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 label_data = True
 
 try: # personal pc mode
+    title_size = 6
+    label_size = 4
     HOME = ("C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\"
             "Individual Project\\Downloads")
     os.chdir(HOME)
     plot_size = (3, 3) # larger plots increase detail and pixel count
-    plot_size_chunks = (5, 5)
+    plot_size_chunks = (6, 6)
 except: # uni mode
+    title_size = 15
+    label_size = 8
     HOME = ("C:\\Users\\c55626na\\OneDrive - "
             "The University of Manchester\\Individual Project")
     os.chdir(HOME)
@@ -208,7 +213,10 @@ def get_sat(sat_name, sat_number, folder):
         
         tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
         tci_60_file_name = prefix + "_TCI_60m.jp2"
-        tci_60_array = image_to_array(tci_60_path + tci_60_file_name)
+        c = 5 # compress 60m resolution TCI for faster plotting
+        with Image.open(tci_60_path + tci_60_file_name) as img:
+            size = (img.width//c, img.height//c)
+            tci_60_array = np.array(img.resize(size))
         end_spinner(stop_event, thread)
         
         # %%%% 5.2 Creating Chunks from Satellite Imagery
@@ -311,8 +319,6 @@ def get_sat(sat_name, sat_number, folder):
         
         # %%%% 5.4 Outputting Images
         print("outputting images...")
-        title_size = 15
-        label_size = 8
         
         while i < len(index_chunks[0]):
             if break_flag:
@@ -321,12 +327,14 @@ def get_sat(sat_name, sat_number, folder):
             fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
             # plot 1, top left: NDWI chunk (full resolution)
             axes[0][0].imshow(index_chunks[0][i])
-            axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", fontsize=title_size)
+            axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", 
+                                 fontsize=title_size)
             axes[0][0].tick_params(axis="both", labelsize=label_size)
             
             # plot 2, top right: MNDWI chunk (merged resolution)
             axes[0][1].imshow(index_chunks[1][i])
-            axes[0][1].set_title(f"{index_labels[1]} Chunk {i}", fontsize=title_size)
+            axes[0][1].set_title(f"{index_labels[1]} Chunk {i}", 
+                                 fontsize=title_size)
             axes[0][1].tick_params(axis="both", labelsize=label_size)
             
             # plot 3, bottom left: TCI chunk (full resolution)
