@@ -213,7 +213,7 @@ def get_sat(sat_name, sat_number, folder):
         
         tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
         tci_60_file_name = prefix + "_TCI_60m.jp2"
-        c = 5 # compress 60m resolution TCI for faster plotting
+        c = 10 # compress 60m resolution TCI for faster plotting
         with Image.open(tci_60_path + tci_60_file_name) as img:
             size = (img.width//c, img.height//c)
             tci_60_array = np.array(img.resize(size))
@@ -386,11 +386,14 @@ def get_sat(sat_name, sat_number, folder):
             blank_entry_check(file=data_file)
             response_time_start = time.monotonic()
             if data_correction:
-                print("this chunk "
-                      f"({invalid_rows_index+1}/{len(invalid_rows)})"
-                      " should contain "
-                      f"{lines[i+1].split(',')[1]} reservoirs and "
-                      f"{lines[i+1].split(',')[2]} non-reservoir water bodies")
+                print((
+                    "this chunk "
+                    f"({invalid_rows_index+1}/{len(invalid_rows)})"
+                    " should contain "
+                    f"{int(lines[i+1].split(',')[1])} reservoirs and "
+                    f"{int(lines[i+1].split(',')[2])} non-reservoir "
+                    "water bodies"
+                    ))
             n_reservoirs = input("how many reservoirs? ")
             n_bodies = ""
             entry_list = []
@@ -405,7 +408,8 @@ def get_sat(sat_name, sat_number, folder):
                         print("maximum of 5 reservoirs")
                         n_reservoirs = input("how many reservoirs? ")
                     if n_reservoirs != 0:
-                        print("please draw a square around the reservoir(s)")
+                        print("please draw a square around the reservoir(s)", 
+                              flush=True)
                         chunk_coords = prompt_roi(tci_chunks[i], n_reservoirs)
                         for coord in chunk_coords:
                             entry_list.append(coord)
@@ -417,13 +421,14 @@ def get_sat(sat_name, sat_number, folder):
                     n_bodies = int(n_bodies)
                     entry_list[2] = n_bodies
                     if n_bodies != 0:
-                        print("please draw a square around the water bodies")
+                        print("please draw a square around the water bodies", 
+                              flush=True)
                         chunk_coords = prompt_roi(tci_chunks[i], n_bodies)
                         for coord in chunk_coords:
                             entry_list.append(coord)
                     response_time += time.monotonic() - response_time_start
-                    print("generating next chunk...")
                     i += 1
+                    print("generating next chunk...", flush=True)
                     break # exit loop and continue to next chunk
                 # handle non-integer responses
                 except:
@@ -512,4 +517,4 @@ if do_s2:
     
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
-print(f"total processing time: {round(TOTAL_TIME, 2)} seconds")
+print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
