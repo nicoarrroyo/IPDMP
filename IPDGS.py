@@ -61,24 +61,23 @@ show_index_plots = False
 label_data = True
 
 try: # personal pc mode
-    title_size = 6
+    title_size = 8
     label_size = 4
-    HOME = ("C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\"
-            "Individual Project\\Downloads")
+    HOME = ("C:\\Users\\nicol\\OneDrive - " # personal computer user name
+            "The University of Manchester\\Individual Project")
     os.chdir(HOME)
     plot_size = (3, 3) # larger plots increase detail and pixel count
     plot_size_chunks = (6, 6)
 except: # uni mode
     title_size = 15
     label_size = 8
-    HOME = ("C:\\Users\\c55626na\\OneDrive - "
+    HOME = ("C:\\Users\\c55626na\\OneDrive - " # university computer user name
             "The University of Manchester\\Individual Project")
     os.chdir(HOME)
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (11, 11)
 
 # %% General Mega Giga Function
-do_s2 = True
 response_time = 0
 
 def get_sat(sat_name, sat_number, folder):
@@ -351,6 +350,9 @@ def get_sat(sat_name, sat_number, folder):
             chunks_per_side = int(np.sqrt(len(tci_chunks)))
             chunk_col = i % chunks_per_side
             chunk_row = i // chunks_per_side
+            axes[1][1].text(0.5, 0.95, f"COL {chunk_col} ROW {chunk_row}", 
+                            transform=axes[1][1].transAxes, ha="center", 
+                            va="center", fontsize=label_size+1, color="yellow")
             
             # calculate dimensions in the 60m array
             side_length = tci_60_array.shape[0] # assuming square image
@@ -507,14 +509,13 @@ NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have
 20m spatial resolution. There is no MIR band, so MNDWI is calculated correctly 
 with the SWIR2 band. 
 """
-if do_s2:
-    s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
-                              folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
-                                      "_T31UCU_20250301T152054.SAFE"))
-    stop_event, thread = start_spinner(message="splitting indices")
-    ndwi, mndwi, awei_sh, awei_nsh = s2_indices
-    end_spinner(stop_event, thread)
-    
+s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
+                          folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
+                                  "_T31UCU_20250301T152054.SAFE"))
+stop_event, thread = start_spinner(message="splitting indices")
+ndwi, mndwi, awei_sh, awei_nsh = s2_indices
+end_spinner(stop_event, thread)
+
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
