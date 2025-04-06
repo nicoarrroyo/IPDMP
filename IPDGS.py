@@ -1,7 +1,7 @@
 """ Individual Project Data Generation Software (IPDGS)
 
 Description:
-    
+
 IPDGS processes Sentinel-2 imagery to generate labelled data for the 
 Individual Project Random Forest Model (IPRFM) as part of the overarching 
 Individual Project Machine Learning Software (IPMLS). It extracts water body 
@@ -9,7 +9,7 @@ information from satellite imagery and provides a UI for data labelling. The
 purpose of IPDGS is to create training and test data for IPRFM.
 
 Workflow:
-    
+
 1. Data Ingestion:
   - Reads Sentinel-2 image folders and locates necessary image bands.
 
@@ -31,7 +31,7 @@ Workflow:
   water bodies, labelled ROI coordinates, and chunk numbers to a CSV file.
 
 Output:
-    
+
 - Labelled data in CSV format, with chunk IDs, counts of water bodies, and 
 their coordinates.
 """
