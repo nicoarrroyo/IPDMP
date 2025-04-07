@@ -56,9 +56,9 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
-label_data = True
+label_data = False
 
 try: # personal pc mode
     title_size = 8
@@ -197,9 +197,9 @@ def get_sat(sat_name, sat_number, folder):
     print("==========")
     print("| STEP 5 |")
     print("==========")
+    start_time = time.monotonic()
     if label_data:
         print("data labelling start")
-        start_time = time.monotonic()
         
         # %%%% 5.1 Searching for, Opening, and Converting RGB Image
         stop_event, thread = start_spinner(message=f"opening {res} "
