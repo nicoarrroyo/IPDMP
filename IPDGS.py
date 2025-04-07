@@ -78,7 +78,7 @@ except: # uni mode
     plot_size_chunks = (11, 11)
 
 # %% General Mega Giga Function
-response_time = 0
+response_time = 0.0
 
 def get_sat(sat_name, sat_number, folder):
     print("====================")
