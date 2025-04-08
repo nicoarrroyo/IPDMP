@@ -57,26 +57,19 @@ dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
 high_res = False # use finer 10m spatial resolution (slower)
-show_index_plots = False
-label_data = False
+show_index_plots = True
+label_data = True
+title_size = 8
+label_size = 4
 
 try: # personal pc mode
-    title_size = 8
-    label_size = 4
     HOME = ("C:\\Users\\nicol\\OneDrive - " # personal computer user name
             "The University of Manchester\\Individual Project")
     os.chdir(HOME)
-    plot_size = (3, 3) # larger plots increase detail and pixel count
-    plot_size_chunks = (6, 6)
 except: # uni mode
-    title_size = 15
-    label_size = 8
     HOME = ("C:\\Users\\c55626na\\OneDrive - " # university computer user name
             "The University of Manchester\\Individual Project")
     os.chdir(HOME)
-    plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (11, 11)
-
 # %% General Mega Giga Function
 response_time = 0.0
 
@@ -186,7 +179,7 @@ def get_sat(sat_name, sat_number, folder):
         else:
             print("displaying water index images...")
         start_time = time.monotonic()
-        plot_indices(indices, sat_number, plot_size, dpi, save_images, res)
+        plot_indices(indices, sat_number, (3, 3), dpi, save_images, res)
         time_taken = time.monotonic() - start_time
         print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     else:
@@ -323,7 +316,7 @@ def get_sat(sat_name, sat_number, folder):
             if break_flag:
                 break
             
-            fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
+            fig, axes = plt.subplots(2, 2, figsize=(6, 6))
             # plot 1, top left: NDWI chunk (full resolution)
             axes[0][0].imshow(index_chunks[0][i])
             axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", 
