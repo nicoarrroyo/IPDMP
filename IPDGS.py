@@ -56,7 +56,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 save_images = False
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = True
 label_data = True
 title_size = 8
@@ -64,11 +64,11 @@ label_size = 4
 
 try: # personal pc mode
     HOME = ("C:\\Users\\nicol\\OneDrive - " # personal computer user name
-            "The University of Manchester\\Individual Project")
+            "The University of Manchester\\Individual Project\\Downloads")
     os.chdir(HOME)
 except: # uni mode
     HOME = ("C:\\Users\\c55626na\\OneDrive - " # university computer user name
-            "The University of Manchester\\Individual Project")
+            "The University of Manchester\\Individual Project\\Downloads")
     os.chdir(HOME)
 # %% General Mega Giga Function
 response_time = 0.0
