@@ -41,7 +41,8 @@ import time
 MAIN_START_TIME = time.monotonic()
 import os
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+from matplotlib import colors
 import csv
 from PIL import Image
 
@@ -55,21 +56,28 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
+high_res = False # use finer 10m spatial resolution (slower)
+show_index_plots = False
 save_images = False
-high_res = True # use finer 10m spatial resolution (slower)
-show_index_plots = True
 label_data = True
-title_size = 8
-label_size = 4
 
 try: # personal pc mode
+    title_size = 8
+    label_size = 4
     HOME = ("C:\\Users\\nicol\\OneDrive - " # personal computer user name
             "The University of Manchester\\Individual Project\\Downloads")
     os.chdir(HOME)
+    plot_size = (3, 3) # larger plots increase detail and pixel count
+    plot_size_chunks = (6, 6)
 except: # uni mode
+    title_size = 15
+    label_size = 8
     HOME = ("C:\\Users\\c55626na\\OneDrive - " # university computer user name
             "The University of Manchester\\Individual Project\\Downloads")
     os.chdir(HOME)
+    plot_size = (5, 5) # larger plots increase detail and pixel count
+    plot_size_chunks = (11, 11)
+
 # %% General Mega Giga Function
 response_time = 0.0
 
@@ -77,8 +85,9 @@ def get_sat(sat_name, sat_number, folder):
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
-    table_print(n_chunks=n_chunks, save_images=save_images, high_res=high_res, 
-                show_plots=show_index_plots, labelling=label_data)
+    table_print(n_chunks=n_chunks, high_res=high_res, 
+                show_plots=show_index_plots, save_images=save_images, 
+                labelling=label_data)
     
     # %%% 1. Opening Images and Creating Image Arrays
     print("==========")
@@ -179,7 +188,7 @@ def get_sat(sat_name, sat_number, folder):
         else:
             print("displaying water index images...")
         start_time = time.monotonic()
-        plot_indices(indices, sat_number, (3, 3), dpi, save_images, res)
+        plot_indices(indices, sat_number, plot_size, dpi, save_images, res)
         time_taken = time.monotonic() - start_time
         print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     else:
@@ -226,7 +235,11 @@ def get_sat(sat_name, sat_number, folder):
         break_flag = False
         
         path = HOME + satellite + folder
-        os.chdir(path)
+        labelling_path = path + "\\data_labelling"
+        if os.path.exists(labelling_path):
+            os.chdir(labelling_path)
+        else:
+            os.makedirs(labelling_path)
         
         lines = []
         data_file = "responses_" + str(n_chunks) + "_chunks.csv"
@@ -316,15 +329,18 @@ def get_sat(sat_name, sat_number, folder):
             if break_flag:
                 break
             
-            fig, axes = plt.subplots(2, 2, figsize=(6, 6))
+            norm = colors.Normalize(vmin=np.nanmin(ndwi), 
+                                    vmax=np.nanmax(ndwi)*0.8)
+            
+            fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
             # plot 1, top left: NDWI chunk (full resolution)
-            axes[0][0].imshow(index_chunks[0][i])
+            axes[0][0].imshow(index_chunks[0][i], norm=norm)
             axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", 
                                  fontsize=title_size)
             axes[0][0].tick_params(axis="both", labelsize=label_size)
             
             # plot 2, top right: MNDWI chunk (merged resolution)
-            axes[0][1].imshow(index_chunks[1][i])
+            axes[0][1].imshow(index_chunks[1][i], norm=norm)
             axes[0][1].set_title(f"{index_labels[1]} Chunk {i}", 
                                  fontsize=title_size)
             axes[0][1].tick_params(axis="both", labelsize=label_size)
@@ -493,7 +509,43 @@ def get_sat(sat_name, sat_number, folder):
     time_taken = time.monotonic() - start_time - response_time
     print(f"data labelling complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% XX. Satellite Output
+    # %%% 6. Data Segmentation
+    print("==========")
+    print("| STEP 6 |")
+    print("==========")
+# =============================================================================
+#     if not high_res:
+#         print("high-res must be enabled to proceed with data segmentation")
+#         return indices
+# =============================================================================
+    stop_event, thread = start_spinner(message="dividing data into classes")
+    start_time = time.monotonic()
+    
+    segmenting_path = path + "\\data_segmenting"
+    if os.path.exists(segmenting_path):
+        os.chdir(segmenting_path)
+    else:
+        os.makedirs(segmenting_path)
+    
+    # find the index of every chunk with a reservoir
+    
+    
+    # find the index of every chunk with a non-reservoir water body
+    
+    
+    # put all chunks in a folder
+    chunks_path = path + "\\chunks"
+    if os.path.exists(chunks_path):
+        os.chdir(chunks_path)
+    else:
+        os.makedirs(chunks_path)
+    
+    
+    time_taken = time.monotonic() - start_time
+    end_spinner(stop_event, thread)
+    print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
+    
+    # %%% 7. Satellite Output
     return indices
 # %% Running Functions
 """
