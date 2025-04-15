@@ -263,3 +263,35 @@ def plot_chunks(plot_size_chunks, index_chunks, tci_chunks, i, tci_60_array, c,
     axes[1].plot(chunk_ulx+chunk_length, chunk_uly+chunk_length, 
                  marker=",", color="red")
     plt.show()
+
+def logical_checks(high_res, show_index_plots, save_images, label_data):
+    # saving nothing
+    if save_images and not show_index_plots:
+        print("index plots will not be shown, and hence not saved")
+        valid_answer = False
+        while not valid_answer:
+            answer = input("do you want to save index plots? ")
+            if "yes" in answer or "no" in answer:
+                valid_answer = True
+            else:
+                print("please only answer 'yes' or 'no'")
+                answer = input("do you want to save index plots? ")
+        if "yes" in answer:
+            show_index_plots = True
+            save_images = True
+    
+    # computing high-res but not outputting
+    if high_res and not show_index_plots and not label_data:
+        print("please note that high-res images will be used, but they will "
+              "not be displayed in any way")
+        valid_answer = False
+        while not valid_answer:
+            answer = input("do you want to switch to high-res mode? ")
+            if "yes" in answer or "no" in answer:
+                valid_answer = True
+            else:
+                print("please only answer 'yes' or 'no'")
+                answer = input("do you want to switch to high-res mode? ")
+        if "yes" in answer:
+            print("ok")
+    return high_res, show_index_plots, save_images, label_data
