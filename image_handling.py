@@ -143,16 +143,17 @@ def plot_indices(data, sat_n, size, dpi, save_image, res):
         else:
             sat_name = "Sentinel"
             sat_letter = "S"
-        plt.title(f"{sat_name} {sat_n} {indices[i]} DPI{dpi} R{res}", 
-                  fontsize=8)
-        
-        ax = plt.gca()
-        plt.imshow(water_index)
-        
-        ax.spines["left"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-        ax.tick_params(left=False, bottom=False, 
-                       labelleft=False, labelbottom=False)
+        if i == 0:
+            plt.title(f"{sat_name} {sat_n} {indices[i]} DPI{dpi} R{res}", 
+                      fontsize=8)
+            
+            ax = plt.gca()
+            plt.imshow(water_index)
+            
+            ax.spines["left"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+            ax.tick_params(left=False, bottom=False, 
+                           labelleft=False, labelbottom=False)
         
         if save_image:
             print(f"saving {indices[i]} image", end="... ")
