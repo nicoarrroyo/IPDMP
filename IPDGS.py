@@ -198,134 +198,144 @@ def get_sat(sat_name, sat_number, folder):
     else:
         print("not displaying water index images")
     
-    # %%% 5. Data Labelling
-    global response_time
+    # %%% 5. Data Preparation
     print("==========")
     print("| STEP 5 |")
     print("==========")
     start_time = time.monotonic()
-    if label_data:
+    global response_time
+    print("data preparation start")
+    
+    # %%%% 5.1 Searching for, Opening, and Converting RGB Image
+    stop_event, thread = start_spinner(message=f"opening {res} "
+                                       "resolution true colour image")
+    path = HOME + satellite + folder
+    
+    tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
+    tci_file_name = prefix + f"_TCI_{res}.jp2"
+    tci_array = image_to_array(tci_path + tci_file_name)
+    
+    tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
+    tci_60_file_name = prefix + "_TCI_60m.jp2"
+    with Image.open(tci_60_path + tci_60_file_name) as img:
+        size = (img.width//10, img.height//10)
+        tci_60_array = np.array(img.resize(size))
+    end_spinner(stop_event, thread)
+    
+    # %%%% 5.2 Creating Chunks from Satellite Imagery
+    stop_event, thread = start_spinner(message=f"creating {n_chunks} chunks"
+                                       " from satellite imagery")
+    index_chunks = []
+    for index in indices:
+        index_chunks.append(split_array(array=index, n_chunks=n_chunks))
+    tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
+    end_spinner(stop_event, thread)
+    
+    # %%%% 5.3 Preparing File for Labelling
+    stop_event, thread = start_spinner(message="preparing file for labelling")
+    index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
+    break_flag = False
+    
+    path = HOME + satellite + folder
+    labelling_path = path + "\\data\\data labelling"
+    if os.path.exists(labelling_path):
+        os.chdir(labelling_path)
+    else:
+        os.makedirs(labelling_path)
+    
+    lines = []
+    header = ("chunk,reservoirs,water bodies,reservoir "
+    "coordinates,,,,,water body coordinates\n")
+    blank_entry_check(file=data_file) # remove all blank entries
+    
+    while True:
+        # file will always exist due to blank_entry_check call
+        with open(data_file, "r") as file:
+            lines = file.readlines()
+        try:
+            # Validate file data
+            for i in range(1, len(lines) - 1):
+                current_chunk = int(lines[i].split(",")[0])
+                next_chunk = int(lines[i + 1].split(",")[0])
+                if next_chunk - current_chunk != 1:
+                    print(f"Line {i + 2}, expected chunk {current_chunk + 1}")
+                    raise ValueError("File validity error")
+            last_chunk = int(lines[-1].split(",")[0])
+            break
+        except (ValueError, IndexError) as e:
+            end_spinner(stop_event, thread)
+            print(f"error - file with invalid data: {e}")
+            print("type 'quit' to exit, or 'new' for a fresh file")
+            response_time_start = time.monotonic()
+            ans = input("press enter to retry: ")
+            response_time += time.monotonic() - response_time_start
+            if ans.lower() == 'quit':
+                return indices
+            elif ans.lower() == 'new':
+                print("creating new file...")
+                with open(data_file, "w") as file:
+                    file.write(header)
+                    file.write("0, 1, 0\n") # dummy file to start up
+                continue
+    end_spinner(stop_event, thread)
+    
+    i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
+    
+    # find chunks with no reservoir coordinate data
+    reservoir_rows = []
+    body_rows = []
+    data_correction = False
+    
+    with open(data_file, "r") as file:
+        lines = file.readlines() # reread lines in case of changes
+        globals()["lines"] = lines
+    for j in range(1, len(lines)): # starting from the "headers" line
+        # check for reservoirs without coordinates
+        num_of_reservoirs = int(lines[j].split(",")[1])
+        res_no_coords = False # check if reservoirs have coordinates
+        try: # try to access coordinates
+            res_coord = lines[j].split(",")[2+num_of_reservoirs]
+            if res_coord[0] != "[":
+                res_no_coords = True
+        except: # if unable to access, they do not exist
+            res_no_coords = True
+        if num_of_reservoirs != 0 and res_no_coords:
+            reservoir_rows.append(j-1)
+            data_correction = True
+        
+        # check for non-reservoir water bodies without coordinates
+        num_of_bodies = int(lines[j].split(",")[2])
+        body_no_coords = False # check if water bodies have coordinates
+        try: # try to access coordinates
+            body_coord = lines[j].split(",")[7+num_of_bodies]
+            if body_coord[0] != "[":
+                body_no_coords = True
+        except: # if unable to access, they do not exist
+            body_no_coords = True
+        if num_of_bodies != 0 and body_no_coords:
+            body_rows.append(j-1)
+            data_correction = True
+    invalid_rows = combine_sort_unique(reservoir_rows, body_rows)
+    
+    if data_correction:
+        print(f"found {len(invalid_rows)} chunks containing "
+               "incomplete or missing no coordinate data")
+        i = invalid_rows[0]
+        invalid_rows_index = 0
+    time_taken = time.monotonic() - start_time - response_time
+    print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
+    
+    # %%% 6. Data Labelling
+    print("==========")
+    print("| STEP 6 |")
+    print("==========")
+    start_time = time.monotonic()
+    if not label_data:
+        print("not labelling data")
+    else:
         print("data labelling start")
         
-        # %%%% 5.1 Searching for, Opening, and Converting RGB Image
-        stop_event, thread = start_spinner(message=f"opening {res} "
-                                           "resolution true colour image")
-        path = HOME + satellite + folder
-        
-        tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
-        tci_file_name = prefix + f"_TCI_{res}.jp2"
-        tci_array = image_to_array(tci_path + tci_file_name)
-        
-        tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
-        tci_60_file_name = prefix + "_TCI_60m.jp2"
-        c = 10 # compress 60m resolution TCI for faster plotting
-        with Image.open(tci_60_path + tci_60_file_name) as img:
-            size = (img.width//c, img.height//c)
-            tci_60_array = np.array(img.resize(size))
-        end_spinner(stop_event, thread)
-        
-        # %%%% 5.2 Creating Chunks from Satellite Imagery
-        stop_event, thread = start_spinner(message=f"creating {n_chunks} chunks"
-                                           " from satellite imagery")
-        index_chunks = []
-        for index in indices:
-            index_chunks.append(split_array(array=index, n_chunks=n_chunks))
-        tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
-        end_spinner(stop_event, thread)
-        
-        # %%%% 5.3 Preparing File for Labelling
-        stop_event, thread = start_spinner(message="preparing file for labelling")
-        index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
-        break_flag = False
-        
-        path = HOME + satellite + folder
-        labelling_path = path + "\\data\\data_labelling"
-        if os.path.exists(labelling_path):
-            os.chdir(labelling_path)
-        else:
-            os.makedirs(labelling_path)
-        
-        lines = []
-        header = ("chunk,reservoirs,water bodies,reservoir "
-        "coordinates,,,,,water body coordinates\n")
-        blank_entry_check(file=data_file) # remove all blank entries
-        
-        while True:
-            # file will always exist due to blank_entry_check call
-            with open(data_file, "r") as file:
-                lines = file.readlines()
-            try:
-                # Validate file data
-                for i in range(1, len(lines) - 1):
-                    current_chunk = int(lines[i].split(",")[0])
-                    next_chunk = int(lines[i + 1].split(",")[0])
-                    if next_chunk - current_chunk != 1:
-                        print(f"Line {i + 2}, expected chunk {current_chunk + 1}")
-                        raise ValueError("File validity error")
-                last_chunk = int(lines[-1].split(",")[0])
-                break
-            except (ValueError, IndexError) as e:
-                end_spinner(stop_event, thread)
-                print(f"error - file with invalid data: {e}")
-                print("type 'quit' to exit, or 'new' for a fresh file")
-                response_time_start = time.monotonic()
-                ans = input("press enter to retry: ")
-                response_time += time.monotonic() - response_time_start
-                if ans.lower() == 'quit':
-                    return indices
-                elif ans.lower() == 'new':
-                    print("creating new file...")
-                    with open(data_file, "w") as file:
-                        file.write(header)
-                        file.write("0, 1, 0\n") # dummy file to start up
-                    continue
-        end_spinner(stop_event, thread)
-        
-        i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
-        
-        # find chunks with no reservoir coordinate data
-        reservoir_rows = []
-        body_rows = []
-        data_correction = False
-        
-        with open(data_file, "r") as file:
-            lines = file.readlines() # reread lines in case of changes
-            globals()["lines"] = lines
-        for j in range(1, len(lines)): # starting from the "headers" line
-            # check for reservoirs without coordinates
-            num_of_reservoirs = int(lines[j].split(",")[1])
-            res_no_coords = False # check if reservoirs have coordinates
-            try: # try to access coordinates
-                res_coord = lines[j].split(",")[2+num_of_reservoirs]
-                if res_coord[0] != "[":
-                    res_no_coords = True
-            except: # if unable to access, they do not exist
-                res_no_coords = True
-            if num_of_reservoirs != 0 and res_no_coords:
-                reservoir_rows.append(j-1)
-                data_correction = True
-            
-            # check for non-reservoir water bodies without coordinates
-            num_of_bodies = int(lines[j].split(",")[2])
-            body_no_coords = False # check if water bodies have coordinates
-            try: # try to access coordinates
-                body_coord = lines[j].split(",")[7+num_of_bodies]
-                if body_coord[0] != "[":
-                    body_no_coords = True
-            except: # if unable to access, they do not exist
-                body_no_coords = True
-            if num_of_bodies != 0 and body_no_coords:
-                body_rows.append(j-1)
-                data_correction = True
-        invalid_rows = combine_sort_unique(reservoir_rows, body_rows)
-        
-        if data_correction:
-            print(f"found {len(invalid_rows)} chunks containing "
-                   "incomplete or missing no coordinate data")
-            i = invalid_rows[0]
-            invalid_rows_index = 0
-        
-        # %%%% 5.4 Outputting Images
+        # %%%% 6.1 Outputting Images
         print("outputting images...")
         
         while i < len(index_chunks[0]):
@@ -339,7 +349,7 @@ def get_sat(sat_name, sat_number, folder):
             max_index[1] = round(np.nanmax(index_chunks[1][i]), 2)
             print(f"MAX {index_labels[1]}: {max_index[1]}")
             
-            # %%%% 5.5 User Labelling
+            # %%%% 6.2 User Labelling
             blank_entry_check(file=data_file)
             response_time_start = time.monotonic()
             if data_correction:
@@ -449,28 +459,18 @@ def get_sat(sat_name, sat_number, folder):
                 else: # convert entry_list to a string for csv
                     with open(data_file, mode="a") as ap: # append
                         ap.write(f"\n{csv_entry}")
-    else:
-        print("not labelling data")
-    print(f"responding time: {round(response_time, 2)} seconds")            
+        print(f"responding time: {round(response_time, 2)} seconds")            
+        time_taken = time.monotonic() - start_time - response_time
+        print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
     
-    time_taken = time.monotonic() - start_time - response_time
-    print(f"data labelling complete! time taken: {round(time_taken, 2)} seconds")
-    
-    # %%% 6. Data Segmentation
+    # %%% 7. Data Segmentation
     print("==========")
-    print("| STEP 6 |")
+    print("| STEP 7 |")
     print("==========")
     #stop_event, thread = start_spinner(message="dividing data into classes")
     start_time = time.monotonic()
     
-    path = HOME + satellite + folder
-    labelling_path = path + "\\data\\data_labelling"
-    if os.path.exists(labelling_path):
-        os.chdir(labelling_path)
-    else:
-        os.makedirs(labelling_path)
-    
-    # find the index of every chunk with a reservoir or water body
+    # extract the coordinates of each reservoir and water body
     res_rows = []
     res_coords = []
     body_rows = []
@@ -483,44 +483,30 @@ def get_sat(sat_name, sat_number, folder):
             res_rows.append(lines[i])
             if int(res_rows[-1][1]) > 1:
                 for j in range(3, 3+int(res_rows[-1][1])):
-                    res_coords.append(extract_coords(res_rows[-1][j]))
+                    res_coords.append((i, extract_coords(res_rows[-1][j])))
             elif int(res_rows[-1][1]) == 1:
-                res_coords.append(extract_coords(res_rows[-1][3]))
+                res_coords.append((i, extract_coords(res_rows[-1][3])))
+        
         if int(lines[i][2]) > 0: # if there is a water body
             body_rows.append(lines[i])
             if int(body_rows[-1][2]) > 1:
                 for j in range(8, 8+int(body_rows[-1][2])):
-                    body_coords.append(extract_coords(body_rows[-1][j]))
+                    body_coords.append((i, extract_coords(body_rows[-1][j])))
             elif int(body_rows[-1][2]) == 1:
-                body_coords.append(extract_coords(body_rows[-1][3]))
-# =============================================================================
-#             for j in range(8, 7+int(body_rows[-1][2])):
-#                 body_coords.append(extract_coords(body_rows[-1][j]))
-# =============================================================================
+                body_coords.append((i, extract_coords(body_rows[-1][8])))
     globals()["lines"] = lines
-    globals()["res_rows"] = res_rows
-    globals()["body_rows"] = body_rows
     globals()["res_coords"] = res_coords
     globals()["body_coords"] = body_coords
     
-    # isolate each reservoir and water body in their own image
-# =============================================================================
-#     res_coords = []
-#     bod_coords = []
-#     for i in range(0, len(res_rows)):
-#             for j in range(3, 2+int(res_rows[i])):
-#                 print("i", i)
-#                 print("j", j)
-#                 res_coords.append(extract_coords(res_rows[0][j]))
-#     for i in range(0, len(body_rows)):
-#         for j in range(8, 7+int(body_rows[i])):
-#             bod_coords.append(extract_coords(lines[body_rows[i]][j]))
-#     globals()["res_coords"] = res_coords
-#     globals()["bod_coords"] = bod_coords
-# =============================================================================
+    # isolate and save an image of each reservoir and water body
+    for i in range(0, 3):
+        print(res_coords[i])
+        print(index_chunks[res_coords[i][0]])
+        img = Image.fromarray(index_chunks[res_coords[i][0]])
+        img.show()
     
     # save each image
-    segmenting_path = path + "\\data\\data_segmenting"
+    segmenting_path = path + "\\data\\data segmenting"
     if os.path.exists(segmenting_path):
         os.chdir(segmenting_path)
     else:
@@ -529,9 +515,9 @@ def get_sat(sat_name, sat_number, folder):
     
     time_taken = time.monotonic() - start_time
     #end_spinner(stop_event, thread)
-    print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% 7. Satellite Output
+    # %%% 8. Satellite Output
     return indices
 # %% Running Functions
 """
