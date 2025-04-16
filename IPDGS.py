@@ -41,8 +41,6 @@ import time
 MAIN_START_TIME = time.monotonic()
 import os
 import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib import colors
 import csv
 from PIL import Image
 
@@ -50,6 +48,7 @@ from PIL import Image
 from data_handling import rewrite, blank_entry_check, check_file_permission
 # from data_handling import extract_coordinates
 from image_handling import image_to_array, mask_sentinel, plot_indices
+from image_handling import plot_chunks
 from misc import get_sentinel_bands, split_array, combine_sort_unique
 from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 
@@ -328,65 +327,8 @@ def get_sat(sat_name, sat_number, folder):
         while i < len(index_chunks[0]):
             if break_flag:
                 break
-            
-            norm = colors.Normalize(vmin=np.nanmin(ndwi), 
-                                    vmax=np.nanmax(ndwi)*0.8)
-            
-            fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
-            # plot 1, top left: NDWI chunk (full resolution)
-            axes[0][0].imshow(index_chunks[0][i], norm=norm)
-            axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", 
-                                 fontsize=title_size)
-            axes[0][0].tick_params(axis="both", labelsize=label_size)
-            
-            # plot 2, top right: MNDWI chunk (merged resolution)
-            axes[0][1].imshow(index_chunks[1][i], norm=norm)
-            axes[0][1].set_title(f"{index_labels[1]} Chunk {i}", 
-                                 fontsize=title_size)
-            axes[0][1].tick_params(axis="both", labelsize=label_size)
-            
-            # plot 3, bottom left: TCI chunk (full resolution)
-            axes[1][0].imshow(tci_chunks[i])
-            axes[1][0].set_title(f"TCI Chunk {i}", fontsize=title_size)
-            axes[1][0].tick_params(axis="both", labelsize=label_size)
-            
-            # plot 4, bottom right: tracker TCI (60m resolution)
-            axes[1][1].imshow(tci_60_array)
-            axes[1][1].set_title("Tracker TCI", fontsize=title_size)
-            axes[1][1].axis("on")
-            
-            # calculate chunk geometry
-            chunks_per_side = int(np.sqrt(len(tci_chunks)))
-            chunk_col = i % chunks_per_side
-            chunk_row = i // chunks_per_side
-            axes[1][1].text(0.5, 0.95, f"COL {chunk_col} ROW {chunk_row}", 
-                            transform=axes[1][1].transAxes, ha="center", 
-                            va="center", fontsize=label_size+1, color="yellow")
-            
-            # calculate dimensions in the 60m array
-            side_length = tci_60_array.shape[0] # assuming square image
-            chunk_length = side_length / chunks_per_side
-            chunk_ulx = chunk_col * chunk_length
-            chunk_uly = chunk_row * chunk_length
-            
-            # axes on TCI "tracker" image are "number of chunks"
-            axes[1][1].set_xticks(np.linspace(0, side_length, 8))
-            axes[1][1].set_yticks(np.linspace(0, side_length, 8))
-            axes_tick_labels = np.linspace(0, chunks_per_side, 8).astype(int)
-            axes[1][1].set_xticklabels(axes_tick_labels, fontsize=label_size)
-            axes[1][1].set_yticklabels(axes_tick_labels, fontsize=label_size)
-            axes[1][1].set_xlabel("Chunk Column", fontsize=label_size+1)
-            axes[1][1].set_ylabel("Chunk Row", fontsize=label_size+1)
-            
-            # draw a red square around the current chunk
-            tci_tracker_square = plt.Rectangle((chunk_ulx, chunk_uly), 
-                                           chunk_length, chunk_length, 
-                                           linewidth=1, edgecolor="r", 
-                                           facecolor=None)
-            axes[1][1].add_patch(tci_tracker_square)
-            
-            plt.tight_layout()
-            plt.show()
+            plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, 
+                        title_size, label_size, tci_chunks, tci_60_array)
             max_index = [0, 0]
             max_index[0] = round(np.nanmax(index_chunks[0][i]), 2)
             print(f"MAX {index_labels[0]}: {max_index[0]}", end=" | ")
@@ -441,6 +383,7 @@ def get_sat(sat_name, sat_number, folder):
                     i += 1
                     print("generating next chunk...", flush=True)
                     break # exit loop and continue to next chunk
+                
                 # handle non-integer responses
                 except:
                     n_reservoirs = str(n_reservoirs)
@@ -513,36 +456,34 @@ def get_sat(sat_name, sat_number, folder):
     print("==========")
     print("| STEP 6 |")
     print("==========")
-# =============================================================================
-#     if not high_res:
-#         print("high-res must be enabled to proceed with data segmentation")
-#         return indices
-# =============================================================================
-    stop_event, thread = start_spinner(message="dividing data into classes")
+    #stop_event, thread = start_spinner(message="dividing data into classes")
     start_time = time.monotonic()
+    
+    # find the index of every chunk with a reservoir or non-reservoir water body
+    reservoir_indices = []
+    body_indices = []
+    with open(data_file, "r") as file:
+        lines = file.readlines()
+    for i in range(1, len(lines)):
+        if int(lines[i].split(",")[1]) > 0:
+            reservoir_indices.append(i - 1)
+        if int(lines[i].split(",")[2]) > 0:
+            body_indices.append(i - 1)
+        
+    
+    globals()["res_ind"] = reservoir_indices
+    globals()["bod_ind"] = body_indices
     
     segmenting_path = path + "\\data_segmenting"
     if os.path.exists(segmenting_path):
         os.chdir(segmenting_path)
     else:
         os.makedirs(segmenting_path)
-    
-    # find the index of every chunk with a reservoir
-    
-    
-    # find the index of every chunk with a non-reservoir water body
-    
-    
-    # put all chunks in a folder
-    chunks_path = path + "\\chunks"
-    if os.path.exists(chunks_path):
-        os.chdir(chunks_path)
-    else:
-        os.makedirs(chunks_path)
+    os.chdir(path)
     
     
     time_taken = time.monotonic() - start_time
-    end_spinner(stop_event, thread)
+    #end_spinner(stop_event, thread)
     print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 7. Satellite Output
