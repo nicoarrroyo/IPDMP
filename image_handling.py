@@ -1,7 +1,8 @@
 import numpy as np
 import os
 from PIL import Image
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+from matplotlib import colors
 
 def image_to_array(file_path_s):
     """
@@ -172,3 +173,112 @@ def plot_indices(data, sat_n, size, dpi, save_image, res):
         print(f"displaying {indices[i]} image", end="... ")
         plt.show()
         print(f"{indices[i]} image display complete!")
+
+def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size, 
+                label_size, tci_chunks, tci_60_array):
+    """
+    Plots image chunks of calculated indices (NDWI and MNDWI) and True Color 
+    Images (TCI).
+    
+    This function visualizes the processed image data, displaying index chunks 
+    and corresponding TCI chunks alongside a full-resolution TCI image with 
+    the chunk's location highlighted.
+    
+    Parameters
+    ----------
+    ndwi : numpy.ndarray
+        The numpy array with all calculated pixel values of NDWI in a given 
+        satellite image.
+    mndwi : numpy.ndarray
+        The numpy array with all calculated pixel values of NDWI in a given 
+        satellite image.
+    index_chunks : list of numpy.ndarray
+        A list containing numpy arrays representing the calculated index 
+        chunks (NDWI, MNDWI, AWEI-SH, AWEI-NSH). Each element of the list is a 
+        3D numpy array, where the first dimension corresponds to the chunk 
+        index, and the last two dimensions are the spatial dimensions of the 
+        chunk.
+    plot_size_chunks : tuple of int
+        The size of the plot figure (width, height) for the subplots.
+    i : int
+        The index of the specific chunk to be plotted.
+    title_size : int
+        The size of the title in each plot.
+    label_size : int
+        The size of the labels (i.e. the axes labels) in each plot.
+    tci_chunks : numpy.ndarray
+        A 3D numpy array representing the True Color Image (TCI) chunks. The 
+        first dimension corresponds to thechunk index, and the last two 
+        dimensions are the spatial dimensions of the chunk.
+    tci_60_array : numpy.ndarray
+        A numpy array representing the full-resolution (60m) True Color 
+        Image (TCI).
+        
+    Returns
+    -------
+    None
+        This function displays plots and prints maximum index values; it does 
+        not return any values.
+    
+    """
+    index_labels = ["NDWI", "MNDWI"]
+    norm_ndwi = colors.Normalize(vmin=np.nanmin(ndwi), 
+                                 vmax=np.nanmax(ndwi)*0.8)
+    norm_mndwi = colors.Normalize(vmin=np.nanmin(mndwi), 
+                                 vmax=np.nanmax(mndwi)*0.8)
+    
+    fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
+    # plot 1, top left: NDWI chunk (full resolution)
+    axes[0][0].imshow(index_chunks[0][i], norm=norm_ndwi)
+    axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", 
+                         fontsize=title_size)
+    axes[0][0].tick_params(axis="both", labelsize=label_size)
+    
+    # plot 2, top right: MNDWI chunk (merged resolution)
+    axes[0][1].imshow(index_chunks[1][i], norm=norm_mndwi)
+    axes[0][1].set_title(f"{index_labels[1]} Chunk {i}", 
+                         fontsize=title_size)
+    axes[0][1].tick_params(axis="both", labelsize=label_size)
+    
+    # plot 3, bottom left: TCI chunk (full resolution)
+    axes[1][0].imshow(tci_chunks[i])
+    axes[1][0].set_title(f"TCI Chunk {i}", fontsize=title_size)
+    axes[1][0].tick_params(axis="both", labelsize=label_size)
+    
+    # plot 4, bottom right: tracker TCI (60m resolution)
+    axes[1][1].imshow(tci_60_array)
+    axes[1][1].set_title("Tracker TCI", fontsize=title_size)
+    axes[1][1].axis("on")
+    
+    # calculate chunk geometry
+    chunks_per_side = int(np.sqrt(len(tci_chunks)))
+    chunk_col = i % chunks_per_side
+    chunk_row = i // chunks_per_side
+    axes[1][1].text(0.5, 0.95, f"COL {chunk_col} ROW {chunk_row}", 
+                    transform=axes[1][1].transAxes, ha="center", 
+                    va="center", fontsize=label_size+1, color="yellow")
+    
+    # calculate dimensions in the 60m array
+    side_length = tci_60_array.shape[0] # assuming square image
+    chunk_length = side_length / chunks_per_side
+    chunk_ulx = chunk_col * chunk_length
+    chunk_uly = chunk_row * chunk_length
+    
+    # axes on TCI "tracker" image are "number of chunks"
+    axes[1][1].set_xticks(np.linspace(0, side_length, 8))
+    axes[1][1].set_yticks(np.linspace(0, side_length, 8))
+    axes_tick_labels = np.linspace(0, chunks_per_side, 8).astype(int)
+    axes[1][1].set_xticklabels(axes_tick_labels, fontsize=label_size)
+    axes[1][1].set_yticklabels(axes_tick_labels, fontsize=label_size)
+    axes[1][1].set_xlabel("Chunk Column", fontsize=label_size+1)
+    axes[1][1].set_ylabel("Chunk Row", fontsize=label_size+1)
+    
+    # draw a red square around the current chunk
+    tci_tracker_square = plt.Rectangle((chunk_ulx, chunk_uly), 
+                                   chunk_length, chunk_length, 
+                                   linewidth=1, edgecolor="r", 
+                                   facecolor=None)
+    axes[1][1].add_patch(tci_tracker_square)
+    
+    plt.tight_layout()
+    plt.show()
