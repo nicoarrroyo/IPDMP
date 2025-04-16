@@ -55,7 +55,6 @@ def blank_entry_check(file):
         with open(file, mode="w", newline="") as wr: # write cleaned rows back
             csv_writer = csv.writer(wr)
             csv_writer.writerows(cleaned_rows)
-        # print(f"{len(invalid_rows)} invalid entries were removed on", invalid_rows)
 
 def check_file_permission(file_name):
     """
@@ -84,7 +83,7 @@ def check_file_permission(file_name):
             print("could not open file - please close the responses file")
             input("press enter to retry")
 
-def extract_coordinates(coord_string):
+def extract_coords(coord_string):
     """
     Extracts coordinates from a string (including square brackets) and returns 
     them as a list of floats.
@@ -97,7 +96,7 @@ def extract_coordinates(coord_string):
       list: A list of floats representing the coordinates.
     """
     try:
-        # Remove square brackets and split the string into individual numeric strings
+        # Remove square brackets, split the string into numeric strings
         coord_string = coord_string.replace('[', '').replace(']', '')
         coord_strings = coord_string.split()
         
