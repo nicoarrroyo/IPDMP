@@ -46,19 +46,23 @@ from PIL import Image
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
-# from data_handling import extract_coordinates
+from data_handling import extract_coords
+
 from image_handling import image_to_array, mask_sentinel, plot_indices
 from image_handling import plot_chunks
+
 from misc import get_sentinel_bands, split_array, combine_sort_unique
+
 from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
+data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
-label_data = True
+label_data = False
 
 try: # personal pc mode
     title_size = 8
@@ -98,24 +102,25 @@ def get_sat(sat_name, sat_number, folder):
     
     file_paths = []
     satellite = f"\\{sat_name} {sat_number}\\"
-    path = HOME + satellite + folder + "\\GRANULE"
+    path = HOME + satellite + folder
+    os.chdir(path)
     
+    path = path + "\\GRANULE"
     subdirs = [d for d in os.listdir(path) 
                if os.path.isdir(os.path.join(path, d))]
     if len(subdirs) == 1:
-        path = (f"{path}\\{subdirs[0]}\\")
-        os.chdir(path)
+        path = (f"{path}\\{subdirs[0]}")
     else:
         print("Too many subdirectories in 'GRANULE':", len(subdirs))
         return
     
     if high_res:
         res = "10m"
-        path_10 = (path + "IMG_DATA\\R10m\\") # blue, green, nir
-        path_20 = (path + "IMG_DATA\\R20m\\") # swir1 and swir2
+        path_10 = (f"{path}\\IMG_DATA\\R10m") # blue, green, nir
+        path_20 = (f"{path}\\IMG_DATA\\R20m") # swir1 and swir2
     else:
         res = "60m"
-        path_60 = (path + "IMG_DATA\\R60m\\") # all bands
+        path_60 = (f"{path}\\IMG_DATA\\R60m") # all bands
     
     (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
      processing_baseline_number, relative_orbit_number, tile_number_field, 
@@ -126,11 +131,11 @@ def get_sat(sat_name, sat_number, folder):
     for band in bands:
         if high_res:
             if band == "02" or band == "03" or band == "08":
-                file_paths.append(path_10 + prefix + "_B" + band + "_10m.jp2")
+                file_paths.append(f"{path_10}\\{prefix}_B{band}_10m.jp2")
             else:
-                file_paths.append(path_20 + prefix + "_B" + band + "_20m.jp2")
+                file_paths.append(f"{path_20}\\{prefix}_B{band}_20m.jp2")
         else:
-            file_paths.append(path_60 + prefix + "_B" + band + "_60m.jp2")
+                file_paths.append(f"{path_60}\\{prefix}_B{band}_60m.jp2")
     
     image_arrays = image_to_array(file_paths) # this is the long operation
     
@@ -234,14 +239,13 @@ def get_sat(sat_name, sat_number, folder):
         break_flag = False
         
         path = HOME + satellite + folder
-        labelling_path = path + "\\data_labelling"
+        labelling_path = path + "\\data\\data_labelling"
         if os.path.exists(labelling_path):
             os.chdir(labelling_path)
         else:
             os.makedirs(labelling_path)
         
         lines = []
-        data_file = "responses_" + str(n_chunks) + "_chunks.csv"
         header = ("chunk,reservoirs,water bodies,reservoir "
         "coordinates,,,,,water body coordinates\n")
         blank_entry_check(file=data_file) # remove all blank entries
@@ -459,27 +463,68 @@ def get_sat(sat_name, sat_number, folder):
     #stop_event, thread = start_spinner(message="dividing data into classes")
     start_time = time.monotonic()
     
-    # find the index of every chunk with a reservoir or non-reservoir water body
-    reservoir_indices = []
-    body_indices = []
+    path = HOME + satellite + folder
+    labelling_path = path + "\\data\\data_labelling"
+    if os.path.exists(labelling_path):
+        os.chdir(labelling_path)
+    else:
+        os.makedirs(labelling_path)
+    
+    # find the index of every chunk with a reservoir or water body
+    res_rows = []
+    res_coords = []
+    body_rows = []
+    body_coords = []
     with open(data_file, "r") as file:
         lines = file.readlines()
     for i in range(1, len(lines)):
-        if int(lines[i].split(",")[1]) > 0:
-            reservoir_indices.append(i - 1)
-        if int(lines[i].split(",")[2]) > 0:
-            body_indices.append(i - 1)
-        
+        lines[i] = lines[i].split(",")
+        if int(lines[i][1]) > 0: # if there is a reservoir
+            res_rows.append(lines[i])
+            if int(res_rows[-1][1]) > 1:
+                for j in range(3, 3+int(res_rows[-1][1])):
+                    res_coords.append(extract_coords(res_rows[-1][j]))
+            elif int(res_rows[-1][1]) == 1:
+                res_coords.append(extract_coords(res_rows[-1][3]))
+        if int(lines[i][2]) > 0: # if there is a water body
+            body_rows.append(lines[i])
+            if int(body_rows[-1][2]) > 1:
+                for j in range(8, 8+int(body_rows[-1][2])):
+                    body_coords.append(extract_coords(body_rows[-1][j]))
+            elif int(body_rows[-1][2]) == 1:
+                body_coords.append(extract_coords(body_rows[-1][3]))
+# =============================================================================
+#             for j in range(8, 7+int(body_rows[-1][2])):
+#                 body_coords.append(extract_coords(body_rows[-1][j]))
+# =============================================================================
+    globals()["lines"] = lines
+    globals()["res_rows"] = res_rows
+    globals()["body_rows"] = body_rows
+    globals()["res_coords"] = res_coords
+    globals()["body_coords"] = body_coords
     
-    globals()["res_ind"] = reservoir_indices
-    globals()["bod_ind"] = body_indices
+    # isolate each reservoir and water body in their own image
+# =============================================================================
+#     res_coords = []
+#     bod_coords = []
+#     for i in range(0, len(res_rows)):
+#             for j in range(3, 2+int(res_rows[i])):
+#                 print("i", i)
+#                 print("j", j)
+#                 res_coords.append(extract_coords(res_rows[0][j]))
+#     for i in range(0, len(body_rows)):
+#         for j in range(8, 7+int(body_rows[i])):
+#             bod_coords.append(extract_coords(lines[body_rows[i]][j]))
+#     globals()["res_coords"] = res_coords
+#     globals()["bod_coords"] = bod_coords
+# =============================================================================
     
-    segmenting_path = path + "\\data_segmenting"
+    # save each image
+    segmenting_path = path + "\\data\\data_segmenting"
     if os.path.exists(segmenting_path):
         os.chdir(segmenting_path)
     else:
         os.makedirs(segmenting_path)
-    os.chdir(path)
     
     
     time_taken = time.monotonic() - start_time
