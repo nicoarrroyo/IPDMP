@@ -557,6 +557,7 @@ def get_sat(sat_name, sat_number, folder):
     ndwi_chunks = index_chunks[0]
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
+    print("reservoir data segmentation start")
     for i in range(len(res_coords)):
         # NDWI data
         res_ndwi_path = path + "\\data\\ndwi\\reservoirs"
@@ -576,6 +577,7 @@ def get_sat(sat_name, sat_number, folder):
                                         coordinates=res_coords[i][1])
     
     # %%%%% 7.2.2 Create an image of each water body and save it
+    print("water body data segmentation")
     for i in range(len(body_coords)):
         # NDWI data
         body_ndwi_path = path + "\\data\\ndwi\\water bodies"
