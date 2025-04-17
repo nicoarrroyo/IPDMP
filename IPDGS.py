@@ -557,6 +557,9 @@ def get_sat(sat_name, sat_number, folder):
     ndwi_chunks = index_chunks[0]
     segmenting_path = path + "\\data\\data segmenting"
     change_to_folder(segmenting_path)
+    dupes = [[], [], [], []]
+    dupe_labels = [("ndwi reservoirs", "tci reservoirs", 
+                    "ndwi water bodies", "tci water bodies")]
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
     # for i in range(len(res_coords))
@@ -565,16 +568,16 @@ def get_sat(sat_name, sat_number, folder):
         res_ndwi_path = path + "\\data\\data segmenting\\reservoirs\\ndwi"
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {res_coords[i][0]-1} reservoir {i+1}.png"
-        dupes = save_image_file(data=ndwi_chunks[res_coords[i][0]-1], 
-                                image_name=image_name, 
-                                normalise=True)
+        dupes[0].append(save_image_file(data=ndwi_chunks[res_coords[i][0]-1], 
+                                        image_name=image_name, 
+                                        normalise=True))
         # TCI data
         res_tci_path = path + "\\data\\data segmenting\\reservoirs\\tci"
         change_to_folder(res_tci_path)
         image_name = f"tci chunk {res_coords[i][0]-1} reservoir {i+1}.png"
-        dupes = save_image_file(data=tci_chunks[res_coords[i][0]-1], 
-                                image_name=image_name, 
-                                normalise=False)
+        dupes[1].append(save_image_file(data=tci_chunks[res_coords[i][0]-1], 
+                                        image_name=image_name, 
+                                        normalise=False))
     
     # %%%%% 7.2.3 Change directory to the water body image folder
     body_path = path + "\\data\\data segmenting\\water bodies"
@@ -587,21 +590,22 @@ def get_sat(sat_name, sat_number, folder):
         body_ndwi_path = path + "\\data\\data segmenting\\water bodies\\ndwi"
         change_to_folder(body_ndwi_path)
         image_name = f"ndwi chunk {body_coords[i][0]-1} water body {i+1}.png"
-        dupes = save_image_file(data=ndwi_chunks[body_coords[i][0]-1], 
-                                image_name=image_name, 
-                                normalise=True)
+        dupes[2].append(save_image_file(data=ndwi_chunks[body_coords[i][0]-1], 
+                                        image_name=image_name, 
+                                        normalise=True))
         # TCI data
         body_tci_path = path + "\\data\\data segmenting\\water bodies\\tci"
         change_to_folder(body_tci_path)
         image_name = f"tci chunk {body_coords[i][0]-1} water body {i+1}.png"
-        dupes = save_image_file(data=tci_chunks[body_coords[i][0]-1], 
-                                image_name=image_name, 
-                                normalise=False)
+        dupes[3].append(save_image_file(data=tci_chunks[body_coords[i][0]-1], 
+                                        image_name=image_name, 
+                                        normalise=False))
     
-    if dupes:
-        print("please check folder for duplicates. duplicate files were "
-              "tagged with '[n] dupe' in the name, where n is the number "
-              "of duplicates found.")
+    try:
+        for i in range(len(dupe_labels[0])):
+            print(f"{len(dupes[i])} duplicates in {dupe_labels[0][i]}")
+    except:
+        print("no duplicates found")
     
     time_taken = time.monotonic() - start_time
     #end_spinner(stop_event, thread)
