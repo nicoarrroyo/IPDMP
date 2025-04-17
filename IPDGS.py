@@ -43,14 +43,13 @@ import os
 import numpy as np
 import csv
 from PIL import Image
-from matplotlib import pyplot as plt
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
-from data_handling import extract_coords
+from data_handling import extract_coords, change_to_folder
 
 from image_handling import image_to_array, mask_sentinel, plot_indices
-from image_handling import plot_chunks
+from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
 
@@ -60,7 +59,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
 label_data = False
@@ -101,11 +100,23 @@ def get_sat(sat_name, sat_number, folder):
                                        "creating image arrays")
     start_time = time.monotonic()
     
+    # %%%% 1.1 Establishing Paths
+    """Most Sentinel 2 files that come packaged in a satellite image folder 
+    follow naming conventions that use information contained in the title of 
+    the folder. This information can be used to easily navigate through the 
+    folder's contents."""
     file_paths = []
     satellite = f"\\{sat_name} {sat_number}\\"
     path = HOME + satellite + folder
     os.chdir(path)
     
+    # %%%%% 1.1.1 Subfolder naming convention edge case
+    """This folder has a strange naming convention that doesn't quite apply to 
+    the other folders, so it's difficult to find a rule that would work for 
+    any Sentinel 2 image. The easier way of finding this folder is by 
+    searching for any available directories in the GRANULE folder, and if 
+    there is more than one, then alert the user and exit, otherwise go into 
+    that one directory because it will be the one we're looking for."""
     path = path + "\\GRANULE"
     subdirs = [d for d in os.listdir(path) 
                if os.path.isdir(os.path.join(path, d))]
@@ -115,6 +126,12 @@ def get_sat(sat_name, sat_number, folder):
         print("Too many subdirectories in 'GRANULE':", len(subdirs))
         return
     
+    # %%%%% 1.1.2 Resolution selection and file name deconstruction
+    """Low resolution is beneficial for faster processing times, but is not 
+    good for rigorous data generation. High resolution combines some 10m and 
+    20m bands for the highest fidelity images, but processing these images is 
+    much slower. The file paths pointing to the band image files are also 
+    finalised in this section."""
     if high_res:
         res = "10m"
         path_10 = (f"{path}\\IMG_DATA\\R10m") # blue, green, nir
@@ -138,7 +155,13 @@ def get_sat(sat_name, sat_number, folder):
         else:
                 file_paths.append(f"{path_60}\\{prefix}_B{band}_60m.jp2")
     
-    image_arrays = image_to_array(file_paths) # this is the long operation
+    # %%%% 1.2 Opening and Converting Images
+    """This is the long operation. It is very costly to open the large images, 
+    which is why the high-res option exists. When troubleshooting or just 
+    trying out the program, it is easier and much faster (about 20x faster) to 
+    just use the 60m resolution images. However, when doing any actual data 
+    generation, the 60m resolution images are not sufficient."""
+    image_arrays = image_to_array(file_paths)
     
     time_taken = time.monotonic() - start_time
     end_spinner(stop_event, thread)
@@ -166,7 +189,7 @@ def get_sat(sat_name, sat_number, folder):
     stop_event, thread = start_spinner(message="populating water index arrays")
     start_time = time.monotonic()
     
-    # first convert to int. np.uint16 type is bad for algebraic operations!
+    # first convert to int... np.uint16 type is bad for algebraic operations!
     for i, image_array in enumerate(image_arrays):
         image_arrays[i] = image_array.astype(int)
     blue, green, nir, swir1, swir2 = image_arrays
@@ -208,6 +231,7 @@ def get_sat(sat_name, sat_number, folder):
     print("data preparation start")
     
     # %%%% 5.1 Searching for, Opening, and Converting RGB Image
+    """ADD DESCRIPTION HERE"""
     stop_event, thread = start_spinner(message=f"opening {res} "
                                        "resolution true colour image")
     path = HOME + satellite + folder
@@ -224,6 +248,7 @@ def get_sat(sat_name, sat_number, folder):
     end_spinner(stop_event, thread)
     
     # %%%% 5.2 Creating Chunks from Satellite Imagery
+    """ADD DESCRIPTION HERE"""
     stop_event, thread = start_spinner(message=f"creating {n_chunks} chunks"
                                        " from satellite imagery")
     index_chunks = []
@@ -233,22 +258,32 @@ def get_sat(sat_name, sat_number, folder):
     end_spinner(stop_event, thread)
     
     # %%%% 5.3 Preparing File for Labelling
+    """ADD DESCRIPTION HERE"""
     stop_event, thread = start_spinner(message="preparing file for labelling")
     index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     break_flag = False
     
     path = HOME + satellite + folder
-    labelling_path = path + "\\data\\data labelling"
-    if os.path.exists(labelling_path):
-        os.chdir(labelling_path)
-    else:
-        os.makedirs(labelling_path)
+    labelling_path = path + "\\data"
+    change_to_folder(labelling_path)
     
     lines = []
     header = ("chunk,reservoirs,water bodies,reservoir "
     "coordinates,,,,,water body coordinates\n")
     blank_entry_check(file=data_file) # remove all blank entries
     
+    # %%%%% 5.3.1 File validity check
+    """This section is about checking that the contents of the file are sound. 
+    This means checking that, for example, the file exists, or that the entry 
+    for chunk 241 is after the entry for chunk 240, or any other problem that 
+    may arise. As with every data handling operation, file permission is 
+    checked directly before this step, as well as any blank entries. Although 
+    this may seem an excessive step to perform every time, it is necessary to 
+    ensure that the file data is exactly as it should be. 
+    All these checks are carried out in 'read-only' mode unless the user s
+    pecifies otherwise. This is to make sure that the data is not accidentally 
+    overwritten at any point, again, unless the user is sure this is the 
+    intended behaviour."""
     while True:
         # file will always exist due to blank_entry_check call
         with open(data_file, "r") as file:
@@ -282,6 +317,16 @@ def get_sat(sat_name, sat_number, folder):
     
     i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
     
+    # %%%%% 5.3.2 Data completion check
+    """Once file validity has been verified, this step is for ensuring that 
+    the data in the file is complete. While the previous step (5.3.1) was 
+    mostly intended for checking that the chunks are in the correct order, 
+    this step additionally checks that the chunks that are supposed to have 
+    data, i.e. a chunk is noted as containing a reservoir, that there are 
+    coordinates outlining that reservoir. If this is not the case, the 
+    'data_correction' mode is activated, in which the user is prompted to 
+    essentially fill in the coordinates that should exist in the place where 
+    a chunk is supposed to contain some water body."""
     # find chunks with no reservoir coordinate data
     reservoir_rows = []
     body_rows = []
@@ -369,6 +414,8 @@ def get_sat(sat_name, sat_number, folder):
                 blank_entry_check(file=data_file)
                 back_flag = False
                 try:
+                    # %%%%% 6.2.1 Regular integer response
+                    """ADD DESCRIPTION HERE"""
                     # handle number of reservoirs entry
                     n_reservoirs = int(n_reservoirs)
                     entry_list = [i,n_reservoirs,""]
@@ -404,11 +451,15 @@ def get_sat(sat_name, sat_number, folder):
                     n_reservoirs = str(n_reservoirs)
                     n_bodies = str(n_bodies)
                     if "break" in n_bodies or "break" in n_reservoirs:
+                        # %%%%% 6.2.2 Non-integer response: "break"
+                        """ADD DESCRIPTION HERE"""
                         print("taking a break")
                         response_time += time.monotonic() - response_time_start
                         break_flag = True
                         break
                     elif "back" in n_bodies or "back" in n_reservoirs:
+                        # %%%%% 6.2.3 Non-integer response: "back"
+                        """ADD DESCRIPTION HERE"""
                         back_flag = True
                         if data_correction:
                             print("cannot use 'back' during data correction")
@@ -427,12 +478,15 @@ def get_sat(sat_name, sat_number, folder):
                             rewrite(write_file=wr, rows=rows)
                         break
                     else:
+                        # %%%%% 6.2.4 Non-integer response: error
+                        """ADD DESCRIPTION HERE"""
                         print("error: non-integer response."
                               "\ntype 'break' to save and quit"
                               "\ntype 'back' to go to previous chunk")
                         n_reservoirs = input("how many reservoirs? ")
             
-            # save results to the responses csv file
+            # %%%% 6.3 Saving Results
+            """ADD DESCRIPTION HERE"""
             if break_flag:
                 break
             elif not break_flag and not back_flag:
@@ -471,7 +525,8 @@ def get_sat(sat_name, sat_number, folder):
     #stop_event, thread = start_spinner(message="dividing data into classes")
     start_time = time.monotonic()
     
-    # extract the coordinates of each reservoir and water body
+    # %%%% 7.1 Extract Reservoir and Water Body Coordinates
+    """ADD DESCRIPTION HERE"""
     res_rows = []
     res_coords = []
     body_rows = []
@@ -496,42 +551,57 @@ def get_sat(sat_name, sat_number, folder):
             elif int(body_rows[-1][2]) == 1:
                 body_coords.append((i, extract_coords(body_rows[-1][8])))
     globals()["lines"] = lines
-    globals()["res_coords"] = res_coords
-    globals()["body_coords"] = body_coords
     
-    # isolate and save an image of each reservoir and water body
-    globals()["index_chunks"] = index_chunks
-    for i in range(0, 2):
-        print(res_coords[i])
-        globals()["index_chunk_res"] = index_chunks[0][res_coords[i][0]]
-        # img = Image.fromarray(index_chunks[0][res_coords[i][0]])
-        data = index_chunks[0][res_coords[i][0]-1]
-# =============================================================================
-#         converted_chunk = index_chunks[0][res_coords[i][0]-1]
-#         globals()["index_chunk_res"] = converted_chunk
-#         plt.figure()
-#         ax = plt.gca()
-#         plt.imshow(converted_chunk, interpolation="nearest")
-#         ax.axis("off")
-#         plt.show()
-# =============================================================================
-        
-        cmap = plt.get_cmap('viridis')
-        norm = plt.Normalize(data.min(), data.max())
-
-        rgb = cmap(norm(data))  
-
-        rgb = (255 * rgb).astype(np.uint8) 
-
-        Image.fromarray(rgb).show()
-    
-    # save each image
+    # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
+    """ADD DESCRIPTION HERE"""
+    ndwi_chunks = index_chunks[0]
     segmenting_path = path + "\\data\\data segmenting"
-    if os.path.exists(segmenting_path):
-        os.chdir(segmenting_path)
-    else:
-        os.makedirs(segmenting_path)
+    change_to_folder(segmenting_path)
     
+    # %%%%% 7.2.1 Create an image of each water reservoir and save it
+    # for i in range(len(res_coords))
+    for i in range(5):
+        # NDWI data
+        res_ndwi_path = path + "\\data\\data segmenting\\reservoirs\\ndwi"
+        change_to_folder(res_ndwi_path)
+        image_name = f"ndwi chunk {res_coords[i][0]-1} reservoir {i+1}.png"
+        dupes = save_image_file(data=ndwi_chunks[res_coords[i][0]-1], 
+                                image_name=image_name, 
+                                normalise=True)
+        # TCI data
+        res_tci_path = path + "\\data\\data segmenting\\reservoirs\\tci"
+        change_to_folder(res_tci_path)
+        image_name = f"tci chunk {res_coords[i][0]-1} reservoir {i+1}.png"
+        dupes = save_image_file(data=tci_chunks[res_coords[i][0]-1], 
+                                image_name=image_name, 
+                                normalise=False)
+    
+    # %%%%% 7.2.3 Change directory to the water body image folder
+    body_path = path + "\\data\\data segmenting\\water bodies"
+    change_to_folder(body_path)
+    
+    # %%%%% 7.2.2 Create an image of each water body and save it
+    # for i in range(len(body_coords))
+    for i in range(5):
+        # NDWI data
+        body_ndwi_path = path + "\\data\\data segmenting\\water bodies\\ndwi"
+        change_to_folder(body_ndwi_path)
+        image_name = f"ndwi chunk {body_coords[i][0]-1} water body {i+1}.png"
+        dupes = save_image_file(data=ndwi_chunks[body_coords[i][0]-1], 
+                                image_name=image_name, 
+                                normalise=True)
+        # TCI data
+        body_tci_path = path + "\\data\\data segmenting\\water bodies\\tci"
+        change_to_folder(body_tci_path)
+        image_name = f"tci chunk {body_coords[i][0]-1} water body {i+1}.png"
+        dupes = save_image_file(data=tci_chunks[body_coords[i][0]-1], 
+                                image_name=image_name, 
+                                normalise=False)
+    
+    if dupes:
+        print("please check folder for duplicates. duplicate files were "
+              "tagged with '[n] dupe' in the name, where n is the number "
+              "of duplicates found.")
     
     time_taken = time.monotonic() - start_time
     #end_spinner(stop_event, thread)
@@ -552,6 +622,7 @@ s2_indices = get_sat(sat_name="Sentinel", sat_number=2,
 stop_event, thread = start_spinner(message="splitting indices")
 ndwi, mndwi, awei_sh, awei_nsh = s2_indices
 end_spinner(stop_event, thread)
+os.chdir(HOME)
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
