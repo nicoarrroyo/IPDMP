@@ -297,18 +297,9 @@ def save_image_file(data, image_name, normalise):
         data = (255 * data).astype(np.uint8)
     
     # check for duplicate file name (prevent overwriting)
-    dupes = True
-    dupe_check = False
-    dupe_n = 0
-    base_file_name = image_name
-    while dupes:
-        matches = check_duplicate_name(search_dir=os.getcwd(), 
-                                       file_name=image_name)
-        dupes = True if matches else False
-        if dupes:
-            dupe_check = True
-            dupe_n += 1
-            image_name = f"{dupe_n} dupe {base_file_name}"
     
-    Image.fromarray(data).save(image_name)
-    return dupe_check
+    matches = check_duplicate_name(search_dir=os.getcwd(), 
+                                   file_name=image_name)
+    if not matches:
+        Image.fromarray(data).save(image_name)
+    return matches
