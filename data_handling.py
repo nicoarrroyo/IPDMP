@@ -1,4 +1,5 @@
 import csv
+import os
 
 def rewrite(write_file, rows):
     """
@@ -105,3 +106,20 @@ def extract_coords(coord_string):
     except:
         coordinates = []
     return coordinates
+
+def change_to_folder(folder_path):
+    if os.path.exists(folder_path):
+        os.chdir(folder_path)
+    else:
+        os.makedirs(folder_path)
+        os.chdir(folder_path)
+        path_name = folder_path.split("\\")
+        print(f"created folder named '{path_name[-1]}' in '{path_name[-2]}'")
+
+def check_duplicate_name(search_dir, file_name):
+    matches = []
+    for root, dirs, files in os.walk(search_dir):
+        if file_name in files:
+            full_path = os.path.join(root, file_name)
+            matches.append(full_path)
+    return matches
