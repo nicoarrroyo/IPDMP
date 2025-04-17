@@ -117,9 +117,8 @@ def change_to_folder(folder_path):
         print(f"created folder named '{path_name[-1]}' in '{path_name[-2]}'")
 
 def check_duplicate_name(search_dir, file_name):
-    matches = []
+    duplicates = False
     for root, dirs, files in os.walk(search_dir):
         if file_name in files:
-            full_path = os.path.join(root, file_name)
-            matches.append(full_path)
-    return matches
+            duplicates = True
+    return duplicates
