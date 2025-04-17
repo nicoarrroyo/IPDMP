@@ -3,6 +3,7 @@ import os
 from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib import colors
+from data_handling import check_duplicate_name
 
 def image_to_array(file_path_s):
     """
@@ -282,3 +283,32 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     
     plt.tight_layout()
     plt.show()
+
+def save_image_file(data, image_name, normalise):
+    if normalise:
+        cmap = plt.get_cmap("viridis")
+        
+        valid_chunks = [chunk for chunk in data if not np.isnan(chunk).all()]
+        global_min = min(np.nanmin(chunk) for chunk in valid_chunks)
+        global_max = 0.8*max(np.nanmax(chunk) for chunk in valid_chunks)
+        norm = plt.Normalize(global_min, global_max)
+        
+        data = cmap(norm(data))
+        data = (255 * data).astype(np.uint8)
+    
+    # check for duplicate file name (prevent overwriting)
+    dupes = True
+    dupe_check = False
+    dupe_n = 0
+    base_file_name = image_name
+    while dupes:
+        matches = check_duplicate_name(search_dir=os.getcwd(), 
+                                       file_name=image_name)
+        dupes = True if matches else False
+        if dupes:
+            dupe_check = True
+            dupe_n += 1
+            image_name = f"{dupe_n} dupe {base_file_name}"
+    
+    Image.fromarray(data).save(image_name)
+    return dupe_check
