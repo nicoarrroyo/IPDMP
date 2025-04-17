@@ -43,6 +43,7 @@ import os
 import numpy as np
 import csv
 from PIL import Image
+from matplotlib import pyplot as plt
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
@@ -59,7 +60,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
 label_data = False
@@ -499,11 +500,30 @@ def get_sat(sat_name, sat_number, folder):
     globals()["body_coords"] = body_coords
     
     # isolate and save an image of each reservoir and water body
-    for i in range(0, 3):
+    globals()["index_chunks"] = index_chunks
+    for i in range(0, 2):
         print(res_coords[i])
-        print(index_chunks[res_coords[i][0]])
-        img = Image.fromarray(index_chunks[res_coords[i][0]])
-        img.show()
+        globals()["index_chunk_res"] = index_chunks[0][res_coords[i][0]]
+        # img = Image.fromarray(index_chunks[0][res_coords[i][0]])
+        data = index_chunks[0][res_coords[i][0]-1]
+# =============================================================================
+#         converted_chunk = index_chunks[0][res_coords[i][0]-1]
+#         globals()["index_chunk_res"] = converted_chunk
+#         plt.figure()
+#         ax = plt.gca()
+#         plt.imshow(converted_chunk, interpolation="nearest")
+#         ax.axis("off")
+#         plt.show()
+# =============================================================================
+        
+        cmap = plt.get_cmap('viridis')
+        norm = plt.Normalize(data.min(), data.max())
+
+        rgb = cmap(norm(data))  
+
+        rgb = (255 * rgb).astype(np.uint8) 
+
+        Image.fromarray(rgb).show()
     
     # save each image
     segmenting_path = path + "\\data\\data segmenting"
