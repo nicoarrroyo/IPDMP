@@ -212,3 +212,41 @@ def logical_checks(high_res, show_index_plots, save_images, label_data):
         if "yes" in answer:
             print("ok")
     return high_res, show_index_plots, save_images, label_data
+
+from matplotlib import pyplot as plt
+from data_handling import check_duplicate_name
+def save_image_file(data, image_name, normalise):
+    if normalise:
+        cmap = plt.get_cmap("viridis")
+        
+        valid_chunks = [chunk for chunk in data if not np.isnan(chunk).all()]
+        global_min = min(np.nanmin(chunk) for chunk in valid_chunks)
+        global_max = 0.8*max(np.nanmax(chunk) for chunk in valid_chunks)
+        norm = plt.Normalize(global_min, global_max)
+        
+        data = cmap(norm(data))
+        data = (255 * data).astype(np.uint8)
+    
+    # check for duplicate file name (prevent overwriting)
+    matches = check_duplicate_name(search_dir=os.getcwd(), 
+                                   file_name=image_name)
+    while matches:
+        print(f"found duplicate {image_name} file in:")
+        for path in matches:
+            print(" -", path)
+        ans = input("would you like to overwrite? ")
+        valid_ans = False
+        while not valid_ans:
+            if "yes" in ans:
+                valid_ans = True
+                matches = []
+                Image.fromarray(data).save(image_name)
+            if "no" in ans:
+                valid_ans = True
+                print("you can rename the file and retry or skip this file")
+                input("type 'retry' to scan again, 'skip' to skip this file")
+                valid_ans2 = False
+                while not valid_ans2:
+                    if "retry" in ans:
+                        matches = check_duplicate_name(search_dir=os.getcwd(), 
+                                                       file_name=image_name)
