@@ -59,7 +59,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
 label_data = False
@@ -555,57 +555,44 @@ def get_sat(sat_name, sat_number, folder):
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
     """ADD DESCRIPTION HERE"""
     ndwi_chunks = index_chunks[0]
-    segmenting_path = path + "\\data\\data segmenting"
-    change_to_folder(segmenting_path)
-    dupes = [[], [], [], []]
-    dupe_labels = [("ndwi reservoirs", "tci reservoirs", 
-                    "ndwi water bodies", "tci water bodies")]
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
-    # for i in range(len(res_coords))
-    for i in range(5):
+    for i in range(len(res_coords)):
         # NDWI data
-        res_ndwi_path = path + "\\data\\data segmenting\\reservoirs\\ndwi"
+        res_ndwi_path = path + "\\data\\ndwi\\reservoirs"
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {res_coords[i][0]-1} reservoir {i+1}.png"
-        dupes[0].append(save_image_file(data=ndwi_chunks[res_coords[i][0]-1], 
+        save_image_file(data=ndwi_chunks[res_coords[i][0]-1], 
                                         image_name=image_name, 
-                                        normalise=True))
+                                        normalise=True, 
+                                        coordinates=res_coords[i][1])
         # TCI data
-        res_tci_path = path + "\\data\\data segmenting\\reservoirs\\tci"
+        res_tci_path = path + "\\data\\tci\\reservoirs"
         change_to_folder(res_tci_path)
         image_name = f"tci chunk {res_coords[i][0]-1} reservoir {i+1}.png"
-        dupes[1].append(save_image_file(data=tci_chunks[res_coords[i][0]-1], 
+        save_image_file(data=tci_chunks[res_coords[i][0]-1], 
                                         image_name=image_name, 
-                                        normalise=False))
-    
-    # %%%%% 7.2.3 Change directory to the water body image folder
-    body_path = path + "\\data\\data segmenting\\water bodies"
-    change_to_folder(body_path)
+                                        normalise=False, 
+                                        coordinates=res_coords[i][1])
     
     # %%%%% 7.2.2 Create an image of each water body and save it
-    # for i in range(len(body_coords))
-    for i in range(5):
+    for i in range(len(body_coords)):
         # NDWI data
-        body_ndwi_path = path + "\\data\\data segmenting\\water bodies\\ndwi"
+        body_ndwi_path = path + "\\data\\ndwi\\water bodies"
         change_to_folder(body_ndwi_path)
         image_name = f"ndwi chunk {body_coords[i][0]-1} water body {i+1}.png"
-        dupes[2].append(save_image_file(data=ndwi_chunks[body_coords[i][0]-1], 
+        save_image_file(data=ndwi_chunks[body_coords[i][0]-1], 
                                         image_name=image_name, 
-                                        normalise=True))
+                                        normalise=True, 
+                                        coordinates=body_coords[i][1])
         # TCI data
-        body_tci_path = path + "\\data\\data segmenting\\water bodies\\tci"
+        body_tci_path = path + "\\data\\tci\\water bodies"
         change_to_folder(body_tci_path)
         image_name = f"tci chunk {body_coords[i][0]-1} water body {i+1}.png"
-        dupes[3].append(save_image_file(data=tci_chunks[body_coords[i][0]-1], 
+        save_image_file(data=tci_chunks[body_coords[i][0]-1], 
                                         image_name=image_name, 
-                                        normalise=False))
-    
-    try:
-        for i in range(len(dupe_labels[0])):
-            print(f"{len(dupes[i])} duplicates in {dupe_labels[0][i]}")
-    except:
-        print("no duplicates found")
+                                        normalise=False, 
+                                        coordinates=body_coords[i][1])
     
     time_taken = time.monotonic() - start_time
     #end_spinner(stop_event, thread)
