@@ -284,22 +284,38 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     plt.tight_layout()
     plt.show()
 
-def save_image_file(data, image_name, normalise):
-    if normalise:
-        cmap = plt.get_cmap("viridis")
-        
-        valid_chunks = [chunk for chunk in data if not np.isnan(chunk).all()]
-        global_min = min(np.nanmin(chunk) for chunk in valid_chunks)
-        global_max = 0.8*max(np.nanmax(chunk) for chunk in valid_chunks)
-        norm = plt.Normalize(global_min, global_max)
-        
-        data = cmap(norm(data))
-        data = (255 * data).astype(np.uint8)
-    
+def save_image_file(data, image_name, normalise, coordinates):
     # check for duplicate file name (prevent overwriting)
-    
-    matches = check_duplicate_name(search_dir=os.getcwd(), 
-                                   file_name=image_name)
-    if not matches:
+    duplicates = check_duplicate_name(search_dir=os.getcwd(), 
+                                      file_name=image_name)
+    if not duplicates: # only create a new image if there is not one already
+        largest_dimension = min(data.shape[0], data.shape[1])
+        ulx, uly, lrx, lry = coordinates
+        ulx = int(ulx) * 0.9
+        uly = int(uly) * 0.9
+        lrx = int(lrx) * 1.1
+        lry = int(lry) * 1.1
+        coordinates = [ulx, uly, lrx, lry]
+        
+        for i, coord in enumerate(coordinates):
+            if coord < 0:
+                coordinates[i] = 0
+            if coord > largest_dimension:
+                coordinates[i] = largest_dimension
+            coordinates[i] = int(coord)
+        
+        # data = data[int(uly):int(lry), int(ulx):int(lrx)]
+        ulx, uly, lrx, lry = coordinates
+        data = data[uly:lry, ulx:lrx]
+        if normalise:
+            cmap = plt.get_cmap("viridis")
+            
+            valid_chunks = [chunk for chunk in data if not np.isnan(chunk).all()]
+            global_min = min(np.nanmin(chunk) for chunk in valid_chunks)
+            global_max = 0.8*max(np.nanmax(chunk) for chunk in valid_chunks)
+            norm = plt.Normalize(global_min, global_max)
+            
+            data = cmap(norm(data))
+            data = (255 * data).astype(np.uint8)
+        
         Image.fromarray(data).save(image_name)
-    return matches
