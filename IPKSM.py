@@ -484,4 +484,8 @@ print(
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
+# =============================================================================
+# model.save("C:\\Users\\nicol\\Documents\\UoM\\YEAR 3\\Individual Project"
+#            "\\IPMLS\\IPRFM testing\\tci_model_1.keras")
+# =============================================================================
 print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
