@@ -52,17 +52,18 @@ from image_handling import image_to_array, mask_sentinel, plot_indices
 from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
+from misc import create_random_coords, create_9_random_coords
 
 from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
-label_data = False
+label_data = True
+data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
 try: # personal pc mode
     title_size = 8
@@ -330,6 +331,7 @@ def get_sat(sat_name, sat_number, folder):
     # find chunks with no reservoir coordinate data
     reservoir_rows = []
     body_rows = []
+    invalid_rows = []
     data_correction = False
     
     with open(data_file, "r") as file:
@@ -339,29 +341,41 @@ def get_sat(sat_name, sat_number, folder):
         # check for reservoirs without coordinates
         num_of_reservoirs = int(lines[j].split(",")[1])
         res_no_coords = False # check if reservoirs have coordinates
+        res_has_coords = False
         try: # try to access coordinates
             res_coord = lines[j].split(",")[2+num_of_reservoirs]
             if res_coord[0] != "[":
                 res_no_coords = True
+            else:
+                res_has_coords = True
         except: # if unable to access, they do not exist
             res_no_coords = True
         if num_of_reservoirs != 0 and res_no_coords:
             reservoir_rows.append(j-1)
             data_correction = True
+        elif num_of_reservoirs == 0 and res_has_coords:
+            invalid_rows.append(j-1)
+            data_correction = True
         
         # check for non-reservoir water bodies without coordinates
         num_of_bodies = int(lines[j].split(",")[2])
         body_no_coords = False # check if water bodies have coordinates
+        body_has_coords = False
         try: # try to access coordinates
             body_coord = lines[j].split(",")[7+num_of_bodies]
             if body_coord[0] != "[":
                 body_no_coords = True
+            else:
+                body_has_coords = True
         except: # if unable to access, they do not exist
             body_no_coords = True
         if num_of_bodies != 0 and body_no_coords:
             body_rows.append(j-1)
             data_correction = True
-    invalid_rows = combine_sort_unique(reservoir_rows, body_rows)
+        elif num_of_bodies == 0 and body_has_coords:
+            invalid_rows.append(j-1)
+            data_correction = True
+    invalid_rows = combine_sort_unique(reservoir_rows, body_rows, invalid_rows)
     
     if data_correction:
         print(f"found {len(invalid_rows)} chunks containing "
@@ -531,6 +545,8 @@ def get_sat(sat_name, sat_number, folder):
     res_coords = []
     body_rows = []
     body_coords = []
+    empty_rows = []
+    unlabelled_chunk_indices = list(range(len(lines)-1, len(tci_chunks)))
     with open(data_file, "r") as file:
         lines = file.readlines()
     for i in range(1, len(lines)):
@@ -550,7 +566,15 @@ def get_sat(sat_name, sat_number, folder):
                     body_coords.append((i, extract_coords(body_rows[-1][j])))
             elif int(body_rows[-1][2]) == 1:
                 body_coords.append((i, extract_coords(body_rows[-1][8])))
+        
+        if int(lines[i][1]) == 0 and int(lines[i][2]) == 0:
+            empty_rows.append(lines[i])
+    
     globals()["lines"] = lines
+    globals()["res_rows"] = res_rows
+    globals()["body_rows"] = body_rows
+    globals()["empty_rows"] = empty_rows
+    globals()["unlabelled_chunk_indices"] = unlabelled_chunk_indices
     
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
     """ADD DESCRIPTION HERE"""
@@ -565,19 +589,19 @@ def get_sat(sat_name, sat_number, folder):
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {res_coords[i][0]-1} reservoir {i+1}.png"
         save_image_file(data=ndwi_chunks[res_coords[i][0]-1], 
-                                        image_name=image_name, 
-                                        normalise=True, 
-                                        coordinates=res_coords[i][1], 
-                                        margin=margin)
+                        image_name=image_name, 
+                        normalise=True, 
+                        coordinates=res_coords[i][1], 
+                        margin=margin)
         # TCI data
         res_tci_path = path + "\\data\\tci\\reservoirs"
         change_to_folder(res_tci_path)
         image_name = f"tci chunk {res_coords[i][0]-1} reservoir {i+1}.png"
         save_image_file(data=tci_chunks[res_coords[i][0]-1], 
-                                        image_name=image_name, 
-                                        normalise=False, 
-                                        coordinates=res_coords[i][1], 
-                                        margin=margin)
+                        image_name=image_name, 
+                        normalise=False, 
+                        coordinates=res_coords[i][1], 
+                        margin=margin)
     print("reservoir data segmentation complete")
     
     # %%%%% 7.2.2 Create an image of each water body and save it
@@ -588,20 +612,72 @@ def get_sat(sat_name, sat_number, folder):
         change_to_folder(body_ndwi_path)
         image_name = f"ndwi chunk {body_coords[i][0]-1} water body {i+1}.png"
         save_image_file(data=ndwi_chunks[body_coords[i][0]-1], 
-                                        image_name=image_name, 
-                                        normalise=True, 
-                                        coordinates=body_coords[i][1], 
-                                        margin=margin)
+                        image_name=image_name, 
+                        normalise=True, 
+                        coordinates=body_coords[i][1], 
+                        margin=margin)
         # TCI data
         body_tci_path = path + "\\data\\tci\\water bodies"
         change_to_folder(body_tci_path)
         image_name = f"tci chunk {body_coords[i][0]-1} water body {i+1}.png"
         save_image_file(data=tci_chunks[body_coords[i][0]-1], 
-                                        image_name=image_name, 
-                                        normalise=False, 
-                                        coordinates=body_coords[i][1], 
-                                        margin=margin)
+                        image_name=image_name, 
+                        normalise=False, 
+                        coordinates=body_coords[i][1], 
+                        margin=margin)
     print("water body data segmentation complete")
+    
+    # %%%% 7.2.3 Create an image of each empty chunk and save it
+    print("empty chunk data segmentation")
+    for i in range(len(empty_rows)):
+        chunk_n = (int(empty_rows[i][0])-1)
+        empty_coords = create_random_coords(min_bound=0, max_bound=157)
+        
+        # NDWI data
+        empty_ndwi_path = path + "\\data\\ndwi\\empty"
+        change_to_folder(empty_ndwi_path)
+        image_name = f"ndwi blank chunk {chunk_n}.png"
+        save_image_file(data=ndwi_chunks[chunk_n], 
+                        image_name=image_name, 
+                        normalise=True, 
+                        coordinates=empty_coords, 
+                        margin=0)
+        # TCI data
+        empty_tci_path = path + "\\data\\tci\\empty"
+        change_to_folder(empty_tci_path)
+        image_name = f"tci blank chunk {chunk_n}.png"
+        save_image_file(data=tci_chunks[chunk_n], 
+                        image_name=image_name, 
+                        normalise=False, 
+                        coordinates=empty_coords, 
+                        margin=0)
+    print("empty chunk data segmentation complete")
+    
+    # %%%% 7.2.4 Create an image of each unlabelled chunk and save it
+    print("unlabelled chunk data segmentation")
+    for i in range(len(unlabelled_chunk_indices)):
+        chunk_n = unlabelled_chunk_indices
+        
+        # NDWI data
+        unlabelled_ndwi_path = path + "\\data\\ndwi\\unlabelled"
+        change_to_folder(unlabelled_ndwi_path)
+        image_name = (f"ndwi unlabelled chunk({chunk_n}) "
+                      "minichunk({j}).png")
+        save_image_file(data=ndwi_chunks[chunk_n], 
+                        image_name=image_name, 
+                        normalise=True, 
+                        coordinates=empty_coords, 
+                        margin=0)
+        # TCI data
+        unlabelled_tci_path = path + "\\data\\tci\\unlabelled"
+        change_to_folder(unlabelled_tci_path)
+        image_name = f"tci blank chunk {chunk_n}.png"
+        save_image_file(data=tci_chunks[chunk_n], 
+                        image_name=image_name, 
+                        normalise=False, 
+                        coordinates=empty_coords, 
+                        margin=0)
+    print("unlabelled chunk data segmentation complete")
     
     time_taken = time.monotonic() - start_time
     #end_spinner(stop_event, thread)
