@@ -39,11 +39,10 @@ import time
 MAIN_START_TIME = time.monotonic()
 import pathlib
 import os
-
 import matplotlib.pyplot as plt
 import numpy as np
-import tensorflow as tf
 
+import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
@@ -58,8 +57,9 @@ except: # uni mode
             "The University of Manchester\\Individual Project\\Downloads")
     os.chdir(HOME)
 
-epochs_keras_base = 50
-epochs_keras_new = 50
+epochs_keras_base = 5
+epochs_keras_new = 5
+model_type = "ndwi"
 
 # %% Download and explore the dataset
 """
@@ -88,7 +88,7 @@ path = f"{HOME}\\Sentinel 2\\{folder}\\data"
 data_dir = path # Set data directory to a subdirectory
 
 # Extract if the extracted directory doesn't exist
-extracted_dir = os.path.join(data_dir, "tci")
+extracted_dir = os.path.join(data_dir, f"{model_type}")
 
 data_dir = pathlib.Path(extracted_dir)
 image_count = len(list(data_dir.glob('*/*.png'))) # find all pngs in data_dir
@@ -133,34 +133,23 @@ val_ds = tf.keras.utils.image_dataset_from_directory(
   image_size=(img_height, img_width),
   batch_size=batch_size)
 
-"""You can find the class names in the `class_names` attribute on these 
-datasets. These correspond to the directory names in alphabetical order."""
-
-class_names = train_ds.class_names
-print(class_names)
-
 # %% Visualize the data
 """
 
 Here are the first nine images from the training dataset:
 """
-
+class_names = train_ds.class_names
 plt.figure(figsize=(6, 6))
 for images, labels in train_ds.take(1):
   for i in range(9):
     ax = plt.subplot(3, 3, i + 1)
     plt.imshow(images[i].numpy().astype("uint8"))
-    plt.title(class_names[labels[i]])
+    plt.title(class_names[labels[i]], fontsize=6)
     plt.axis("off")
 
 """You will pass these datasets to the Keras `Model.fit` method for training 
 later in this tutorial. If you like, you can also manually iterate over the 
-dataset and retrieve batches of images:"""
-
-for image_batch, labels_batch in train_ds:
-  print(image_batch.shape)
-  print(labels_batch.shape)
-  break
+dataset and retrieve batches of images."""
 
 """The `image_batch` is a tensor of the shape `(32, 180, 180, 3)`. This is a 
 batch of 32 images of shape `180x180x3` (the last dimension refers to color 
@@ -214,8 +203,6 @@ calling `Dataset.map`:"""
 normalized_ds = train_ds.map(lambda x, y: (normalization_layer(x), y))
 image_batch, labels_batch = next(iter(normalized_ds))
 first_image = image_batch[0]
-# Notice the pixel values are now in `[0,1]`.
-print(np.min(first_image), np.max(first_image))
 
 """Or, you can include the layer inside your model definition, which can 
 simplify deployment. Use the second approach here.
@@ -304,13 +291,17 @@ plt.subplot(1, 2, 1)
 plt.plot(epochs_range, acc, label='Training Accuracy')
 plt.plot(epochs_range, val_acc, label='Validation Accuracy')
 plt.legend(loc='lower right')
-plt.title('Training and Validation Accuracy')
+plt.title('Training and Validation Accuracy', fontsize=9)
+plt.xticks(fontsize=7)
+plt.yticks(fontsize=7)
 
 plt.subplot(1, 2, 2)
 plt.plot(epochs_range, loss, label='Training Loss')
 plt.plot(epochs_range, val_loss, label='Validation Loss')
 plt.legend(loc='upper right')
-plt.title('Training and Validation Loss')
+plt.title('Training and Validation Loss', fontsize=9)
+plt.xticks(fontsize=7)
+plt.yticks(fontsize=7)
 plt.show()
 
 """The plots show that training accuracy and validation accuracy are off by 
@@ -377,7 +368,8 @@ for images, _ in train_ds.take(1):
     ax = plt.subplot(3, 3, i + 1)
     plt.imshow(augmented_images[0].numpy().astype("uint8"))
     plt.axis("off")
-
+print("this is what data augmentation looks like", flush=True)
+plt.show()
 """You will add data augmentation to your model before training in the next 
 step."""
 # %%% Dropout
@@ -414,7 +406,8 @@ model = Sequential([
 # %%% Compile and train the model
 
 model.compile(optimizer='adam',
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(
+                  from_logits=True),
               metrics=['accuracy'])
 
 model.summary()
@@ -446,13 +439,17 @@ plt.subplot(1, 2, 1)
 plt.plot(epochs_range, acc, label='Training Accuracy')
 plt.plot(epochs_range, val_acc, label='Validation Accuracy')
 plt.legend(loc='lower right')
-plt.title('Training and Validation Accuracy')
+plt.title('Training and Validation Accuracy', fontsize=9)
+plt.xticks(fontsize=7)
+plt.yticks(fontsize=7)
 
 plt.subplot(1, 2, 2)
 plt.plot(epochs_range, loss, label='Training Loss')
 plt.plot(epochs_range, val_loss, label='Validation Loss')
 plt.legend(loc='upper right')
-plt.title('Training and Validation Loss')
+plt.title('Training and Validation Loss', fontsize=9)
+plt.xticks(fontsize=7)
+plt.yticks(fontsize=7)
 plt.show()
 
 # %%% Predict on new data
@@ -464,12 +461,11 @@ validation sets.
 Note: Data augmentation and dropout layers are inactive at inference time.
 """
 
-sunflower_url = ("https://storage.googleapis.com/download.tensorflow."
-                 "org/example_images/592px-Red_sunflower.jpg")
-sunflower_path = tf.keras.utils.get_file('Red_sunflower', origin=sunflower_url)
+test_image_name = "ndwi chunk 1 reservoir 1.png"
+test_image_path = f"{path}\\ndwi\\{test_image_name}"
 
 img = tf.keras.utils.load_img(
-    sunflower_path, target_size=(img_height, img_width)
+    test_image_path, target_size=(img_height, img_width)
 )
 img_array = tf.keras.utils.img_to_array(img)
 img_array = tf.expand_dims(img_array, 0) # Create a batch
