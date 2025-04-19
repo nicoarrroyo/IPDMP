@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 def get_sentinel_bands(sentinel_n, high_res):
     """
@@ -70,17 +71,15 @@ def split_array(array, n_chunks):
     chunks = [subarray for row_chunk in split_arrays for subarray in row_chunk]
     return chunks
 
-def combine_sort_unique(array1, array2):
+def combine_sort_unique(*arrays):
     """
     Combines two arrays, sorts the combined array in ascending order, and 
     eliminates duplicates.
     
     Parameters
     ----------
-    array1 : list
-        The first input array.
-    array2 : list
-        The second input array
+    *arrays : list
+        A variable number of input arrays.
     
     Returns
     -------
@@ -88,10 +87,101 @@ def combine_sort_unique(array1, array2):
         The sorted array with unique elements.
         
     """
-    combined_array = array1 + array2
+    combined_array = []
+    for arr in arrays:
+        combined_array.extend(arr)
     unique_array = list(set(combined_array))
     sorted_array = sorted(unique_array)
     return sorted_array
+
+def create_random_coords(min_bound, max_bound):
+    """
+    Creates a four-element list where:
+    - The first element is smaller than the third.
+    - The second element is smaller than the fourth.
+    - All elements are between min_bound and max_bound (inclusive).
+    
+    Returns
+    -------
+    list
+        A list of four integers meeting the criteria.
+    
+    """
+    
+    # Generate the first element, ensure space for a larger third element
+    first_element = random.randint(min_bound, max_bound-2)
+    
+    # Generate the third element, ensuring it's greater than the first
+    third_element = random.randint(first_element + 1, max_bound)
+    
+    # Generate the second element, ensure space for a larger fourth element
+    second_element = random.randint(min_bound, max_bound-2)
+    
+    # Generate the fourth element, ensuring it's greater than the second
+    fourth_element = random.randint(second_element + 1, max_bound)
+    
+    return [first_element, second_element, third_element, fourth_element]
+
+def create_9_random_coords(ulx, uly, lrx, lry):
+    """
+    Splits a box defined by [ulx, uly, lrx, lry] into 9 smaller boxes 
+    with slight overlaps.
+    
+    Parameters
+    ----------
+    ulx : int
+        Upper-left x-coordinate of the original box.
+    uly : int
+        Upper-left y-coordinate of the original box.
+    lrx : int
+        Lower-right x-coordinate of the original box.
+    lry : int
+        Lower-right y-coordinate of the original box.
+    
+    Returns
+    -------
+    sub_boxes : list
+        A list of 9 lists, each representing a smaller box in the 
+        format [ulx, uly, lrx, lry].
+    
+    """
+    
+    # Calculate the base width and height of the sub-boxes
+    width = lrx - ulx
+    height = lry - uly
+    sub_width = width / 3
+    sub_height = height / 3
+    
+    # List to store the coordinates of the 9 sub-boxes
+    sub_boxes = []
+    
+    for i in range(3):
+        for j in range(3):
+            # Calculate the coordinates of the current sub-box with overlap
+            overlap_x1 = random.randint(0, 5)
+            overlap_y1 = random.randint(0, 5)
+            overlap_x2 = random.randint(0, 5)
+            overlap_y2 = random.randint(0, 5)
+            
+            sub_ulx = ulx + j * sub_width - overlap_x1
+            sub_uly = uly + i * sub_height - overlap_y1
+            sub_lrx = ulx + (j + 1) * sub_width + overlap_x2
+            sub_lry = uly + (i + 1) * sub_height + overlap_y2
+            
+            # Ensure the sub-box coords are in the bounds of the original box
+            sub_ulx = max(sub_ulx, ulx)
+            sub_uly = max(sub_uly, uly)
+            sub_lrx = min(sub_lrx, lrx)
+            sub_lry = min(sub_lry, lry)
+            
+            #handle edge case
+            if sub_lrx <= sub_ulx:
+                sub_lrx = sub_ulx + 1
+            if sub_lry <= sub_uly:
+                sub_lry = sub_uly + 1
+            
+            sub_boxes.append([sub_ulx, sub_uly, sub_lrx, sub_lry])
+    return sub_boxes
 
 """
 This section is storage for functions that are not currently used in the IPDGS 
