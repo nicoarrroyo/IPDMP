@@ -284,17 +284,18 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     plt.tight_layout()
     plt.show()
 
-def save_image_file(data, image_name, normalise, coordinates):
+def save_image_file(data, image_name, normalise, coordinates, margin):
     # check for duplicate file name (prevent overwriting)
     duplicates = check_duplicate_name(search_dir=os.getcwd(), 
                                       file_name=image_name)
     if not duplicates: # only create a new image if there is not one already
         largest_dimension = min(data.shape[0], data.shape[1])
         ulx, uly, lrx, lry = coordinates
-        ulx = int(ulx) * 0.9
-        uly = int(uly) * 0.9
-        lrx = int(lrx) * 1.1
-        lry = int(lry) * 1.1
+        margin = margin / 100
+        ulx = int(ulx) * (1-margin)
+        uly = int(uly) * (1-margin)
+        lrx = int(lrx) * (1+margin)
+        lry = int(lry) * (1+margin)
         coordinates = [ulx, uly, lrx, lry]
         
         for i, coord in enumerate(coordinates):
