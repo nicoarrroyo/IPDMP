@@ -5,10 +5,13 @@ import pathlib
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import datetime
+
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
+
 from image_handling import image_to_array
 from user_interfacing import start_spinner, end_spinner
 
@@ -26,7 +29,24 @@ SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                    "20250301T152054.SAFE")
 DATA_BASE_PATH = os.path.join(DOWNLOADS_DIR, "Sentinel 2", 
                               SENTINEL_FOLDER, "data")
-DATA_DIR_NAME = MODEL_TYPE # directory containing 'reservoirs' and 'water bodies'
+DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs' and 'water bodies'
+
+# --- Training Parameters ---
+EPOCHS = 5
+LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
+
+# --- Output Settings ---
+SAVE_MODEL = True # Set to True to save the trained model
+MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "IPMLS", "saved_models")
+MODEL_FILENAME = f"{MODEL_TYPE} model epochs-{EPOCHS}.keras"
+
+# --- Model Parameters ---
+DROPOUT_RATE = 0.2
+
+# --- Test Image ---
+# Ensure this path is relative to DATA_BASE_PATH or provide a full path
+TEST_IMAGE_SUBDIR = MODEL_TYPE # Subdirectory within DATA_BASE_PATH
+TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
 
 # --- Dataset Parameters ---
 IMG_HEIGHT = 157
@@ -37,23 +57,6 @@ RANDOM_SEED = 123 # For reproducibility of splits
 print(f"Image size: ({IMG_HEIGHT}, {IMG_WIDTH})")
 print(f"Batch size: {BATCH_SIZE}")
 print(f"Validation split: {VALIDATION_SPLIT}")
-
-# --- Training Parameters ---
-EPOCHS = 20
-LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
-
-# --- Model Parameters ---
-DROPOUT_RATE = 0.2
-
-# --- Output Settings ---
-SAVE_MODEL = False # Set to True to save the trained model
-MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "IPMLS", "saved_models")
-MODEL_FILENAME = f"{MODEL_TYPE} model {EPOCHS}epochs.keras"
-
-# --- Test Image ---
-# Ensure this path is relative to DATA_BASE_PATH or provide a full path
-TEST_IMAGE_SUBDIR = MODEL_TYPE # Subdirectory within DATA_BASE_PATH
-TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
 
 # %% 2. Prepare Paths and Directories
 print("=== 2. Preparing Paths ===")
@@ -77,10 +80,10 @@ else:
     print("Using nominal data directory.")
 
 if not os.path.exists(test_image_path):
-     print(f"Warning: Test image not found at {test_image_path}. Prediction "
+    print(f"Warning: Test image not found at {test_image_path}. Prediction "
            "step will fail or use incorrect data.")
 else:
-     print(f"Using nominal test image: {TEST_IMAGE_NAME}")
+    print(f"Using nominal test image: {TEST_IMAGE_NAME}")
 
 data_dir_pathlib = pathlib.Path(data_dir)
 try:
@@ -94,7 +97,7 @@ except Exception as e:
     image_count = 0 # Assume zero if listing fails
 
 if image_count < BATCH_SIZE:
-     print(f"Warning: Total image count ({image_count}) is less than the batch "
+    print(f"Warning: Total image count ({image_count}) is less than the batch "
            f"size ({BATCH_SIZE}). This might cause issues during training.")
 
 # %% 3. Prepare the Dataset
@@ -214,7 +217,7 @@ end_spinner(stop_event, thread)
 # model.summary()
 
 # %% 5. Train the Model
-print(f"--- 5. Starting Training for {EPOCHS} Epochs ===")
+print(f"=== 5. Starting Training for {EPOCHS} Epochs ===")
 
 try:
     history = model.fit(
@@ -339,17 +342,31 @@ else:
           f"{TEST_IMAGE_NAME}")
 
 # %% 8. Save Model (Optional)
-if SAVE_MODEL and history: # Only save if requested and training was successful
+if SAVE_MODEL and history:
     print("=== 8. Saving Model ===")
+
+    # Check if the primary path exists
+    if os.path.exists(model_save_path):
+        # Create a versioned filename
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        base, ext = os.path.splitext(model_save_path)
+        versioned_save_path = f"{base}_{timestamp}{ext}"
+        print(f"Warning: Original path {model_save_path} exists.")
+        print(f"Attempting to save to versioned path: {versioned_save_path}")
+        save_path_to_use = versioned_save_path
+    else: # Use the original path if it doesn't exist
+        save_path_to_use = model_save_path
+
+    # Try saving to the determined path
     try:
-        model.save(model_save_path)
-        print(f"Model successfully saved to: {model_save_path}")
+        model.save(save_path_to_use)
+        print(f"Model successfully saved to: {save_path_to_use}")
     except Exception as e:
         print(f"Error saving model: {e}")
 elif not history:
      print("Skipping model saving as training did not complete successfully.")
 else:
-     print("Model saving is disabled (SAVE_MODEL=False).")
+     print("Model saving is disabled.")
 
 
 # %% 9. Final Summary
