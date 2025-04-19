@@ -555,6 +555,7 @@ def get_sat(sat_name, sat_number, folder):
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
     """ADD DESCRIPTION HERE"""
     ndwi_chunks = index_chunks[0]
+    margin = 5 # percentage margin either side of the coordinate box
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
     print("reservoir data segmentation start")
@@ -566,7 +567,8 @@ def get_sat(sat_name, sat_number, folder):
         save_image_file(data=ndwi_chunks[res_coords[i][0]-1], 
                                         image_name=image_name, 
                                         normalise=True, 
-                                        coordinates=res_coords[i][1])
+                                        coordinates=res_coords[i][1], 
+                                        margin=margin)
         # TCI data
         res_tci_path = path + "\\data\\tci\\reservoirs"
         change_to_folder(res_tci_path)
@@ -574,7 +576,9 @@ def get_sat(sat_name, sat_number, folder):
         save_image_file(data=tci_chunks[res_coords[i][0]-1], 
                                         image_name=image_name, 
                                         normalise=False, 
-                                        coordinates=res_coords[i][1])
+                                        coordinates=res_coords[i][1], 
+                                        margin=margin)
+    print("reservoir data segmentation complete")
     
     # %%%%% 7.2.2 Create an image of each water body and save it
     print("water body data segmentation")
@@ -586,7 +590,8 @@ def get_sat(sat_name, sat_number, folder):
         save_image_file(data=ndwi_chunks[body_coords[i][0]-1], 
                                         image_name=image_name, 
                                         normalise=True, 
-                                        coordinates=body_coords[i][1])
+                                        coordinates=body_coords[i][1], 
+                                        margin=margin)
         # TCI data
         body_tci_path = path + "\\data\\tci\\water bodies"
         change_to_folder(body_tci_path)
@@ -594,7 +599,9 @@ def get_sat(sat_name, sat_number, folder):
         save_image_file(data=tci_chunks[body_coords[i][0]-1], 
                                         image_name=image_name, 
                                         normalise=False, 
-                                        coordinates=body_coords[i][1])
+                                        coordinates=body_coords[i][1], 
+                                        margin=margin)
+    print("water body data segmentation complete")
     
     time_taken = time.monotonic() - start_time
     #end_spinner(stop_event, thread)
