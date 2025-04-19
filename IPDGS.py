@@ -43,6 +43,7 @@ import os
 import numpy as np
 import csv
 from PIL import Image
+from matplotlib import pyplot as plt
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
@@ -62,7 +63,7 @@ n_chunks = 5000 # number of chunks into which images are split
 high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
-label_data = True
+label_data = False
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
 try: # personal pc mode
@@ -379,7 +380,7 @@ def get_sat(sat_name, sat_number, folder):
     
     if data_correction:
         print(f"found {len(invalid_rows)} chunks containing "
-               "incomplete or missing no coordinate data")
+               "incomplete, missing, or incorrect coordinate data")
         i = invalid_rows[0]
         invalid_rows_index = 0
     time_taken = time.monotonic() - start_time - response_time
@@ -580,104 +581,130 @@ def get_sat(sat_name, sat_number, folder):
     """ADD DESCRIPTION HERE"""
     ndwi_chunks = index_chunks[0]
     margin = 5 # percentage margin either side of the coordinate box
+    valid_ndwi_chunks = [
+        chunk for chunk in ndwi_chunks if not np.isnan(chunk).all()
+        ]
+    global_min = min(np.nanmin(chunk) for chunk in valid_ndwi_chunks)
+    global_max = 0.8*max(np.nanmax(chunk) for chunk in valid_ndwi_chunks)
+    norm = plt.Normalize(global_min, global_max)
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
-    print("reservoir data segmentation start")
+    stop_event, thread = start_spinner(message="reservoir data segmentation")
     for i in range(len(res_coords)):
+        chunk_n = (int(res_coords[i][0])-1)
+        
         # NDWI data
         res_ndwi_path = path + "\\data\\ndwi\\reservoirs"
         change_to_folder(res_ndwi_path)
-        image_name = f"ndwi chunk {res_coords[i][0]-1} reservoir {i+1}.png"
-        save_image_file(data=ndwi_chunks[res_coords[i][0]-1], 
+        image_name = f"ndwi chunk {chunk_n} reservoir {i+1}.png"
+        save_image_file(data=ndwi_chunks[chunk_n], 
                         image_name=image_name, 
                         normalise=True, 
                         coordinates=res_coords[i][1], 
-                        margin=margin)
+                        margin=margin, 
+                        norm=norm)
         # TCI data
         res_tci_path = path + "\\data\\tci\\reservoirs"
         change_to_folder(res_tci_path)
-        image_name = f"tci chunk {res_coords[i][0]-1} reservoir {i+1}.png"
-        save_image_file(data=tci_chunks[res_coords[i][0]-1], 
+        image_name = f"tci chunk {chunk_n} reservoir {i+1}.png"
+        save_image_file(data=tci_chunks[chunk_n], 
                         image_name=image_name, 
                         normalise=False, 
                         coordinates=res_coords[i][1], 
-                        margin=margin)
-    print("reservoir data segmentation complete")
+                        margin=margin, 
+                        norm=norm)
+    end_spinner(stop_event, thread)
     
     # %%%%% 7.2.2 Create an image of each water body and save it
-    print("water body data segmentation")
+    stop_event, thread = start_spinner(message="water body data segmentation")
     for i in range(len(body_coords)):
+        chunk_n = (int(body_coords[i][0])-1)
+        
         # NDWI data
         body_ndwi_path = path + "\\data\\ndwi\\water bodies"
         change_to_folder(body_ndwi_path)
-        image_name = f"ndwi chunk {body_coords[i][0]-1} water body {i+1}.png"
-        save_image_file(data=ndwi_chunks[body_coords[i][0]-1], 
+        image_name = f"ndwi chunk {chunk_n} water body {i+1}.png"
+        save_image_file(data=ndwi_chunks[chunk_n], 
                         image_name=image_name, 
                         normalise=True, 
                         coordinates=body_coords[i][1], 
-                        margin=margin)
+                        margin=margin, 
+                        norm=norm)
         # TCI data
         body_tci_path = path + "\\data\\tci\\water bodies"
         change_to_folder(body_tci_path)
-        image_name = f"tci chunk {body_coords[i][0]-1} water body {i+1}.png"
-        save_image_file(data=tci_chunks[body_coords[i][0]-1], 
+        image_name = f"tci chunk {chunk_n} water body {i+1}.png"
+        save_image_file(data=tci_chunks[chunk_n], 
                         image_name=image_name, 
                         normalise=False, 
                         coordinates=body_coords[i][1], 
-                        margin=margin)
-    print("water body data segmentation complete")
+                        margin=margin, 
+                        norm=norm)
+    end_spinner(stop_event, thread)
     
     # %%%% 7.2.3 Create an image of each empty chunk and save it
-    print("empty chunk data segmentation")
+    stop_event, thread = start_spinner(message="empty chunk data segmentation")
     for i in range(len(empty_rows)):
-        chunk_n = (int(empty_rows[i][0])-1)
-        empty_coords = create_random_coords(min_bound=0, max_bound=157)
+        chunk_n = (int(empty_rows[i][0]))
+        empty_coords = create_random_coords(min_bound=1, max_bound=156)
         
         # NDWI data
         empty_ndwi_path = path + "\\data\\ndwi\\empty"
         change_to_folder(empty_ndwi_path)
-        image_name = f"ndwi blank chunk {chunk_n}.png"
+        image_name = f"ndwi blank chunk({chunk_n}).png"
         save_image_file(data=ndwi_chunks[chunk_n], 
                         image_name=image_name, 
                         normalise=True, 
                         coordinates=empty_coords, 
-                        margin=0)
+                        margin=0, 
+                        norm=norm)
         # TCI data
         empty_tci_path = path + "\\data\\tci\\empty"
         change_to_folder(empty_tci_path)
-        image_name = f"tci blank chunk {chunk_n}.png"
+        image_name = f"tci blank chunk({chunk_n}).png"
         save_image_file(data=tci_chunks[chunk_n], 
                         image_name=image_name, 
                         normalise=False, 
                         coordinates=empty_coords, 
-                        margin=0)
-    print("empty chunk data segmentation complete")
+                        margin=0, 
+                        norm=norm)
+    end_spinner(stop_event, thread)
     
     # %%%% 7.2.4 Create an image of each unlabelled chunk and save it
     print("unlabelled chunk data segmentation")
+# =============================================================================
+#     stop_event, thread = start_spinner(message="unlabelled chunk "
+#                                        "data segmentation")
+# =============================================================================
     for i in range(len(unlabelled_chunk_indices)):
-        chunk_n = unlabelled_chunk_indices
+        chunk_n = unlabelled_chunk_indices[i]
+        unlabelled_coords = create_9_random_coords(1, 1, 156, 156)
         
         # NDWI data
         unlabelled_ndwi_path = path + "\\data\\ndwi\\unlabelled"
         change_to_folder(unlabelled_ndwi_path)
-        image_name = (f"ndwi unlabelled chunk({chunk_n}) "
-                      "minichunk({j}).png")
-        save_image_file(data=ndwi_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=True, 
-                        coordinates=empty_coords, 
-                        margin=0)
+        for j, unlabelled_coord in enumerate(unlabelled_coords):
+            image_name = (f"ndwi unlabelled chunk({chunk_n}) "
+                          "minichunk({j}).png")
+            save_image_file(data=ndwi_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=True, 
+                            coordinates=unlabelled_coord, 
+                            margin=0, 
+                            norm=norm)
         # TCI data
         unlabelled_tci_path = path + "\\data\\tci\\unlabelled"
         change_to_folder(unlabelled_tci_path)
-        image_name = f"tci blank chunk {chunk_n}.png"
-        save_image_file(data=tci_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=False, 
-                        coordinates=empty_coords, 
-                        margin=0)
-    print("unlabelled chunk data segmentation complete")
+        for j, unlabelled_coord in enumerate(unlabelled_coords):
+            image_name = (f"tci unlabelled chunk({chunk_n}) "
+                          "minichunk({j}).png")
+            save_image_file(data=tci_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=False, 
+                            coordinates=unlabelled_coord, 
+                            margin=0, 
+                            norm=norm)
+    print("complete")
     
     time_taken = time.monotonic() - start_time
     #end_spinner(stop_event, thread)
