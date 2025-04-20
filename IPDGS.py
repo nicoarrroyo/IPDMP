@@ -59,7 +59,7 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 high_res = False # use finer 10m spatial resolution (slower)
-show_index_plots = False
+show_index_plots = True
 save_images = False
 label_data = True
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
@@ -67,16 +67,18 @@ data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 try: # personal pc mode
     title_size = 8
     label_size = 4
-    HOME = ("C:\\Users\\nicol\\OneDrive - " # personal computer user name
-            "The University of Manchester\\Individual Project\\Downloads")
+    HOME = os.path.join("C:\\", "Users", "nicol", "OneDrive - "
+                        "The University of Manchester", "Individual Project", 
+                        "Downloads") # personal computer user name
     os.chdir(HOME)
     plot_size = (3, 3) # larger plots increase detail and pixel count
     plot_size_chunks = (6, 6)
 except: # uni mode
     title_size = 15
     label_size = 8
-    HOME = ("C:\\Users\\c55626na\\OneDrive - " # university computer user name
-            "The University of Manchester\\Individual Project\\Downloads")
+    HOME = os.path.join("C:\\", "Users", "c55626na", "OneDrive - "
+                        "The University of Manchester", "Individual Project", 
+                        "Downloads") # university computer user name
     os.chdir(HOME)
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (11, 11)
@@ -106,8 +108,8 @@ def get_sat(sat_name, sat_number, folder):
     the folder. This information can be used to easily navigate through the 
     folder's contents."""
     file_paths = []
-    satellite = f"\\{sat_name} {sat_number}\\"
-    path = HOME + satellite + folder
+    satellite = f"{sat_name} {sat_number}"
+    path = os.path.join(HOME, satellite, folder)
     os.chdir(path)
     
     # %%%%% 1.1.1 Subfolder naming convention edge case
@@ -117,11 +119,12 @@ def get_sat(sat_name, sat_number, folder):
     searching for any available directories in the GRANULE folder, and if 
     there is more than one, then alert the user and exit, otherwise go into 
     that one directory because it will be the one we're looking for."""
-    path = path + "\\GRANULE"
+    # path = path + "\\GRANULE"
+    path = os.path.join(path, "GRANULE")
     subdirs = [d for d in os.listdir(path) 
                if os.path.isdir(os.path.join(path, d))]
     if len(subdirs) == 1:
-        path = (f"{path}\\{subdirs[0]}")
+        path = os.path.join(path, subdirs[0])
     else:
         print("Too many subdirectories in 'GRANULE':", len(subdirs))
         return
@@ -134,11 +137,11 @@ def get_sat(sat_name, sat_number, folder):
     finalised in this section."""
     if high_res:
         res = "10m"
-        path_10 = (f"{path}\\IMG_DATA\\R10m") # blue, green, nir
-        path_20 = (f"{path}\\IMG_DATA\\R20m") # swir1 and swir2
+        path_10 = os.path.join(path, "IMG_DATA", "R10m")
+        path_20 = os.path.join(path, "IMG_DATA", "R20m")
     else:
         res = "60m"
-        path_60 = (f"{path}\\IMG_DATA\\R60m") # all bands
+        path_60 = os.path.join(path, "IMG_DATA", "R60m")
     
     (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
      processing_baseline_number, relative_orbit_number, tile_number_field, 
@@ -149,11 +152,14 @@ def get_sat(sat_name, sat_number, folder):
     for band in bands:
         if high_res:
             if band == "02" or band == "03" or band == "08":
-                file_paths.append(f"{path_10}\\{prefix}_B{band}_10m.jp2")
+                file_paths.append(os.path.join(path_10, 
+                                               f"{prefix}_B{band}_10m.jp2"))
             else:
-                file_paths.append(f"{path_20}\\{prefix}_B{band}_20m.jp2")
+                file_paths.append(os.path.join(path_20, 
+                                               f"{prefix}_B{band}_20m.jp2"))
         else:
-                file_paths.append(f"{path_60}\\{prefix}_B{band}_60m.jp2")
+            file_paths.append(os.path.join(path_60, 
+                                               f"{prefix}_B{band}_60m.jp2"))
     
     # %%%% 1.2 Opening and Converting Images
     """This is the long operation. It is very costly to open the large images, 
@@ -174,8 +180,7 @@ def get_sat(sat_name, sat_number, folder):
     stop_event, thread = start_spinner(message="masking clouds")
     start_time = time.monotonic()
     
-    path = (HOME + satellite + folder + 
-            "\\GRANULE\\" + subdirs[0] + "\\QI_DATA\\")
+    path = os.path.join(path, "QI_DATA")
     image_arrays = mask_sentinel(path, high_res, image_arrays)
     
     time_taken = time.monotonic() - start_time
@@ -234,15 +239,16 @@ def get_sat(sat_name, sat_number, folder):
     """nico!! remember to add a description!"""
     stop_event, thread = start_spinner(message=f"opening {res} "
                                        "resolution true colour image")
-    path = HOME + satellite + folder
+    path = os.path.join(HOME, satellite, folder)
     
-    tci_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R{res}\\"
+    tci_path = os.path.join(path, "GRANULE", subdirs[0], "IMG_DATA", f"R{res}")
     tci_file_name = prefix + f"_TCI_{res}.jp2"
-    tci_array = image_to_array(tci_path + tci_file_name)
+    tci_array = image_to_array(os.path.join(tci_path, tci_file_name))
     
-    tci_60_path = f"{path}\\GRANULE\\{subdirs[0]}\\IMG_DATA\\R60m\\"
+    tci_60_path = os.path.join(path, "GRANULE", subdirs[0], 
+                               "IMG_DATA", "R60m")
     tci_60_file_name = prefix + "_TCI_60m.jp2"
-    with Image.open(tci_60_path + tci_60_file_name) as img:
+    with Image.open(os.path.join(tci_60_path, tci_60_file_name)) as img:
         size = (img.width//10, img.height//10)
         tci_60_array = np.array(img.resize(size))
     end_spinner(stop_event, thread)
@@ -263,8 +269,7 @@ def get_sat(sat_name, sat_number, folder):
     index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     break_flag = False
     
-    path = HOME + satellite + folder
-    labelling_path = path + "\\training data"
+    labelling_path = os.path.join(path, "training data")
     change_to_folder(labelling_path)
     
     lines = []
@@ -292,7 +297,7 @@ def get_sat(sat_name, sat_number, folder):
             # Validate file data
             for i in range(1, len(lines) - 1):
                 current_chunk = int(lines[i].split(",")[0])
-                next_chunk = int(lines[i + 1].split(",")[0])
+                next_chunk = int(lines[i+1].split(",")[0])
                 if next_chunk - current_chunk != 1:
                     print(f"Line {i + 2}, expected chunk {current_chunk + 1}")
                     raise ValueError("File validity error")
@@ -583,7 +588,9 @@ def get_sat(sat_name, sat_number, folder):
         chunk_n = (int(res_coords[i][0])-1)
         
         # NDWI data
-        res_ndwi_path = path + "\\training data\\ndwi\\reservoirs"
+        res_ndwi_path = os.path.join(
+            path, "training data", "ndwi", "reservoirs"
+            )
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} reservoir {i+1}.png"
         save_image_file(data=ndwi_chunks[chunk_n], 
@@ -591,9 +598,12 @@ def get_sat(sat_name, sat_number, folder):
                         normalise=True, 
                         coordinates=res_coords[i][1], 
                         margin=margin, 
-                        g_min=global_min, g_max=global_max)
+                        g_min=global_min, g_max=global_max, 
+                        dupe_check=True)
         # TCI data
-        res_tci_path = path + "\\training data\\tci\\reservoirs"
+        res_tci_path = os.path.join(
+            path, "training data", "tci", "reservoirs"
+            )
         change_to_folder(res_tci_path)
         image_name = f"tci chunk {chunk_n} reservoir {i+1}.png"
         save_image_file(data=tci_chunks[chunk_n], 
@@ -601,7 +611,8 @@ def get_sat(sat_name, sat_number, folder):
                         normalise=False, 
                         coordinates=res_coords[i][1], 
                         margin=margin, 
-                        g_min=global_min, g_max=global_max)
+                        g_min=global_min, g_max=global_max, 
+                        dupe_check=True)
     end_spinner(stop_event, thread)
     
     # %%%%% 7.2.2 Create an image of each water body and save it
@@ -610,7 +621,9 @@ def get_sat(sat_name, sat_number, folder):
         chunk_n = (int(body_coords[i][0])-1)
         
         # NDWI data
-        body_ndwi_path = path + "\\training data\\ndwi\\water bodies"
+        body_ndwi_path = os.path.join(
+            path, "training data", "ndwi", "water bodies"
+            )
         change_to_folder(body_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} water body {i+1}.png"
         save_image_file(data=ndwi_chunks[chunk_n], 
@@ -618,9 +631,12 @@ def get_sat(sat_name, sat_number, folder):
                         normalise=True, 
                         coordinates=body_coords[i][1], 
                         margin=margin, 
-                        g_min=global_min, g_max=global_max)
+                        g_min=global_min, g_max=global_max, 
+                        dupe_check=True)
         # TCI data
-        body_tci_path = path + "\\training data\\tci\\water bodies"
+        body_tci_path = os.path.join(
+            path, "training data", "tci", "water bodies"
+            )
         change_to_folder(body_tci_path)
         image_name = f"tci chunk {chunk_n} water body {i+1}.png"
         save_image_file(data=tci_chunks[chunk_n], 
@@ -628,7 +644,8 @@ def get_sat(sat_name, sat_number, folder):
                         normalise=False, 
                         coordinates=body_coords[i][1], 
                         margin=margin, 
-                        g_min=global_min, g_max=global_max)
+                        g_min=global_min, g_max=global_max, 
+                        dupe_check=True)
     end_spinner(stop_event, thread)
     
     time_taken = time.monotonic() - start_time
