@@ -284,7 +284,8 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     plt.tight_layout()
     plt.show()
 
-def save_image_file(data, image_name, normalise, coordinates, margin):
+def save_image_file(data, image_name, normalise, coordinates, margin, 
+                    g_min, g_max):
     # check for duplicate file name (prevent overwriting)
     duplicates = check_duplicate_name(search_dir=os.getcwd(), 
                                       file_name=image_name)
@@ -305,17 +306,11 @@ def save_image_file(data, image_name, normalise, coordinates, margin):
                 coordinates[i] = largest_dimension
             coordinates[i] = int(coord)
         
-        # data = data[int(uly):int(lry), int(ulx):int(lrx)]
         ulx, uly, lrx, lry = coordinates
         data = data[uly:lry, ulx:lrx]
         if normalise:
+            norm = plt.Normalize(g_min, g_max)
             cmap = plt.get_cmap("viridis")
-            
-            valid_chunks = [chunk for chunk in data if not np.isnan(chunk).all()]
-            global_min = min(np.nanmin(chunk) for chunk in valid_chunks)
-            global_max = 0.8*max(np.nanmax(chunk) for chunk in valid_chunks)
-            norm = plt.Normalize(global_min, global_max)
-            
             data = cmap(norm(data))
             data = (255 * data).astype(np.uint8)
         
