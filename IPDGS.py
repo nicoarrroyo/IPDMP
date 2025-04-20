@@ -58,10 +58,10 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
-label_data = False
+label_data = True
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
 try: # personal pc mode
@@ -264,7 +264,7 @@ def get_sat(sat_name, sat_number, folder):
     break_flag = False
     
     path = HOME + satellite + folder
-    labelling_path = path + "\\data"
+    labelling_path = path + "\\training data"
     change_to_folder(labelling_path)
     
     lines = []
@@ -327,7 +327,7 @@ def get_sat(sat_name, sat_number, folder):
     'data_correction' mode is activated, in which the user is prompted to 
     essentially fill in the coordinates that should exist in the place where 
     a chunk is supposed to contain some water body."""
-    # find chunks with no reservoir coordinate data
+    # find chunks with invalid or incomplete reservoir coordinate data
     reservoir_rows = []
     body_rows = []
     invalid_rows = []
@@ -339,17 +339,15 @@ def get_sat(sat_name, sat_number, folder):
     for j in range(1, len(lines)): # starting from the "headers" line
         # check for reservoirs without coordinates
         num_of_reservoirs = int(lines[j].split(",")[1])
-        res_no_coords = False # check if reservoirs have coordinates
-        res_has_coords = False
         try: # try to access coordinates
-            res_coord = lines[j].split(",")[2+num_of_reservoirs]
-            if res_coord[0] != "[":
-                res_no_coords = True
-            else:
+            res_coord = lines[j].split(",")[3]
+            if res_coord[0] == "[":
                 res_has_coords = True
+            else:
+                res_has_coords = False
         except: # if unable to access, they do not exist
-            res_no_coords = True
-        if num_of_reservoirs != 0 and res_no_coords:
+            res_has_coords = False
+        if num_of_reservoirs != 0 and not res_has_coords:
             reservoir_rows.append(j-1)
             data_correction = True
         elif num_of_reservoirs == 0 and res_has_coords:
@@ -358,17 +356,15 @@ def get_sat(sat_name, sat_number, folder):
         
         # check for non-reservoir water bodies without coordinates
         num_of_bodies = int(lines[j].split(",")[2])
-        body_no_coords = False # check if water bodies have coordinates
-        body_has_coords = False
         try: # try to access coordinates
-            body_coord = lines[j].split(",")[7+num_of_bodies]
-            if body_coord[0] != "[":
-                body_no_coords = True
-            else:
+            body_coord = lines[j].split(",")[8]
+            if body_coord[0] == "[":
                 body_has_coords = True
+            else:
+                body_has_coords = False
         except: # if unable to access, they do not exist
-            body_no_coords = True
-        if num_of_bodies != 0 and body_no_coords:
+            body_has_coords = False
+        if num_of_bodies != 0 and not body_has_coords:
             body_rows.append(j-1)
             data_correction = True
         elif num_of_bodies == 0 and body_has_coords:
@@ -535,7 +531,6 @@ def get_sat(sat_name, sat_number, folder):
     print("==========")
     print("| STEP 7 |")
     print("==========")
-    #stop_event, thread = start_spinner(message="dividing data into classes")
     start_time = time.monotonic()
     
     # %%%% 7.1 Extract Reservoir and Water Body Coordinates
@@ -588,7 +583,7 @@ def get_sat(sat_name, sat_number, folder):
         chunk_n = (int(res_coords[i][0])-1)
         
         # NDWI data
-        res_ndwi_path = path + "\\data\\ndwi\\reservoirs"
+        res_ndwi_path = path + "\\training data\\ndwi\\reservoirs"
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} reservoir {i+1}.png"
         save_image_file(data=ndwi_chunks[chunk_n], 
@@ -598,7 +593,7 @@ def get_sat(sat_name, sat_number, folder):
                         margin=margin, 
                         g_min=global_min, g_max=global_max)
         # TCI data
-        res_tci_path = path + "\\data\\tci\\reservoirs"
+        res_tci_path = path + "\\training data\\tci\\reservoirs"
         change_to_folder(res_tci_path)
         image_name = f"tci chunk {chunk_n} reservoir {i+1}.png"
         save_image_file(data=tci_chunks[chunk_n], 
@@ -615,7 +610,7 @@ def get_sat(sat_name, sat_number, folder):
         chunk_n = (int(body_coords[i][0])-1)
         
         # NDWI data
-        body_ndwi_path = path + "\\data\\ndwi\\water bodies"
+        body_ndwi_path = path + "\\training data\\ndwi\\water bodies"
         change_to_folder(body_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} water body {i+1}.png"
         save_image_file(data=ndwi_chunks[chunk_n], 
@@ -625,7 +620,7 @@ def get_sat(sat_name, sat_number, folder):
                         margin=margin, 
                         g_min=global_min, g_max=global_max)
         # TCI data
-        body_tci_path = path + "\\data\\tci\\water bodies"
+        body_tci_path = path + "\\training data\\tci\\water bodies"
         change_to_folder(body_tci_path)
         image_name = f"tci chunk {chunk_n} water body {i+1}.png"
         save_image_file(data=tci_chunks[chunk_n], 
@@ -637,7 +632,6 @@ def get_sat(sat_name, sat_number, folder):
     end_spinner(stop_event, thread)
     
     time_taken = time.monotonic() - start_time
-    #end_spinner(stop_event, thread)
     print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 8. Satellite Output
