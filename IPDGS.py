@@ -43,7 +43,6 @@ import os
 import numpy as np
 import csv
 from PIL import Image
-from matplotlib import pyplot as plt
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
@@ -53,7 +52,6 @@ from image_handling import image_to_array, mask_sentinel, plot_indices
 from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
-from misc import create_random_coords, create_9_random_coords
 
 from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 
@@ -233,7 +231,7 @@ def get_sat(sat_name, sat_number, folder):
     print("data preparation start")
     
     # %%%% 5.1 Searching for, Opening, and Converting RGB Image
-    """ADD DESCRIPTION HERE"""
+    """nico!! remember to add a description!"""
     stop_event, thread = start_spinner(message=f"opening {res} "
                                        "resolution true colour image")
     path = HOME + satellite + folder
@@ -250,7 +248,7 @@ def get_sat(sat_name, sat_number, folder):
     end_spinner(stop_event, thread)
     
     # %%%% 5.2 Creating Chunks from Satellite Imagery
-    """ADD DESCRIPTION HERE"""
+    """nico!! remember to add a description!"""
     stop_event, thread = start_spinner(message=f"creating {n_chunks} chunks"
                                        " from satellite imagery")
     index_chunks = []
@@ -260,7 +258,7 @@ def get_sat(sat_name, sat_number, folder):
     end_spinner(stop_event, thread)
     
     # %%%% 5.3 Preparing File for Labelling
-    """ADD DESCRIPTION HERE"""
+    """nico!! remember to add a description!"""
     stop_event, thread = start_spinner(message="preparing file for labelling")
     index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     break_flag = False
@@ -430,7 +428,7 @@ def get_sat(sat_name, sat_number, folder):
                 back_flag = False
                 try:
                     # %%%%% 6.2.1 Regular integer response
-                    """ADD DESCRIPTION HERE"""
+                    """nico!! remember to add a description!"""
                     # handle number of reservoirs entry
                     n_reservoirs = int(n_reservoirs)
                     entry_list = [i,n_reservoirs,""]
@@ -467,14 +465,14 @@ def get_sat(sat_name, sat_number, folder):
                     n_bodies = str(n_bodies)
                     if "break" in n_bodies or "break" in n_reservoirs:
                         # %%%%% 6.2.2 Non-integer response: "break"
-                        """ADD DESCRIPTION HERE"""
+                        """nico!! remember to add a description!"""
                         print("taking a break")
                         response_time += time.monotonic() - response_time_start
                         break_flag = True
                         break
                     elif "back" in n_bodies or "back" in n_reservoirs:
                         # %%%%% 6.2.3 Non-integer response: "back"
-                        """ADD DESCRIPTION HERE"""
+                        """nico!! remember to add a description!"""
                         back_flag = True
                         if data_correction:
                             print("cannot use 'back' during data correction")
@@ -494,14 +492,14 @@ def get_sat(sat_name, sat_number, folder):
                         break
                     else:
                         # %%%%% 6.2.4 Non-integer response: error
-                        """ADD DESCRIPTION HERE"""
+                        """nico!! remember to add a description!"""
                         print("error: non-integer response."
                               "\ntype 'break' to save and quit"
                               "\ntype 'back' to go to previous chunk")
                         n_reservoirs = input("how many reservoirs? ")
             
             # %%%% 6.3 Saving Results
-            """ADD DESCRIPTION HERE"""
+            """nico!! remember to add a description!"""
             if break_flag:
                 break
             elif not break_flag and not back_flag:
@@ -541,13 +539,12 @@ def get_sat(sat_name, sat_number, folder):
     start_time = time.monotonic()
     
     # %%%% 7.1 Extract Reservoir and Water Body Coordinates
-    """ADD DESCRIPTION HERE"""
+    """nico!! remember to add a description!"""
+    stop_event, thread = start_spinner(message="coordinate extraction")
     res_rows = []
     res_coords = []
     body_rows = []
     body_coords = []
-    empty_rows = []
-    unlabelled_chunk_indices = list(range(len(lines)-1, len(tci_chunks)))
     with open(data_file, "r") as file:
         lines = file.readlines()
     for i in range(1, len(lines)):
@@ -560,33 +557,30 @@ def get_sat(sat_name, sat_number, folder):
             elif int(res_rows[-1][1]) == 1:
                 res_coords.append((i, extract_coords(res_rows[-1][3])))
         
-        if int(lines[i][2]) > 0: # if there is a water body
+        # if there is a water body and it is not the sea
+        if int(lines[i][2]) > 0:
             body_rows.append(lines[i])
-            if int(body_rows[-1][2]) > 1:
-                for j in range(8, 8+int(body_rows[-1][2])):
-                    body_coords.append((i, extract_coords(body_rows[-1][j])))
-            elif int(body_rows[-1][2]) == 1:
-                body_coords.append((i, extract_coords(body_rows[-1][8])))
-        
-        if int(lines[i][1]) == 0 and int(lines[i][2]) == 0:
-            empty_rows.append(lines[i])
+            first_coords = extract_coords(body_rows[-1][8])
+            if first_coords[0] != 0 and first_coords[-1] != 157:
+                if int(body_rows[-1][2]) > 1:
+                    for j in range(8, 8+int(body_rows[-1][2])):
+                        this_coord = extract_coords(body_rows[-1][j])
+                        body_coords.append((i, this_coord))
+                elif int(body_rows[-1][2]) == 1:
+                    body_coords.append((i, first_coords))
     
     globals()["lines"] = lines
     globals()["res_rows"] = res_rows
     globals()["body_rows"] = body_rows
-    globals()["empty_rows"] = empty_rows
-    globals()["unlabelled_chunk_indices"] = unlabelled_chunk_indices
+    end_spinner(stop_event, thread)
     
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
-    """ADD DESCRIPTION HERE"""
+    """nico!! remember to add a description! 0.6*max to bring down the cieling 
+    of ndwi so that reservoir and water bodies are better highlighted"""
     ndwi_chunks = index_chunks[0]
-    margin = 5 # percentage margin either side of the coordinate box
-    valid_ndwi_chunks = [
-        chunk for chunk in ndwi_chunks if not np.isnan(chunk).all()
-        ]
-    global_min = min(np.nanmin(chunk) for chunk in valid_ndwi_chunks)
-    global_max = 0.8*max(np.nanmax(chunk) for chunk in valid_ndwi_chunks)
-    norm = plt.Normalize(global_min, global_max)
+    margin = 3 # percentage margin either side of the coordinate box
+    global_min = min(np.nanmin(chunk) for chunk in ndwi_chunks)
+    global_max = 0.6*max(np.nanmax(chunk) for chunk in ndwi_chunks)
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
     stop_event, thread = start_spinner(message="reservoir data segmentation")
@@ -602,7 +596,7 @@ def get_sat(sat_name, sat_number, folder):
                         normalise=True, 
                         coordinates=res_coords[i][1], 
                         margin=margin, 
-                        norm=norm)
+                        g_min=global_min, g_max=global_max)
         # TCI data
         res_tci_path = path + "\\data\\tci\\reservoirs"
         change_to_folder(res_tci_path)
@@ -612,7 +606,7 @@ def get_sat(sat_name, sat_number, folder):
                         normalise=False, 
                         coordinates=res_coords[i][1], 
                         margin=margin, 
-                        norm=norm)
+                        g_min=global_min, g_max=global_max)
     end_spinner(stop_event, thread)
     
     # %%%%% 7.2.2 Create an image of each water body and save it
@@ -629,7 +623,7 @@ def get_sat(sat_name, sat_number, folder):
                         normalise=True, 
                         coordinates=body_coords[i][1], 
                         margin=margin, 
-                        norm=norm)
+                        g_min=global_min, g_max=global_max)
         # TCI data
         body_tci_path = path + "\\data\\tci\\water bodies"
         change_to_folder(body_tci_path)
@@ -639,72 +633,8 @@ def get_sat(sat_name, sat_number, folder):
                         normalise=False, 
                         coordinates=body_coords[i][1], 
                         margin=margin, 
-                        norm=norm)
+                        g_min=global_min, g_max=global_max)
     end_spinner(stop_event, thread)
-    
-    # %%%% 7.2.3 Create an image of each empty chunk and save it
-    stop_event, thread = start_spinner(message="empty chunk data segmentation")
-    for i in range(len(empty_rows)):
-        chunk_n = (int(empty_rows[i][0]))
-        empty_coords = create_random_coords(min_bound=1, max_bound=156)
-        
-        # NDWI data
-        empty_ndwi_path = path + "\\data\\ndwi\\empty"
-        change_to_folder(empty_ndwi_path)
-        image_name = f"ndwi blank chunk({chunk_n}).png"
-        save_image_file(data=ndwi_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=True, 
-                        coordinates=empty_coords, 
-                        margin=0, 
-                        norm=norm)
-        # TCI data
-        empty_tci_path = path + "\\data\\tci\\empty"
-        change_to_folder(empty_tci_path)
-        image_name = f"tci blank chunk({chunk_n}).png"
-        save_image_file(data=tci_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=False, 
-                        coordinates=empty_coords, 
-                        margin=0, 
-                        norm=norm)
-    end_spinner(stop_event, thread)
-    
-    # %%%% 7.2.4 Create an image of each unlabelled chunk and save it
-    print("unlabelled chunk data segmentation")
-# =============================================================================
-#     stop_event, thread = start_spinner(message="unlabelled chunk "
-#                                        "data segmentation")
-# =============================================================================
-    for i in range(len(unlabelled_chunk_indices)):
-        chunk_n = unlabelled_chunk_indices[i]
-        unlabelled_coords = create_9_random_coords(1, 1, 156, 156)
-        
-        # NDWI data
-        unlabelled_ndwi_path = path + "\\data\\ndwi\\unlabelled"
-        change_to_folder(unlabelled_ndwi_path)
-        for j, unlabelled_coord in enumerate(unlabelled_coords):
-            image_name = (f"ndwi unlabelled chunk({chunk_n}) "
-                          "minichunk({j}).png")
-            save_image_file(data=ndwi_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=True, 
-                            coordinates=unlabelled_coord, 
-                            margin=0, 
-                            norm=norm)
-        # TCI data
-        unlabelled_tci_path = path + "\\data\\tci\\unlabelled"
-        change_to_folder(unlabelled_tci_path)
-        for j, unlabelled_coord in enumerate(unlabelled_coords):
-            image_name = (f"tci unlabelled chunk({chunk_n}) "
-                          "minichunk({j}).png")
-            save_image_file(data=tci_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=False, 
-                            coordinates=unlabelled_coord, 
-                            margin=0, 
-                            norm=norm)
-    print("complete")
     
     time_taken = time.monotonic() - start_time
     #end_spinner(stop_event, thread)
