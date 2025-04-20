@@ -92,11 +92,11 @@ def mask_sentinel(path, high_res, image_arrays):
     if high_res:
         image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
         image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
-        path = path + "MSK_CLDPRB_20m.jp2"
+        path = os.path.join(path, "MSK_CLDPRB_20m.jp2")
         clouds_array = image_to_array(path)
         clouds_array = upscale_image_array(clouds_array, factor=2)
     else:
-        path = path + "MSK_CLDPRB_60m.jp2"
+        path = os.path.join(path, "MSK_CLDPRB_60m.jp2")
         clouds_array = image_to_array(path)
     
     clouds_array = np.where(clouds_array > 50, 100, clouds_array)
@@ -285,10 +285,13 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     plt.show()
 
 def save_image_file(data, image_name, normalise, coordinates, margin, 
-                    g_min, g_max):
+                    g_min, g_max, dupe_check):
     # check for duplicate file name (prevent overwriting)
-    duplicates = check_duplicate_name(search_dir=os.getcwd(), 
-                                      file_name=image_name)
+    if dupe_check:
+        duplicates = check_duplicate_name(search_dir=os.getcwd(), 
+                                          file_name=image_name)
+    else:
+        duplicates = False
     if not duplicates: # only create a new image if there is not one already
         largest_dimension = min(data.shape[0], data.shape[1])
         ulx, uly, lrx, lry = coordinates
