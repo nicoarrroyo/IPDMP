@@ -32,7 +32,7 @@ DATA_BASE_PATH = os.path.join(DOWNLOADS_DIR, "Sentinel 2",
 DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs' and 'water bodies'
 
 # --- Training Parameters ---
-EPOCHS = 5
+EPOCHS = 200
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
@@ -68,7 +68,7 @@ test_image_path = os.path.join(DATA_BASE_PATH, TEST_IMAGE_SUBDIR,
 # Create output directories if they don't exist
 if SAVE_MODEL:
     os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
-    """Model will be saved to model_save_path"""
+    print("Model will be saved to nominal directory")
 
 # --- Path Validation ---
 if not os.path.isdir(data_dir):
@@ -325,12 +325,16 @@ if os.path.exists(test_image_path):
         predicted_class_index = np.argmax(score)
         predicted_class_name = class_names[predicted_class_index]
         confidence = 100 * np.max(score)
-
+        
         print(
             "Prediction: This image most likely belongs to "
             f"'{predicted_class_name}' "
             f"with a {confidence:.2f}% confidence."
         )
+        if "reservoir" in predicted_class_name:
+            print("SUCCESS: model predicted correctly!")
+        else:
+            print("FAILURE: model predicted incorrectly")
 
     except FileNotFoundError:
         print(f"Error: Test image file not found at {TEST_IMAGE_NAME}")
