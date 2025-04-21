@@ -4,10 +4,13 @@ import time
 MAIN_START_TIME = time.monotonic()
 import os
 import numpy as np
-from tensorflow import keras
 import sys
 import re # for parsing filenames
 import math
+import matplotlib.pyplot as plt
+
+from tensorflow import keras
+import tensorflow as tf
 
 # %%% ii. Import Internal Functions
 from image_handling import image_to_array, mask_sentinel, save_image_file
@@ -23,6 +26,8 @@ except: # uni mode
     HOME = os.path.join("C:\\", "Users", "c55626na", "OneDrive - "
                         "The University of Manchester", "Individual Project")
     os.chdir(HOME)
+
+class_names = ["reservoirs", "water bodies"]
 
 # %% Big guy
 def run_model(folder, n_chunks, model_name, max_multiplier):
@@ -249,9 +254,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
         start_time = time.monotonic()
         
         ndwi_chunks = split_array(array=ndwi, n_chunks=n_chunks)
-        # tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
         chunk_size = ndwi_chunks[0].shape
-        
         global_min = min(np.nanmin(chunk) for chunk in ndwi_chunks)
         global_max = max_multiplier*max(np.nanmax(chunk) for \
                                         chunk in ndwi_chunks)
@@ -281,19 +284,54 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
     print("==========")
     print("| STEP 6 |")
     print("==========")
-    # stop_event, thread = start_spinner(message="loading keras model")
     model_path = os.path.join(HOME, "IPMLS", "saved_models", model_name)
     model = keras.models.load_model(model_path)
-    
-    all_images = os.listdir(test_data_path)[:50] # first 50 images
-    for image in all_images:
-        pass
-
+    height = 157
+    width = 157
+    all_file_names = os.listdir(test_data_path)[:20] # first 20 images
+    for file_name in all_file_names:
+        file_path = os.path.join(test_data_path, file_name)
+        
+        img = tf.keras.utils.load_img(
+            file_path, target_size=(height, width)
+        )
+        
+        plt.figure(figsize=(3, 3))
+        plt.imshow(img)
+        plt.title(f"{file_name}", fontsize=7)
+        plt.axis("off")
+        plt.show() 
+        
+        img_array = tf.keras.utils.img_to_array(img)
+        img_array = tf.expand_dims(img_array, 0) # Create a batch
+        
+        # Make prediction
+        predictions = model.predict(img_array)
+        # Apply softmax to get probabilities because the model outputs logits
+        score = tf.nn.softmax(predictions[0])
+        
+        predicted_class_index = np.argmax(score)
+        predicted_class_name = class_names[predicted_class_index]
+        confidence = 100 * np.max(score)
+        
+        print(
+            "Prediction: This image most likely belongs to "
+            f"'{predicted_class_name}' "
+            f"with a {confidence:.2f}% confidence."
+        )
+        
 # %% Run the big guy
+# =============================================================================
+# run_model(folder=("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
+#                   "20250301T152054.SAFE"), 
+#           n_chunks=5000, 
+#           model_name="ndwi model epochs-200.keras", 
+#           max_multiplier=0.4)
+# =============================================================================
 run_model(folder=("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                   "20250301T152054.SAFE"), 
           n_chunks=5000, 
-          model_name="ndwi model epochs-200.keras", 
+          model_name="ndwi model epochs-30_20250421_230014.keras", 
           max_multiplier=0.4)
 
 # %% Final
