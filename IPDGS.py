@@ -58,10 +58,10 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = True
 save_images = False
-label_data = True
+label_data = False
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
 try: # personal pc mode
