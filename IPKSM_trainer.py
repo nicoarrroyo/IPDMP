@@ -24,19 +24,18 @@ print("=== 1. Configuring Parameters ===")
 MODEL_TYPE = "ndwi" # Options: "ndwi", "tci"
 BASE_PROJECT_DIR = ("C:\\Users\\nicol\\OneDrive - The University of Manchester"
                    "\\Individual Project")
-DOWNLOADS_DIR = os.path.join(BASE_PROJECT_DIR, "Downloads")
 SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                    "20250301T152054.SAFE")
-DATA_BASE_PATH = os.path.join(DOWNLOADS_DIR, "Sentinel 2", 
+DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2", 
                               SENTINEL_FOLDER, "data")
 DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs' and 'water bodies'
 
 # --- Training Parameters ---
-EPOCHS = 200
+EPOCHS = 50
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
-SAVE_MODEL = True # Set to True to save the trained model
+SAVE_MODEL = False # Set to True to save the trained model
 MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "IPMLS", "saved_models")
 MODEL_FILENAME = f"{MODEL_TYPE} model epochs-{EPOCHS}.keras"
 
