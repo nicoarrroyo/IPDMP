@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime
+import sys
 
 import tensorflow as tf
 from tensorflow import keras
@@ -22,20 +23,20 @@ print("Imports complete.")
 print("=== 1. Configuring Parameters ===")
 # --- Core Settings ---
 MODEL_TYPE = "ndwi" # Options: "ndwi", "tci"
-BASE_PROJECT_DIR = ("C:\\Users\\nicol\\OneDrive - The University of Manchester"
-                   "\\Individual Project")
+BASE_PROJECT_DIR = os.path.join("C:\\", "Users", "nicol", "OneDrive - "
+                    "The University of Manchester", "Individual Project")
 SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                    "20250301T152054.SAFE")
 DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2", 
-                              SENTINEL_FOLDER, "data")
+                              SENTINEL_FOLDER, "training data")
 DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs' and 'water bodies'
 
 # --- Training Parameters ---
-EPOCHS = 50
+EPOCHS = 30
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
-SAVE_MODEL = False # Set to True to save the trained model
+SAVE_MODEL = True # Set to True to save the trained model
 MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "IPMLS", "saved_models")
 MODEL_FILENAME = f"{MODEL_TYPE} model epochs-{EPOCHS}.keras"
 
@@ -74,7 +75,7 @@ if not os.path.isdir(data_dir):
     print(f"Error: Data directory not found at {data_dir}")
     print("Please check the configuration for BASE_PROJECT_DIR, "
           "SENTINEL_FOLDER, and DATA_DIR_NAME.")
-    exit()
+    sys.exit(1)
 else:
     print("Using nominal data directory.")
 
@@ -231,8 +232,8 @@ except Exception as e:
     history = None # Ensure history is None if training failed
 
 # %% 6. Visualize Training Results
+print("=== 6. Visualizing Training Results ===")
 if history: # Only plot if training was successful
-    print("=== 6. Visualizing Training Results ===")
     acc = history.history['accuracy']
     val_acc = history.history['val_accuracy']
     loss = history.history['loss']
@@ -268,9 +269,7 @@ if history: # Only plot if training was successful
     max_loss = max(max(loss), max(val_loss))
     # Start below 0, go above max loss
     plt.ylim([-0.05, max(1.0, max_loss + 0.1)])
-
-    plt.suptitle("Model Training History "
-                 f"({MODEL_TYPE.upper()}, {EPOCHS} Epochs)", fontsize=12)
+    
     # Adjust layout to prevent title overlap
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
@@ -292,7 +291,7 @@ if os.path.exists(test_image_path):
                       np.ndarray) and test_image_display_array.ndim == 3:
              plt.figure(figsize=(4, 4))
              ax = plt.gca()
-             # Assuming image_to_array returns RGB or BGR, adjust if grayscale
+             
              plt.imshow(test_image_display_array)
              ax.spines["left"].set_visible(False)
              ax.spines["bottom"].set_visible(False)
