@@ -68,8 +68,7 @@ try: # personal pc mode
     title_size = 8
     label_size = 4
     HOME = os.path.join("C:\\", "Users", "nicol", "OneDrive - "
-                        "The University of Manchester", "Individual Project", 
-                        "Downloads") # personal computer user name
+                        "The University of Manchester", "Individual Project")
     os.chdir(HOME)
     plot_size = (3, 3) # larger plots increase detail and pixel count
     plot_size_chunks = (6, 6)
@@ -77,8 +76,7 @@ except: # uni mode
     title_size = 15
     label_size = 8
     HOME = os.path.join("C:\\", "Users", "c55626na", "OneDrive - "
-                        "The University of Manchester", "Individual Project", 
-                        "Downloads") # university computer user name
+                        "The University of Manchester", "Individual Project")
     os.chdir(HOME)
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (11, 11)
@@ -308,7 +306,7 @@ def get_sat(sat_name, sat_number, folder):
             print(f"error - file with invalid data: {e}")
             print("type 'quit' to exit, or 'new' for a fresh file")
             response_time_start = time.monotonic()
-            ans = input("press enter to retry: ")
+            ans = input("press enter to retry: ").strip().lower()
             response_time += time.monotonic() - response_time_start
             if ans.lower() == 'quit':
                 return indices
@@ -421,7 +419,7 @@ def get_sat(sat_name, sat_number, folder):
                     f"{int(lines[i+1].split(',')[2])} non-reservoir "
                     "water bodies"
                     ))
-            n_reservoirs = input("how many reservoirs? ")
+            n_reservoirs = input("how many reservoirs? ").strip().lower()
             n_bodies = ""
             entry_list = []
             while True:
@@ -435,7 +433,8 @@ def get_sat(sat_name, sat_number, folder):
                     entry_list = [i,n_reservoirs,""]
                     while n_reservoirs > 5: # NOTE add user input type check
                         print("maximum of 5 reservoirs")
-                        n_reservoirs = input("how many reservoirs? ")
+                        n_reservoirs = input("how many "
+                                             "reservoirs? ").strip().lower()
                     if n_reservoirs != 0:
                         print("please draw a square around the reservoir(s)", 
                               flush=True)
@@ -446,7 +445,8 @@ def get_sat(sat_name, sat_number, folder):
                         entry_list.append("")
                     
                     # handle number of non-reservoir water bodies entry
-                    n_bodies = input("how many non-reservoir water bodies? ")
+                    n_bodies = input("how many ""non-reservoir "
+                                     "water bodies? ").strip().lower()
                     n_bodies = int(n_bodies)
                     entry_list[2] = n_bodies
                     if n_bodies != 0:
@@ -497,7 +497,8 @@ def get_sat(sat_name, sat_number, folder):
                         print("error: non-integer response."
                               "\ntype 'break' to save and quit"
                               "\ntype 'back' to go to previous chunk")
-                        n_reservoirs = input("how many reservoirs? ")
+                        n_reservoirs = input("how many "
+                                             "reservoirs? ").strip().lower()
             
             # %%%% 6.3 Saving Results
             """nico!! remember to add a description!"""
@@ -580,7 +581,7 @@ def get_sat(sat_name, sat_number, folder):
     ndwi_chunks = index_chunks[0]
     margin = 3 # percentage margin either side of the coordinate box
     global_min = min(np.nanmin(chunk) for chunk in ndwi_chunks)
-    global_max = 0.6*max(np.nanmax(chunk) for chunk in ndwi_chunks)
+    global_max = 0.4*max(np.nanmax(chunk) for chunk in ndwi_chunks)
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
     stop_event, thread = start_spinner(message="reservoir data segmentation")
