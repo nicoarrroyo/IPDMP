@@ -118,7 +118,7 @@ def change_to_folder(folder_path):
 
 def check_duplicate_name(search_dir, file_name):
     duplicates = False
-    for root, dirs, files in os.walk(search_dir):
+    for files in os.listdir(search_dir):
         if file_name in files:
             duplicates = True
     return duplicates
