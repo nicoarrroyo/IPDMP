@@ -214,7 +214,7 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     tci_60_array : numpy.ndarray
         A numpy array representing the full-resolution (60m) True Color 
         Image (TCI).
-        
+    
     Returns
     -------
     None
@@ -224,7 +224,7 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     """
     index_labels = ["NDWI", "MNDWI"]
     norm_ndwi = colors.Normalize(vmin=np.nanmin(ndwi), 
-                                 vmax=np.nanmax(ndwi)*0.8)
+                                 vmax=np.nanmax(ndwi)*0.4)
     norm_mndwi = colors.Normalize(vmin=np.nanmin(mndwi), 
                                  vmax=np.nanmax(mndwi)*0.8)
     
