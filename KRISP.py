@@ -255,6 +255,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
         
         ndwi_chunks = split_array(array=ndwi, n_chunks=n_chunks)
         chunk_size = ndwi_chunks[0].shape
+        globals()["chunk_size"] = chunk_size
         global_min = min(np.nanmin(chunk) for chunk in ndwi_chunks)
         global_max = max_multiplier*max(np.nanmax(chunk) for \
                                         chunk in ndwi_chunks)
@@ -331,7 +332,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
 run_model(folder=("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                   "20250301T152054.SAFE"), 
           n_chunks=5000, 
-          model_name="ndwi model epochs-30_20250421_230014.keras", 
+          model_name="ndwi model epochs-30_20250421_231511.keras", 
           max_multiplier=0.4)
 
 # %% Final
