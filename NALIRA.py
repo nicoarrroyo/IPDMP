@@ -57,11 +57,11 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
+n_chunks = 4999 # number of chunks into which images are split
 high_res = True # use finer 10m spatial resolution (slower)
-show_index_plots = True
+show_index_plots = False
 save_images = False
-label_data = False
+label_data = True
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
 try: # personal pc mode
@@ -579,7 +579,7 @@ def get_sat(sat_name, sat_number, folder):
     """nico!! remember to add a description! 0.6*max to bring down the cieling 
     of ndwi so that reservoir and water bodies are better highlighted"""
     ndwi_chunks = index_chunks[0]
-    margin = 3 # percentage margin either side of the coordinate box
+    margin = 15 # percentage margin either side of the coordinate box
     global_min = min(np.nanmin(chunk) for chunk in ndwi_chunks)
     global_max = 0.4*max(np.nanmax(chunk) for chunk in ndwi_chunks)
     
@@ -648,6 +648,41 @@ def get_sat(sat_name, sat_number, folder):
                         g_min=global_min, g_max=global_max, 
                         dupe_check=True)
     end_spinner(stop_event, thread)
+    
+    # %%%%% 7.2.3 Create an image of a mini-chunk of neither class and save it
+# =============================================================================
+#     stop_event, thread = start_spinner(message="water body data segmentation")
+#     for i in range(len(body_coords)):
+#         chunk_n = (int(body_coords[i][0])-1)
+#         
+#         # NDWI data
+#         body_ndwi_path = os.path.join(
+#             path, "training data", "ndwi", "water bodies"
+#             )
+#         change_to_folder(body_ndwi_path)
+#         image_name = f"ndwi chunk {chunk_n} water body {i+1}.png"
+#         save_image_file(data=ndwi_chunks[chunk_n], 
+#                         image_name=image_name, 
+#                         normalise=True, 
+#                         coordinates=body_coords[i][1], 
+#                         margin=margin, 
+#                         g_min=global_min, g_max=global_max, 
+#                         dupe_check=True)
+#         # TCI data
+#         body_tci_path = os.path.join(
+#             path, "training data", "tci", "water bodies"
+#             )
+#         change_to_folder(body_tci_path)
+#         image_name = f"tci chunk {chunk_n} water body {i+1}.png"
+#         save_image_file(data=tci_chunks[chunk_n], 
+#                         image_name=image_name, 
+#                         normalise=False, 
+#                         coordinates=body_coords[i][1], 
+#                         margin=margin, 
+#                         g_min=global_min, g_max=global_max, 
+#                         dupe_check=True)
+#     end_spinner(stop_event, thread)
+# =============================================================================
     
     time_taken = time.monotonic() - start_time
     print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
