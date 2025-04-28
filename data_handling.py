@@ -84,7 +84,99 @@ def check_file_permission(file_name):
             print("could not open file - please close the responses file")
             input("press enter to retry")
 
-def extract_coords(coord_string):
+def create_box(coords):
+    """
+    Creates a square bounding box containing the input coordinates,
+    adjusted to stay within the 0-157 boundary.
+    
+    Args:
+      coords: A list of four floats representing the input rectangle's
+              coordinates in the format [ULX, ULY, LRX, LRY]
+              (Upper Left X, Upper Left Y, Lower Right X, Lower Right Y).
+    
+    Returns:
+      A list of four floats representing the coordinates of the  bounding box 
+      in the format [ULX, ULY, LRX, LRY].
+    """
+    # --- Constants ---
+    MIN_COORD = 0.0
+    MAX_COORD = 157.0
+    BOX_SIZE = MAX_COORD / 4
+    
+    # --- Input Validation ---
+    if len(coords) != 4:
+        raise ValueError("Input coords list must contain exactly four values.")
+    ulx, uly, lrx, lry = coords
+    if not all(isinstance(c, (int, float)) for c in coords):
+        raise TypeError("All coordinates must be numbers.")
+    if ulx >= lrx or uly >= lry:
+        raise ValueError("Invalid coordinates: ULX must be < LRX and ULY must "
+                         "be < LRY.")
+    if not all(MIN_COORD <= c <= MAX_COORD for c in coords):
+        print(f"Warning: Input coordinates {coords} contain values outside the "
+              f"{MIN_COORD}-{MAX_COORD} range.")
+        # Depending on requirements, you might raise an error here instead
+        # Or clamp the input coordinates first
+    
+    # --- 1. Calculate Center of the input rectangle ---
+    center_x = (ulx + lrx) / 2.0
+    center_y = (uly + lry) / 2.0
+    
+    # --- 2. Create Initial Box centered around the input rectangle ---
+    # Half the size of the desired box
+    half_size = BOX_SIZE / 2.0
+    box_ulx = center_x - half_size
+    box_uly = center_y - half_size
+    box_lrx = center_x + half_size
+    box_lry = center_y + half_size
+    
+    # --- 3. Adjust Box to stay within bounds [MIN_COORD, MAX_COORD] ---
+    # Adjust right edge if it exceeds MAX_COORD
+    if box_lrx > MAX_COORD:
+      offset = box_lrx - MAX_COORD
+      box_lrx = MAX_COORD
+      box_ulx -= offset # Shift left edge by the same amount
+    
+    # Adjust bottom edge if it exceeds MAX_COORD
+    if box_lry > MAX_COORD:
+      offset = box_lry - MAX_COORD
+      box_lry = MAX_COORD
+      box_uly -= offset # Shift top edge by the same amount
+    
+    # Adjust left edge if it's less than MIN_COORD
+    # This needs to happen *after* adjusting the right edge in case shifting 
+    # left pushed it below MIN_COORD
+    if box_ulx < MIN_COORD:
+      offset = MIN_COORD - box_ulx
+      box_ulx = MIN_COORD
+      box_lrx += offset # Shift right edge by the same amount
+    
+    # Adjust top edge if it's less than MIN_COORD
+    # This needs to happen *after* adjusting the bottom edge
+    if box_uly < MIN_COORD:
+        offset = MIN_COORD - box_uly
+        box_uly = MIN_COORD
+        box_lry += offset # Shift bottom edge by the same amount
+    
+    # --- Ensure the box is exactly a quarter of MAX_COORD after adjustments ---
+    final_box_ulx = max(MIN_COORD, box_ulx)
+    final_box_uly = max(MIN_COORD, box_uly)
+    final_box_lrx = final_box_ulx + BOX_SIZE
+    final_box_lry = final_box_uly + BOX_SIZE
+    
+    # Final boundary check if enforcing size pushed it over the max boundary
+    if final_box_lrx > MAX_COORD:
+        final_box_lrx = MAX_COORD
+        final_box_ulx = MAX_COORD - BOX_SIZE
+    if final_box_lry > MAX_COORD:
+        final_box_lry = MAX_COORD
+        final_box_uly = MAX_COORD - BOX_SIZE
+    
+    # Return the final coordinates as floats
+    return [float(final_box_ulx), float(final_box_uly), 
+            float(final_box_lrx), float(final_box_lry)]
+
+def extract_coords(coord_string, create_box_flag):
     """
     Extracts coordinates from a string (including square brackets) and returns 
     them as a list of floats.
@@ -103,6 +195,8 @@ def extract_coords(coord_string):
         
         # Convert each numeric string to a float
         coordinates = [float(coord) for coord in coord_strings]
+        if create_box_flag:
+            coordinates = create_box(coordinates)
     except:
         coordinates = []
     return coordinates
