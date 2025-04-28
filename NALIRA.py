@@ -1,39 +1,43 @@
-""" Individual Project Data Generation Software (IPDGS)
+""" Navigable Automated Labelling Interface for Regions of Attention (NALIRA)
 
 Description:
-
-IPDGS processes Sentinel-2 imagery to generate labelled data for the 
-Individual Project Random Forest Model (IPRFM) as part of the overarching 
-Individual Project Machine Learning Software (IPMLS). It extracts water body 
-information from satellite imagery and provides a UI for data labelling. The 
-purpose of IPDGS is to create training and test data for IPRFM.
+NALIRA processes Sentinel 2 imagery to generate labelled data for the 
+Keras Reservoir Identification Sequential Platform (KRISP) as part of the 
+overarching Individual Project Data to Model Pipeline (IPDMP). It extracts 
+water body information from satellite imagery and provides a UI for data 
+labelling. The purpose of NALIRA is to create training and test data for KRISP.
 
 Workflow:
-
 1. Data Ingestion:
-  - Reads Sentinel-2 image folders and locates necessary image bands.
+    - Reads Sentinel 2 image folders and locates necessary image bands.
 
 2. Preprocessing:
-  - Upscales lower-resolution bands if needed.
-  - Applies cloud masking using Sentinel-2 cloud probability data.
+    - Upscales lower-resolution bands if needed.
+    - Applies cloud masking using Sentinel 2 cloud probability data.
 
 3. Index Computation:
-  - Calculates water indices (NDWI, MNDWI, AWEI-SH, AWEI-NSH).
+    - Calculates water indices (NDWI, MNDWI, AWEI-SH, AWEI-NSH).
 
 4. Visualization (Optional):
-  - Displays calculated water index images.
-  - Offers image saving.
+    - Displays calculated water index images.
+    - Offers image saving.
 
-5. Labelling:
-  - Provides a Tkinter GUI for manual region of interest (ROI) (water body) 
-  labelling via rectangle selection.
-  - Uses chunk-based processing; saves the quantity of water reservoirs and 
-  water bodies, labelled ROI coordinates, and chunk numbers to a CSV file.
+5. Data Preparation:
+    - 
 
-Output:
+6. Labelling:
+    - Provides a Tkinter GUI for manual region of interest (ROI)  labelling via 
+    rectangle selection.
+    - Uses chunk-based processing; saves the quantity of water reservoirs and 
+    water bodies, labelled ROI coordinates, and chunk numbers to a CSV file.
 
-- Labelled data in CSV format, with chunk IDs, counts of water bodies, and 
-their coordinates.
+7. Segmentation:
+    - 
+
+Outputs:
+    - Labelled data in CSV format, with chunk IDs, counts of water bodies, and 
+    their coordinates.
+    - Python list containing each calculated water index.
 """
 # %% Start
 # %%% External Library Imports
@@ -57,11 +61,11 @@ from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
 
 # %%% General Image and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 4999 # number of chunks into which images are split
+n_chunks = 5000 # number of chunks into which images are split
 high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
-label_data = True
+label_data = False
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
 try: # personal pc mode
@@ -544,47 +548,72 @@ def get_sat(sat_name, sat_number, folder):
     stop_event, thread = start_spinner(message="coordinate extraction")
     res_rows = []
     res_coords = []
+    
     body_rows = []
     body_coords = []
+    
+    land_rows = []
+    land_coords = []
+    none_coord = [50.0, 50.0, 55.0, 55.0]
+    
     with open(data_file, "r") as file:
         lines = file.readlines()
+    
     for i in range(1, len(lines)):
         lines[i] = lines[i].split(",")
         if int(lines[i][1]) > 0: # if there is a reservoir
             res_rows.append(lines[i])
             if int(res_rows[-1][1]) > 1:
                 for j in range(3, 3+int(res_rows[-1][1])):
-                    res_coords.append((i, extract_coords(res_rows[-1][j])))
+                    res_coords.append((i, extract_coords(res_rows[-1][j], 
+                                                         create_box_flag=True)))
             elif int(res_rows[-1][1]) == 1:
-                res_coords.append((i, extract_coords(res_rows[-1][3])))
+                res_coords.append((i, extract_coords(res_rows[-1][3], 
+                                                     create_box_flag=True)))
         
-        # if there is a water body and it is not the sea
+        # if there is a water body
         if int(lines[i][2]) > 0:
             body_rows.append(lines[i])
-            first_coords = extract_coords(body_rows[-1][8])
+            first_coords = extract_coords(body_rows[-1][8], create_box_flag=True)
+            # and the water body is not the sea
             if first_coords[0] != 0 and first_coords[-1] != 157:
                 if int(body_rows[-1][2]) > 1:
                     for j in range(8, 8+int(body_rows[-1][2])):
-                        this_coord = extract_coords(body_rows[-1][j])
+                        this_coord = extract_coords(body_rows[-1][j], 
+                                                    create_box_flag=True)
                         body_coords.append((i, this_coord))
                 elif int(body_rows[-1][2]) == 1:
                     body_coords.append((i, first_coords))
+        # if it's just land, save a minichunk of it too
+        if int(lines[i][1]) == 0 and int(lines[i][2]) == 0:
+            land_rows.append(lines[i])
+            land_coords.append((i, extract_coords(none_coord, 
+                                                  create_box_flag=True)))
     
     globals()["lines"] = lines
     globals()["res_rows"] = res_rows
     globals()["body_rows"] = body_rows
+    globals()["land_rows"] = land_rows
     end_spinner(stop_event, thread)
     
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
-    """nico!! remember to add a description! 0.6*max to bring down the cieling 
+    """nico!! remember to add a description! 0.4*max to bring down the ceiling 
     of ndwi so that reservoir and water bodies are better highlighted"""
     ndwi_chunks = index_chunks[0]
-    margin = 15 # percentage margin either side of the coordinate box
-    global_min = min(np.nanmin(chunk) for chunk in ndwi_chunks)
-    global_max = 0.4*max(np.nanmax(chunk) for chunk in ndwi_chunks)
+        
+    valid_chunks = [chunk
+        for chunk in ndwi_chunks
+        if not np.all(np.isnan(chunk))]
+    if valid_chunks:
+        global_min = min(np.nanmin(chunk) for chunk in valid_chunks)
+        global_max = 0.4*max(np.nanmax(chunk) for chunk in valid_chunks)
+    else:
+        global_min = np.nan
+        print("Warning: All NDWI chunks contained only NaN values.")
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
     stop_event, thread = start_spinner(message="reservoir data segmentation")
+    had_an_oopsie = False
     for i in range(len(res_coords)):
         chunk_n = (int(res_coords[i][0])-1)
         
@@ -594,30 +623,35 @@ def get_sat(sat_name, sat_number, folder):
             )
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} reservoir {i+1}.png"
-        save_image_file(data=ndwi_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=True, 
-                        coordinates=res_coords[i][1], 
-                        margin=margin, 
-                        g_min=global_min, g_max=global_max, 
-                        dupe_check=True)
-        # TCI data
-        res_tci_path = os.path.join(
-            path, "training data", "tci", "reservoirs"
-            )
-        change_to_folder(res_tci_path)
-        image_name = f"tci chunk {chunk_n} reservoir {i+1}.png"
-        save_image_file(data=tci_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=False, 
-                        coordinates=res_coords[i][1], 
-                        margin=margin, 
-                        g_min=global_min, g_max=global_max, 
-                        dupe_check=True)
+        try:
+            save_image_file(data=ndwi_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=True, 
+                            coordinates=res_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
+            # TCI data
+            res_tci_path = os.path.join(
+                path, "training data", "tci", "reservoirs"
+                )
+            change_to_folder(res_tci_path)
+            image_name = f"tci chunk {chunk_n} reservoir {i+1}.png"
+            save_image_file(data=tci_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=False, 
+                            coordinates=res_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
+        except:
+            had_an_oopsie = True
+    
     end_spinner(stop_event, thread)
+    if had_an_oopsie:
+        print("error in reservoir data segmentation")
     
     # %%%%% 7.2.2 Create an image of each water body and save it
     stop_event, thread = start_spinner(message="water body data segmentation")
+    had_an_oopsie = False
     for i in range(len(body_coords)):
         chunk_n = (int(body_coords[i][0])-1)
         
@@ -627,62 +661,69 @@ def get_sat(sat_name, sat_number, folder):
             )
         change_to_folder(body_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} water body {i+1}.png"
-        save_image_file(data=ndwi_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=True, 
-                        coordinates=body_coords[i][1], 
-                        margin=margin, 
-                        g_min=global_min, g_max=global_max, 
-                        dupe_check=True)
-        # TCI data
-        body_tci_path = os.path.join(
-            path, "training data", "tci", "water bodies"
-            )
-        change_to_folder(body_tci_path)
-        image_name = f"tci chunk {chunk_n} water body {i+1}.png"
-        save_image_file(data=tci_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=False, 
-                        coordinates=body_coords[i][1], 
-                        margin=margin, 
-                        g_min=global_min, g_max=global_max, 
-                        dupe_check=True)
-    end_spinner(stop_event, thread)
+        try:
+            save_image_file(data=ndwi_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=True, 
+                            coordinates=body_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
+            # TCI data
+            body_tci_path = os.path.join(
+                path, "training data", "tci", "water bodies"
+                )
+            change_to_folder(body_tci_path)
+            image_name = f"tci chunk {chunk_n} water body {i+1}.png"
+            save_image_file(data=tci_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=False, 
+                            coordinates=body_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
+        except:
+            had_an_oopsie = True
     
-    # %%%%% 7.2.3 Create an image of a mini-chunk of neither class and save it
-# =============================================================================
-#     stop_event, thread = start_spinner(message="water body data segmentation")
-#     for i in range(len(body_coords)):
-#         chunk_n = (int(body_coords[i][0])-1)
-#         
-#         # NDWI data
-#         body_ndwi_path = os.path.join(
-#             path, "training data", "ndwi", "water bodies"
-#             )
-#         change_to_folder(body_ndwi_path)
-#         image_name = f"ndwi chunk {chunk_n} water body {i+1}.png"
-#         save_image_file(data=ndwi_chunks[chunk_n], 
-#                         image_name=image_name, 
-#                         normalise=True, 
-#                         coordinates=body_coords[i][1], 
-#                         margin=margin, 
-#                         g_min=global_min, g_max=global_max, 
-#                         dupe_check=True)
-#         # TCI data
-#         body_tci_path = os.path.join(
-#             path, "training data", "tci", "water bodies"
-#             )
-#         change_to_folder(body_tci_path)
-#         image_name = f"tci chunk {chunk_n} water body {i+1}.png"
-#         save_image_file(data=tci_chunks[chunk_n], 
-#                         image_name=image_name, 
-#                         normalise=False, 
-#                         coordinates=body_coords[i][1], 
-#                         margin=margin, 
-#                         g_min=global_min, g_max=global_max, 
-#                         dupe_check=True)
-#     end_spinner(stop_event, thread)
-# =============================================================================
+    end_spinner(stop_event, thread)
+    if had_an_oopsie:
+        print("error in water body data segmentation")
+    
+    # %%%%% 7.3 Isolate and Save an Image of Mini-Chunks of Land
+    stop_event, thread = start_spinner(message="land data segmentation")
+    had_an_oopsie = False
+    for i in range(len(land_coords)):
+        chunk_n = (int(land_coords[i][0])-1)
+        
+        # NDWI data
+        land_ndwi_path = os.path.join(
+            path, "training data", "ndwi", "land"
+            )
+        change_to_folder(land_ndwi_path)
+        image_name = f"ndwi chunk {chunk_n} land {i+1}.png"
+        try:
+            save_image_file(data=ndwi_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=True, 
+                            coordinates=body_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
+            # TCI data
+            land_tci_path = os.path.join(
+                path, "training data", "tci", "land"
+                )
+            change_to_folder(land_tci_path)
+            image_name = f"tci chunk {chunk_n} land {i+1}.png"
+            save_image_file(data=tci_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=False, 
+                            coordinates=body_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
+        except:
+            had_an_oopsie = True
+    
+    end_spinner(stop_event, thread)
+    if had_an_oopsie:
+        print("error in land data segmentation")
     
     time_taken = time.monotonic() - start_time
     print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
