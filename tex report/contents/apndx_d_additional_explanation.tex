@@ -1,0 +1,36 @@
+\section{Technical Background}
+Now I will provide some background information to the technical aspects of this study. This study involves the training and application of a machine learning model which uses satellite imagery as its input data and is implemented in the Python programming language. This subsection will cover the basics of machine learning, satellite imagery, and Python, as well as the broader decisions behind why these methods were adopted. More detail will be covered in upcoming sections such as the Aims and Objectives as well as the Methodology. 
+
+\subsection{Machine Learning}
+The fundamental concept behind machine learning is the idea that a computer program can be written such that it can "improve their performance and accuracy through experience and exposure to more data" \citep{ibm_2021}. Machine learning itself is a branch of artificial intelligence, and the specific model being used for this study, which will be explained more thoroughly in later sections, is the Keras Sequential Model \citep{chollet_2020}, which has been used in similar applications of image classification in the past \citep{imageclassification_2024}. 
+
+The specific benefit of training a machine learning model in this case is the vast applicability in different parts of the world. Additionally, although the model trained for this study is tuned for detecting water reservoirs, it is feasibly possible to adjust the program such that the input data represents a different class of object altogether, for example different types of crops, and the model can then be retrained to make predictions on the new data. As was mentioned previously, another benefit of adopting an algorithmic approach to reservoir detection is the automation that comes with it. While manually identifying water bodies can be time-consuming and impractical, the method developed in this study focused on automation and simplifying scalability, meaning that regular monitoring can be carried out easily. 
+
+The machine learning model, built using the Keras Sequential API in Python, is a type of neural network, which is a subset of machine learning. This model is trained on a dataset of satellite images where small water reservoirs have been manually identified. Through this training process, the model learns the specific visual patterns, spectral characteristics, and contextual cues associated with small water bodies in satellite imagery. Once trained, the model can then be applied to new, unseen satellite images to automatically identify and classify potential reservoirs.
+
+\subsection{Satellite Imagery}
+As mentioned previously, the adopted method for this project is to use satellite imagery, specifically optical rather than synthetic aperture radar imagery, to identify water reservoirs. Satellite imagery, and remote sensing in general, offers a reliable and repeatable way to observe large swaths of land over time. This approach is particularly useful in cases where data is needed on several locations over a large area or in remote and less accessible locations where manual inspection is not feasible. Additionally, adopting this approach for a manageable study area to start with allows for the development of a usable proof-of-concept which can later be adapted globally. 
+
+Several satellites were used during research for this study, and an even larger number were considered for use. Ultimately, the final model is optimised for Sentinel 2 data, however the project was initially started using the slightly more accessible Landsat imagery. Landsat satellites 7, 8, and 9, with a useful optical spatial resolution of at most 30m, were used in these intial stages, however Sentinel 2 was selected in the end due to its higher available optical resolution option of 10m. Both options, Sentinel 2 and all the Landsat satellites, host their data for free download on their respective Copernicus and USGS platforms. 
+
+Sentinel 2 satellites operate in a constellation, meaning there is an imaging revisit period, or temporal resolution, of 5 days \citep{europeanspaceagency_2024}, making it excellent for monitoring changes in an area over time. Additionally, Sentinel 2 images can be downloaded after processing, granting access to more refined data such as RGB composites and several levels of resolution. Given the computationally intensive nature of handling large image files, the option to use a lower resolution option has saved the researcher much time when troubleshooting the program. 
+
+While Sentinel 2 data can be among the higher resolution options for the freely available satellite images,  there are more high-resolution options such as MAXAR \citep{maxar_2021}, which can reach spatial resolutions as fine as 15cm. However, MAXAR data is less accessible than Sentinel data, and for the application of this study, the higher, nearly 300km swath afforded from Sentinel \citep{esa_2023}, as opposed to the 10km swath from MAXAR \citep{satimagingcorp_2022} means a much larger area can be mapped for reservoirs in one run of a program.  
+
+\subsection{Python Language}
+Every software program developed for this study, whether intended for data generation, model training, model deployment, or data visualisation was written entirely by the researcher in the Python programming language. Although not considered to be the most efficient language, the simple readability and high-level nature of it makes the most suitable for allowing this project and its constituent software programs to be open-source for anyone to access and contribute to, as well as being easily maintainable and explainable in an approachable way. 
+
+Finally, Python is one of the languages supported by the Google Earth Engine API, which, although not implemented in the final program version of this project, allows the program to access petabytes of cloud-based satellite data to increase applicability to various satellites and areas of the world. 
+
+\section{Scope}
+\begin{itemize}
+    \item Scope: Study area: East England
+    \begin{itemize}
+        \item This is the main area in England on which the most farming is carried out. 
+        \item For an undergraduate project, this area is sufficiently large to produce significant results, while being manageably sized enough to be feasibly accomplished in the short time period. 
+    \end{itemize}
+    \item Scope: Time period: March 2025
+    \begin{itemize}
+        \item Again, for an undergraduate project, this time period is appropriately sized. As mentioned before, this time period was selected due to its particularly low cloud cover. 
+    \end{itemize}
+\end{itemize}
