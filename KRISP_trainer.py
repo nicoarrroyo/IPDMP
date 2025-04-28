@@ -1,5 +1,6 @@
 # %% 0.Start
 print("=== Script Start ===")
+# %%% i. Import External Libraries
 import time
 import pathlib
 import os
@@ -13,6 +14,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
+# %%% ii. Import Internal Functions
 from image_handling import image_to_array
 from user_interfacing import start_spinner, end_spinner
 
@@ -32,12 +34,12 @@ DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2",
 DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs' and 'water bodies'
 
 # --- Training Parameters ---
-EPOCHS = 30
+EPOCHS = 50
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
 SAVE_MODEL = True # Set to True to save the trained model
-MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "IPMLS", "saved_models")
+MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "IPDMP", "saved_models")
 MODEL_FILENAME = f"{MODEL_TYPE} model epochs-{EPOCHS}.keras"
 
 # --- Model Parameters ---
