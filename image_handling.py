@@ -214,7 +214,7 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     tci_60_array : numpy.ndarray
         A numpy array representing the full-resolution (60m) True Color 
         Image (TCI).
-    
+        
     Returns
     -------
     None
@@ -224,7 +224,7 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     """
     index_labels = ["NDWI", "MNDWI"]
     norm_ndwi = colors.Normalize(vmin=np.nanmin(ndwi), 
-                                 vmax=np.nanmax(ndwi)*0.4)
+                                 vmax=np.nanmax(ndwi)*0.8)
     norm_mndwi = colors.Normalize(vmin=np.nanmin(mndwi), 
                                  vmax=np.nanmax(mndwi)*0.8)
     
@@ -284,7 +284,7 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
     plt.tight_layout()
     plt.show()
 
-def save_image_file(data, image_name, normalise, coordinates, margin, 
+def save_image_file(data, image_name, normalise, coordinates, 
                     g_min, g_max, dupe_check):
     # check for duplicate file name (prevent overwriting)
     if dupe_check:
@@ -295,11 +295,10 @@ def save_image_file(data, image_name, normalise, coordinates, margin,
     if not duplicates: # only create a new image if there is not one already
         largest_dimension = min(data.shape[0], data.shape[1])
         ulx, uly, lrx, lry = coordinates
-        margin = margin / 100
-        ulx = int(ulx) * (1-margin)
-        uly = int(uly) * (1-margin)
-        lrx = int(lrx) * (1+margin)
-        lry = int(lry) * (1+margin)
+        ulx = float(ulx)
+        uly = float(uly)
+        lrx = float(lrx)
+        lry = float(lry)
         coordinates = [ulx, uly, lrx, lry]
         
         for i, coord in enumerate(coordinates):
