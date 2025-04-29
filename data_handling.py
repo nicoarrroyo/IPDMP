@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 
 def rewrite(write_file, rows):
     """
@@ -101,7 +102,7 @@ def create_box(coords):
     # --- Constants ---
     MIN_COORD = 0.0
     MAX_COORD = 157.0
-    BOX_SIZE = MAX_COORD / 4
+    BOX_SIZE = MAX_COORD / 5
     
     # --- Input Validation ---
     if len(coords) != 4:
@@ -216,3 +217,132 @@ def check_duplicate_name(search_dir, file_name):
         if file_name in files:
             duplicates = True
     return duplicates
+
+def extract_chunk_details(file_name):
+    base_name = os.path.splitext(os.path.basename(file_name))[0]
+    
+    # Define a pattern to find "chunk" followed by digits,
+    # and "minichunk" followed by digits.
+    # (\d+) creates capturing groups for the digits.
+    pattern = re.compile(r"chunk\s+(\d+)\s+minichunk\s+(\d+)")
+    
+    # Search the base name for the pattern
+    match = pattern.search(base_name)
+    
+    chunk_num = None
+    minichunk_num = None
+    
+    if match:
+        try:
+            chunk_num = int(match.group(1))
+            minichunk_num = int(match.group(2))
+        except ValueError:
+            print("Error: Could not convert extracted parts to integers "
+                  f"in '{file_name}'")
+            chunk_num = 0
+            minichunk_num = 0
+        except IndexError:
+             print("Error: Could not find expected groups in regex match "
+                   f"for '{file_name}'")
+             chunk_num = 0
+             minichunk_num = 0
+    else:
+        chunk_num = 0
+        minichunk_num = 0
+    return chunk_num, minichunk_num
+
+def sort_prediction_results(data_list):
+    """
+    Sorts a list of lists based on the first two integer elements.
+    
+    The sorting is done primarily by the first element (ascending)
+    and secondarily by the second element (ascending). Assumes the input
+    is a list where each element is a list starting with two numbers.
+    
+    Args:
+      data_list: A list of lists, e.g.,
+                 [[0, 19, 'CLASS_A', 99.5],
+                  [0, 2,  'CLASS_B', 88.0],
+                  [1, 0,  'CLASS_A', 95.1], ...]
+    
+    Returns:
+      A NEW list containing the elements of data_list sorted according
+      to the specified criteria. Returns an empty list if input is not a list
+      or if sorting fails.
+    """
+    if not isinstance(data_list, list):
+        print("Error: Input must be a list.")
+        return [] # Return empty list or raise error
+    
+    try:
+        # Use the sorted() function to create and return a new sorted list.
+        # The key is a lambda function that returns a tuple (item[0], item[1]).
+        # Python sorts tuples element by element, so this achieves the desired
+        # primary sort by item[0] and secondary sort by item[1].
+        sorted_list = sorted(data_list, key=lambda item: (item[0], item[1]))
+        return sorted_list
+    except (IndexError, TypeError) as e:
+        # Handle cases where inner items aren't lists or don't have enough elements
+        print(f"Error during sorting: {e}")
+        print("Please ensure input is a list of lists, each with at least two "
+              "sortable elements.")
+        return [] # Return empty list or original list, or raise error
+
+def extract_chunk_minichunk_key(filename):
+    """
+    Helper function to extract (chunk, minichunk) numbers from a filename.
+    Used as the key for sorting. Returns numbers or values that sort last on error.
+    """
+    # Get just the filename part without extension, in case a full path is passed
+    base_name = os.path.splitext(os.path.basename(str(filename)))[0]
+    
+    # Pattern to find "chunk [digits]" and "minichunk [digits]"
+    pattern = re.compile(r"chunk\s+(\d+)\s+minichunk\s+(\d+)")
+    match = pattern.search(base_name)
+    
+    if match:
+        try:
+            # Extract numbers as integers
+            chunk_num = int(match.group(1))
+            minichunk_num = int(match.group(2))
+            # Return a tuple for sorting: (primary_key, secondary_key)
+            return (chunk_num, minichunk_num)
+        except (ValueError, IndexError):
+            # Handle cases where captured groups aren't valid numbers or missing
+            pass # Fall through to return the default 'sort last' key
+    
+    # If pattern doesn't match or conversion fails, return a tuple
+    # that will sort these items after all valid items.
+    # float('inf') is larger than any integer.
+    return (float('inf'), float('inf'))
+
+def sort_file_names(filename_list):
+    """
+    Sorts a list of filenames based on embedded chunk and minichunk numbers.
+    
+    Assumes filenames generally follow the pattern 
+    '... chunk [num] minichunk [num] ...'.
+    Sorts ascending primarily by chunk number, then secondarily by minichunk number.
+    Filenames not matching the pattern are sorted towards the end.
+    
+    Args:
+      filename_list: A list of strings, where each string is a filename.
+    
+    Returns:
+      A NEW list containing the filenames sorted according to the criteria.
+      Returns an empty list if the input is not a list or sorting fails globally.
+    """
+    if not isinstance(filename_list, list):
+        print("Error: Input must be a list of filenames.")
+        return []
+    
+    try:
+        # Use sorted() with the helper function as the key
+        # This applies extract_chunk_minichunk_key to each filename
+        # and sorts based on the (chunk_num, minichunk_num) tuple returned.
+        sorted_list = sorted(filename_list, key=extract_chunk_minichunk_key)
+        return sorted_list
+    except Exception as e:
+        # Catch any other unexpected errors during sorting
+        print(f"An unexpected error occurred during sorting: {e}")
+        return []
