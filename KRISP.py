@@ -4,7 +4,7 @@ import time
 MAIN_START_TIME = time.monotonic()
 import os
 import numpy as np
-import re # for parsing filenames
+import re # "regular expressions" for parsing filenames
 import sys
 import math
 import matplotlib.pyplot as plt
@@ -13,13 +13,13 @@ from tensorflow import keras
 import tensorflow as tf
 
 # %%% ii. Import Internal Functions
-from data_handling import change_to_folder
+from data_handling import change_to_folder, extract_chunk_details
+from data_handling import sort_prediction_results, sort_file_names
 from image_handling import image_to_array, mask_sentinel, save_image_file
 from misc import split_array
 from user_interfacing import start_spinner, end_spinner
 
 # %%% iii. Directory Management
-cwd = os.getcwd()
 try: # personal pc mode
     HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
                         "Individual Project", "Downloads")
@@ -30,15 +30,17 @@ except: # uni mode
     os.chdir(HOME)
 
 class_names = ["land", "reservoirs", "water bodies"]
+n_files = 5000 # how many files to make predictions on
 
 # %% Big guy
-def run_model(folder, n_chunks, model_name, max_multiplier):
+def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples):
     # %%% 0. Check for Pre-existing Files
     print("==========")
     print("| STEP 0 |")
     print("==========")
     stop_event, thread = start_spinner(message="checking for "
                                        "pre-existing files")
+    start_time = time.monotonic()
     satellite = "Sentinel 2"
     path = os.path.join(HOME, satellite, folder)
     os.chdir(path)
@@ -143,6 +145,8 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
                 break
     
     end_spinner(stop_event, thread)
+    time_taken = time.monotonic() - start_time
+    print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
 
     # %%% 1. Load Sentinel 2 Image File
     print("==========")
@@ -250,7 +254,6 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
         
         np.seterr(divide="ignore", invalid="ignore")
         ndwi = ((green - nir) / (green + nir))
-        globals()["DEBUG_krisp_ndwi"] = ndwi
         
         end_spinner(stop_event, thread)
         time_taken = time.monotonic() - start_time
@@ -288,9 +291,6 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
         start_time = time.monotonic()
         
         ndwi_chunks = split_array(array=ndwi, n_chunks=n_chunks)
-        globals()["DEBUG_krisp_ndwi_chunks"] = ndwi_chunks
-        chunk_size = ndwi_chunks[0].shape
-        globals()["DEBUG_chunk_size"] = chunk_size
         global_min = min(np.nanmin(chunk) for chunk in ndwi_chunks)
         global_max = max_multiplier*max(np.nanmax(chunk) for \
                                         chunk in ndwi_chunks)
@@ -336,67 +336,91 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
                                     dupe_check=False)
                     mc_idx += 1
                     total_minichunks_saved += 1
-            if i > 10:
-                print("DEBUG: Stopping after 10 chunks.")
-                break
         
         time_taken = time.monotonic() - start_time
         print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
     else:
         print("chunk generation disabled, skipping this step")
-    # %%% 6. Load Model
+    # %%% 6. Load and Deploy Model
     print("==========")
     print("| STEP 6 |")
     print("==========")
+    # %%%% 6.1 Load Data into Memory
+    stop_event, thread = start_spinner(message="sorting and loading data")
+    start_time = time.monotonic()
+    results_list = []
+    
     height = int(157/mc_per_len)
     width = int(157/mc_per_len)
+    
     model_path = os.path.join(HOME, "saved_models", model_name)
     model = keras.models.load_model(model_path)
-    all_file_names = os.listdir(test_data_path)[:5] # first 20 images
-    for file_name in all_file_names:
+    
+    all_file_names = os.listdir(test_data_path)
+    all_file_names = sort_file_names(all_file_names)
+    
+    selected_file_names = all_file_names[:n_files]
+    del all_file_names # save memory
+    
+    if len(selected_file_names) > 50:
+        plot_examples = False # override decision - that would be too many plots
+    end_spinner(stop_event, thread)
+    
+    # %%%% 6.2 Make Predictions on the Loaded Data
+    if not plot_examples:
+        stop_event, thread = start_spinner(message="making predictions on "
+                                           f" {n_files} files")
+    
+    for file_name in selected_file_names:
         file_path = os.path.join(test_data_path, file_name)
         
         img = tf.keras.utils.load_img(
             file_path, target_size=(height, width)
         )
         
-        plt.figure(figsize=(3, 3))
-        plt.imshow(img)
-        plt.title(f"{file_name}", fontsize=7)
-        plt.axis("off")
-        plt.show() 
+        if plot_examples:
+            plt.figure(figsize=(3, 3))
+            plt.imshow(img)
+            plt.title(f"{file_name}", fontsize=7)
+            plt.axis("off")
+            plt.show()
         
         img_array = tf.keras.utils.img_to_array(img)
         img_array = tf.expand_dims(img_array, 0) # Create a batch
         
         # Make prediction
-        predictions = model.predict(img_array)
+        predictions = model.predict(img_array, verbose=0)
         # Apply softmax to get probabilities because the model outputs logits
         score = tf.nn.softmax(predictions[0])
         
         predicted_class_index = np.argmax(score)
-        predicted_class_name = class_names[predicted_class_index]
-        confidence = 100 * np.max(score)
+        predicted_class_name = class_names[predicted_class_index].upper()
+        confidence = (100 * np.max(score)).astype(np.float32)
+        chunk_num, minichunk_num = extract_chunk_details(file_name)
+        result = [chunk_num, minichunk_num, predicted_class_name, confidence]
+        results_list.append(result)
         
-        print(
-            "Prediction: This image most likely belongs to "
-            f"'{predicted_class_name}' "
-            f"with a {confidence:.2f}% confidence."
-        )
-        
+        if plot_examples:
+            print("PREDICTED | CONFIDENCE")
+            print(f"|{predicted_class_name}| |{confidence}%|")
+    
+    if not plot_examples:
+        end_spinner(stop_event, thread)
+    
+    time_taken = time.monotonic() - start_time
+    print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
+    
+    # %%% 7. Return
+    sorted_results_list = sort_prediction_results(results_list)
+    return sorted_results_list
+
 # %% Run the big guy
-# =============================================================================
-# run_model(folder=("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
-#                   "20250301T152054.SAFE"), 
-#           n_chunks=5000, 
-#           model_name="ndwi model epochs-200.keras", 
-#           max_multiplier=0.4)
-# =============================================================================
-run_model(folder=("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
-                  "20250301T152054.SAFE"), 
-          n_chunks=5000, 
-          model_name="ndwi model epochs-500.keras", 
-          max_multiplier=0.41)
+results = run_model(folder=("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
+                            "20250301T152054.SAFE"), 
+                    n_chunks=5000, 
+                    model_name="ndwi model epochs-1000.keras", 
+                    max_multiplier=0.41, 
+                    plot_examples=False)
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
