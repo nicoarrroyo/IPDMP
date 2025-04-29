@@ -25,8 +25,8 @@ print("Imports complete.")
 print("=== 1. Configuring Parameters ===")
 # --- Core Settings ---
 MODEL_TYPE = "ndwi" # Options: "ndwi", "tci"
-BASE_PROJECT_DIR = os.path.join("C:\\", "Users", "nicol", "OneDrive - "
-                    "The University of Manchester", "Individual Project")
+BASE_PROJECT_DIR = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", 
+                                "YEAR 3", "Individual Project", "Downloads")
 SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                    "20250301T152054.SAFE")
 DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2", 
@@ -39,7 +39,7 @@ LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
 SAVE_MODEL = True # Set to True to save the trained model
-MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "IPDMP", "saved_models")
+MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "saved_models")
 MODEL_FILENAME = f"{MODEL_TYPE} model epochs-{EPOCHS}.keras"
 
 # --- Model Parameters ---
@@ -51,8 +51,8 @@ TEST_IMAGE_SUBDIR = MODEL_TYPE # Subdirectory within DATA_BASE_PATH
 TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
 
 # --- Dataset Parameters ---
-IMG_HEIGHT = 157
-IMG_WIDTH = 157
+IMG_HEIGHT = int(157/5) # must adjust this for the actual image size!!!!
+IMG_WIDTH = int(157/5)
 BATCH_SIZE = 32
 VALIDATION_SPLIT = 0.2
 RANDOM_SEED = 123 # For reproducibility of splits
@@ -82,7 +82,7 @@ else:
     print("Using nominal data directory.")
 
 if not os.path.exists(test_image_path):
-    print(f"Warning: Test image not found at {test_image_path}. Prediction "
+    print(f"WARNING: Test image not found at {test_image_path}. Prediction "
            "step will fail or use incorrect data.")
 else:
     print(f"Using nominal test image: {TEST_IMAGE_NAME}")
@@ -92,14 +92,14 @@ try:
     image_count = len(list(data_dir_pathlib.glob('*/*.png')))
     print(f"Found {image_count} images in nominal data directory.")
     if image_count == 0:
-        print("Warning: No images found. Check the data directory structure "
+        print("WARNING: No images found. Check the data directory structure "
               "and image format.")
 except Exception as e:
     print(f"Error counting images: {e}")
     image_count = 0 # Assume zero if listing fails
 
 if image_count < BATCH_SIZE:
-    print(f"Warning: Total image count ({image_count}) is less than the batch "
+    print(f"WARNING: Total image count ({image_count}) is less than the batch "
            f"size ({BATCH_SIZE}). This might cause issues during training.")
 
 # %% 3. Prepare the Dataset
@@ -125,14 +125,14 @@ except Exception as e:
     print(f"Error loading dataset: {e}")
     print("Check if the directory structure matches "
           "'data_dir/class_a/image.png', 'data_dir/class_b/image.png'.")
-    exit()
+    sys.exit(1)
 
 class_names = train_ds.class_names
 num_classes = len(class_names)
 print(f"Found classes: {class_names}")
 if num_classes <= 1:
     print("Error: Need at least two classes for classification.")
-    exit()
+    sys.exit(1)
 
 # Configure the dataset for performance
 stop_event, thread = start_spinner(message="Configuring dataset performance")
@@ -245,26 +245,26 @@ if history: # Only plot if training was successful
     plt.figure(figsize=(6, 3)) # Wider figure to accommodate titles better
 
     plt.subplot(1, 2, 1)
-    plt.plot(epochs_range, acc, label='Training Accuracy')
-    plt.plot(epochs_range, val_acc, label='Validation Accuracy')
-    plt.legend(loc='lower right', fontsize=8)
-    plt.title(f'{MODEL_TYPE.upper()} Training and Validation Accuracy', 
+    plt.plot(epochs_range, acc, label="Training Accuracy", linewidth=1)
+    plt.plot(epochs_range, val_acc, label="Validation Accuracy", linewidth=1)
+    plt.legend(loc="lower right", fontsize=5)
+    plt.title(f"{MODEL_TYPE.upper()} Training and Validation Accuracy", 
               fontsize=10)
-    plt.xlabel('Epoch', fontsize=8)
-    plt.ylabel('Accuracy', fontsize=8)
+    plt.xlabel("Epoch", fontsize=8)
+    plt.ylabel("Accuracy", fontsize=8)
     plt.xticks(fontsize=7)
     plt.yticks(fontsize=7)
     # Dynamically set ylim based on data or keep fixed
     min_acc = min(min(acc), min(val_acc))
     plt.ylim([max(0, min_acc - 0.1), 1.05]) # Start below min accuracy, max 1.05
-
+    
     plt.subplot(1, 2, 2)
-    plt.plot(epochs_range, loss, label='Training Loss')
-    plt.plot(epochs_range, val_loss, label='Validation Loss')
-    plt.legend(loc='upper right', fontsize=8)
-    plt.title(f'{MODEL_TYPE.upper()} Training and Validation Loss', fontsize=10)
-    plt.xlabel('Epoch', fontsize=8)
-    plt.ylabel('Loss', fontsize=8)
+    plt.plot(epochs_range, loss, label="Training Loss", linewidth=1)
+    plt.plot(epochs_range, val_loss, label="Validation Loss", linewidth=1)
+    plt.legend(loc="upper right", fontsize=5)
+    plt.title(f"{MODEL_TYPE.upper()} Training and Validation Loss", fontsize=10)
+    plt.xlabel("Epoch", fontsize=8)
+    plt.ylabel("Loss", fontsize=8)
     plt.xticks(fontsize=7)
     plt.yticks(fontsize=7)
     # Dynamically set ylim based on data
@@ -302,7 +302,7 @@ if os.path.exists(test_image_path):
              plt.title("Test Image", fontsize=9)
              plt.show()
         else:
-            print("Warning: Output of image_to_array is not a displayable "
+            print("WARNING: Output of image_to_array is not a displayable "
                   "image array.")
 
     except Exception as e:
@@ -355,7 +355,7 @@ if SAVE_MODEL and history:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         base, ext = os.path.splitext(model_save_path)
         versioned_save_path = f"{base}_{timestamp}{ext}"
-        print(f"Warning: Original path {model_save_path} exists.")
+        print(f"WARNING: Original path {model_save_path} exists.")
         print(f"Attempting to save to versioned path: {versioned_save_path}")
         save_path_to_use = versioned_save_path
     else: # Use the original path if it doesn't exist
