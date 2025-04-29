@@ -4,8 +4,8 @@ import time
 MAIN_START_TIME = time.monotonic()
 import os
 import numpy as np
-import sys
 import re # for parsing filenames
+import sys
 import math
 import matplotlib.pyplot as plt
 
@@ -13,21 +13,23 @@ from tensorflow import keras
 import tensorflow as tf
 
 # %%% ii. Import Internal Functions
+from data_handling import change_to_folder
 from image_handling import image_to_array, mask_sentinel, save_image_file
-from misc import split_array, create_9_random_coords
+from misc import split_array
 from user_interfacing import start_spinner, end_spinner
 
 # %%% iii. Directory Management
+cwd = os.getcwd()
 try: # personal pc mode
-    HOME = os.path.join("C:\\", "Users", "nicol", "OneDrive - "
-                        "The University of Manchester", "Individual Project")
+    HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
+                        "Individual Project", "Downloads")
     os.chdir(HOME)
 except: # uni mode
     HOME = os.path.join("C:\\", "Users", "c55626na", "OneDrive - "
                         "The University of Manchester", "Individual Project")
     os.chdir(HOME)
 
-class_names = ["reservoirs", "water bodies"]
+class_names = ["land", "reservoirs", "water bodies"]
 
 # %% Big guy
 def run_model(folder, n_chunks, model_name, max_multiplier):
@@ -45,6 +47,10 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
     test_data_path = os.path.join(path, "test data", f"ndwi_{max_multiplier}")
     existing_files = []
     real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
+    n_mini_chunks = 25
+    mc_per_len = int(np.sqrt(n_mini_chunks)) # mini-chunks per length
+    # important note! ensure this matches the IMG_HEIGHT division in trainer
+    # as well as the BOX_SIZE division in data_handling
     generate_chunks = False
     
     # %%%%% 0.1.1 Extract current folder contents
@@ -54,11 +60,38 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
         for item in all_items:
             if os.path.isfile(os.path.join(test_data_path, item)):
                 existing_files.append(item)
+        existing_files[1] # try to access any item
+        # this will induce an intended error in the event that a directory 
+        # does exist but it is unpopulated
     except:
-        pass
+        end_spinner(stop_event, thread)
+        while True:
+            print("test data directory does not exist")
+            print("WARNING: creating and saving many images may take " 
+                  "very long! The console may freeze of crash, but "
+                  "progress should continue regardless")
+            print("to check progress, go to the download directory.")
+            user_input = input("do you want to recalculate NDWI and fill in "
+                               "the remaining chunks? this may add/overwrite "
+                               "files (y/n): ").strip().lower()
+            if user_input in ["y", "yes"]:
+                generate_chunks = True
+                print("starting chunk generation process")
+                cwd = os.getcwd()
+                # create the directory
+                change_to_folder(test_data_path)
+                os.chdir(cwd)
+                break
+            elif user_input in ["n", "no"]:
+                generate_chunks = False
+                print("without chunks, the script cannot run")
+                sys.exit(0)
+                break
+            else:
+                print("Invalid input. Please enter 'y' or 'n'.")
     
     # Proceed only if the directory was accessible
-    if existing_files:
+    if len(existing_files) > 0:
     
         # %%%%% 0.1.2 Find latest saved chunk
         max_chunk_index = -1
@@ -84,25 +117,25 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
         else:
             print("No files matching the 'ndwi chunk i minichunk j.png' "
                   f"pattern found in 'ndwi_{max_multiplier}'.")
+            chunks_rem = real_n_chunks - max_chunk_index
         
         # %%%%% 0.1.3 Ask user if they want to continue
         while True:
             if chunks_rem > 0:
+                print("WARNING: creating and saving many images may take " 
+                      "very long! The console may freeze of crash, but "
+                      "progress should continue regardless")
+                print("to check progress, go to the download directory.")
                 user_input = input("do you want to recalculate NDWI and fill "
                                    f"in the remaining {chunks_rem} chunks? "
                                    "this may add/overwrite files "
                                    "(y/n): ").strip().lower()
                 if user_input in ["y", "yes"]:
-                    print("WARNING: creating and saving many images may take " 
-                          "very long! The console may freeze of crash, but "
-                          "progress should continue regardless")
-                    print("to check progress, go to the download directory.")
                     generate_chunks = True
                     break
                 elif user_input in ["n", "no"]:
                     generate_chunks = False
-                    print("Exiting script")
-                    sys.exit(0) # Exit the script cleanly
+                    break
                 else:
                     print("Invalid input. Please enter 'y' or 'n'.")
             else:
@@ -144,7 +177,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
             path = os.path.join(path, subdirs[0])
         else:
             print("Too many subdirectories in 'GRANULE':", len(subdirs))
-            exit()
+            sys.exit()
         
         # %%%%% 1.1.2 Resolution selection and file name deconstruction
         """Low resolution is beneficial for faster processing times, but is not 
@@ -217,6 +250,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
         
         np.seterr(divide="ignore", invalid="ignore")
         ndwi = ((green - nir) / (green + nir))
+        globals()["DEBUG_krisp_ndwi"] = ndwi
         
         end_spinner(stop_event, thread)
         time_taken = time.monotonic() - start_time
@@ -254,28 +288,57 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
         start_time = time.monotonic()
         
         ndwi_chunks = split_array(array=ndwi, n_chunks=n_chunks)
+        globals()["DEBUG_krisp_ndwi_chunks"] = ndwi_chunks
         chunk_size = ndwi_chunks[0].shape
-        globals()["chunk_size"] = chunk_size
+        globals()["DEBUG_chunk_size"] = chunk_size
         global_min = min(np.nanmin(chunk) for chunk in ndwi_chunks)
         global_max = max_multiplier*max(np.nanmax(chunk) for \
                                         chunk in ndwi_chunks)
         
         end_spinner(stop_event, thread)
         
-        # %%%% 5.2 Create and Save Mini-chunks
+        # %%%% 5.2 Create and Save Mini-Chunks
         print("saving chunks as image files")
+        change_to_folder(test_data_path)
+        
+        total_minichunks_saved = 0 # Optional counter
+        
         for i, chunk in enumerate(ndwi_chunks):
-            if existing_files and i < start_chunk_index:
+            if i > real_n_chunks:
+                print("WARNING: Exceeded expected number of chunks "
+                      f"({real_n_chunks}). Stopping.")
+                break
+            if not generate_chunks and i < start_chunk_index:
                 continue # Skip chunks already processed
-            mini_chunk_coords = create_9_random_coords(ulx=0, uly=0, 
-                                                       lrx=chunk_size[0],
-                                                       lry=chunk_size[1])
-            for j, coords in enumerate(mini_chunk_coords):
-                image_name = (f"ndwi chunk {i} minichunk {j}.png")
-                save_image_file(data=chunk, image_name=image_name, 
-                                normalise=True, coordinates=coords, margin=0, 
-                                g_max=global_max, g_min=global_min, 
-                                dupe_check=False)
+            
+            chunk_height, chunk_width = chunk.shape
+            mini_chunk_h = chunk_height / mc_per_len
+            mini_chunk_w = chunk_width / mc_per_len
+            
+            uly_s = np.linspace(0, chunk_height - mini_chunk_h, mc_per_len)
+            ulx_s = np.linspace(0, chunk_width - mini_chunk_w, mc_per_len)
+            
+            mc_idx = 0 # mini-chunk index
+            for j, ulx in enumerate(ulx_s):
+                for k, uly in enumerate(uly_s):
+                    image_name = (f"ndwi chunk {i} minichunk {mc_idx}.png")
+                    mini_chunk_coord = [
+                        float(ulx),                 # ulx
+                        float(uly),                 # uly
+                        float(ulx + mini_chunk_w),  # lrx
+                        float(uly + mini_chunk_h)   # lry
+                    ]
+                    save_image_file(data=chunk, 
+                                    image_name=image_name, 
+                                    normalise=True, 
+                                    coordinates=mini_chunk_coord, 
+                                    g_max=global_max, g_min=global_min, 
+                                    dupe_check=False)
+                    mc_idx += 1
+                    total_minichunks_saved += 1
+            if i > 10:
+                print("DEBUG: Stopping after 10 chunks.")
+                break
         
         time_taken = time.monotonic() - start_time
         print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
@@ -285,11 +348,11 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
     print("==========")
     print("| STEP 6 |")
     print("==========")
-    model_path = os.path.join(HOME, "IPMLS", "saved_models", model_name)
+    height = int(157/mc_per_len)
+    width = int(157/mc_per_len)
+    model_path = os.path.join(HOME, "saved_models", model_name)
     model = keras.models.load_model(model_path)
-    height = 157
-    width = 157
-    all_file_names = os.listdir(test_data_path)[:20] # first 20 images
+    all_file_names = os.listdir(test_data_path)[:5] # first 20 images
     for file_name in all_file_names:
         file_path = os.path.join(test_data_path, file_name)
         
@@ -332,8 +395,8 @@ def run_model(folder, n_chunks, model_name, max_multiplier):
 run_model(folder=("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                   "20250301T152054.SAFE"), 
           n_chunks=5000, 
-          model_name="ndwi model epochs-30_20250421_231511.keras", 
-          max_multiplier=0.4)
+          model_name="ndwi model epochs-500.keras", 
+          max_multiplier=0.41)
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME
