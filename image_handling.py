@@ -89,15 +89,20 @@ def mask_sentinel(path, high_res, image_arrays):
         for SWIR1 and SWIR2. 
     
     """
-    if high_res:
-        image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
-        image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
+    if len(image_arrays) >= 3: # for NALIRA
+        if high_res:
+            image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
+            image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
+            path = os.path.join(path, "MSK_CLDPRB_20m.jp2")
+            clouds_array = image_to_array(path)
+            clouds_array = upscale_image_array(clouds_array, factor=2)
+        else:
+            path = os.path.join(path, "MSK_CLDPRB_60m.jp2")
+            clouds_array = image_to_array(path)
+    else: # for KRISP (where only green and NIR are used)
         path = os.path.join(path, "MSK_CLDPRB_20m.jp2")
         clouds_array = image_to_array(path)
         clouds_array = upscale_image_array(clouds_array, factor=2)
-    else:
-        path = os.path.join(path, "MSK_CLDPRB_60m.jp2")
-        clouds_array = image_to_array(path)
     
     clouds_array = np.where(clouds_array > 50, 100, clouds_array)
     cloud_positions = np.argwhere(clouds_array == 100)
@@ -293,27 +298,59 @@ def save_image_file(data, image_name, normalise, coordinates,
     else:
         duplicates = False
     if not duplicates: # only create a new image if there is not one already
-        largest_dimension = min(data.shape[0], data.shape[1])
         ulx, uly, lrx, lry = coordinates
-        ulx = float(ulx)
-        uly = float(uly)
-        lrx = float(lrx)
-        lry = float(lry)
-        coordinates = [ulx, uly, lrx, lry]
+        iulx, iuly, ilrx, ilry = int(ulx), int(uly), int(lrx), int(lry)
         
-        for i, coord in enumerate(coordinates):
-            if coord < 0:
-                coordinates[i] = 0
-            if coord > largest_dimension:
-                coordinates[i] = largest_dimension
-            coordinates[i] = int(coord)
+        # Ensure indices are within bounds AFTER potential rounding
+        iulx = max(0, iulx)
+        iuly = max(0, iuly)
+        ilrx = min(data.shape[1], ilrx) # Use actual data dimensions
+        ilry = min(data.shape[0], ilry)
         
-        ulx, uly, lrx, lry = coordinates
-        data = data[uly:lry, ulx:lrx]
+        # Crop the data
+        cropped_data = data[iuly:ilry, iulx:ilrx]
+        
         if normalise:
-            norm = plt.Normalize(g_min, g_max)
-            cmap = plt.get_cmap("viridis")
-            data = cmap(norm(data))
-            data = (255 * data).astype(np.uint8)
+            # Ensure cropped_data is not empty before normalization
+            if cropped_data.size == 0:
+                print(f"WARNING: Cropped data is empty for {image_name}. "
+                      "Skipping save.")
+                return # Skip saving empty images
         
-        Image.fromarray(data).save(image_name)
+            # Check for all-NaN slices after cropping
+            if np.all(np.isnan(cropped_data)):
+                 print("WARNING: Cropped data contains only NaN "
+                       f"for {image_name}. Saving as black.")
+                 # Create a black image of the expected type/channels
+                 # Assuming RGBA output from cmap
+                 final_data = np.zeros((*cropped_data.shape, 4), dtype=np.uint8)
+            else:
+                 # Proceed with normalization and colormapping
+                 norm = plt.Normalize(g_min, g_max)
+                 cmap = plt.get_cmap("viridis")
+                 # Apply norm and cmap. Handle potential NaN values if any remain.
+                 # cmap might handle NaNs depending on matplotlib version, or 
+                 # set a bad color.
+                 rgba_data = cmap(norm(cropped_data))
+                 # Convert to uint8
+                 final_data = (255 * rgba_data).astype(np.uint8)
+        else:
+             # Handle non-normalized data (e.g., TCI) - needs uint8 conversion 
+             # if not already
+             if cropped_data.dtype != np.uint8:
+                  # Example conversion - might need adjustment based on input range
+                  if np.issubdtype(cropped_data.dtype, np.floating):
+                      # Assuming float 0-1 range
+                       final_data = (255 * np.clip(cropped_data, 0, 1)).astype(
+                           np.uint8)
+                  else: # Direct cast if integer type
+                       final_data = cropped_data.astype(np.uint8)
+             else:
+                  final_data = cropped_data # Already uint8
+        
+        # Save the image
+        try:
+             Image.fromarray(final_data).save(image_name)
+        except Exception as e:
+             print(f"Error saving image {image_name}: {e}")
+             print(f"Data shape: {final_data.shape}, Data type: {final_data.dtype}")
