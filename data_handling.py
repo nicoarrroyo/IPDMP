@@ -46,7 +46,7 @@ def blank_entry_check(file):
     with open(file, mode="r") as re: # read the file once
         rows = csv.reader(re)
         for i, row in enumerate(rows):
-            if row and row[0].isdigit() or row and "chunk" in row[0]:
+            if row and row[0].isdigit() or row and "chunk" in row[0] or i < 2:
                 cleaned_rows.append(row) # only keep valid rows
             else:
                 invalid_rows.append(i)
