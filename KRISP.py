@@ -30,10 +30,23 @@ except: # uni mode
     os.chdir(HOME)
 
 class_names = ["land", "reservoirs", "water bodies"]
-n_files = 5000 # how many files to make predictions on
 
 # %% Big guy
-def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples):
+def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples, 
+              start_file, n_files):
+    while n_files % 25 != 0:
+        print(f"\nerror: The number of files ({n_files}) is not "
+              "divisible by 25.")
+        user_input = input("please enter a new number of "
+                           "files (divisible by 25): ")
+        try:
+            new_n_files = int(user_input)
+            if new_n_files <= 0:
+                print("error: must be positive")
+                continue
+            n_files = new_n_files
+        except:
+            print("error: must be integer")
     # %%% 0. Check for Pre-existing Files
     print("==========")
     print("| STEP 0 |")
@@ -359,7 +372,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples):
     all_file_names = os.listdir(test_data_path)
     all_file_names = sort_file_names(all_file_names)
     
-    selected_file_names = all_file_names[:n_files]
+    selected_file_names = all_file_names[start_file:(start_file+n_files)]
     del all_file_names # save memory
     
     if len(selected_file_names) > 50:
@@ -369,7 +382,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples):
     # %%%% 6.2 Make Predictions on the Loaded Data
     if not plot_examples:
         stop_event, thread = start_spinner(message="making predictions on "
-                                           f" {n_files} files")
+                                           f"{n_files} files")
     
     for file_name in selected_file_names:
         file_path = os.path.join(test_data_path, file_name)
@@ -415,13 +428,18 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples):
     return sorted_results_list
 
 # %% Run the big guy
-results = run_model(folder=("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
-                            "20250301T152054.SAFE"), 
-                    n_chunks=5000, 
-                    model_name="ndwi model epochs-1000.keras", 
-                    max_multiplier=0.41, 
-                    plot_examples=False)
-
-# %% Final
-TOTAL_TIME = time.monotonic() - MAIN_START_TIME
-print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
+if __name__ == "__main__":
+    results = run_model(
+        folder=("S2C_MSIL2A_20250301T111031_N0511_R137_"
+                "T31UCU_20250301T152054.SAFE"), 
+        n_chunks=5000, # number of chunks to split the image into
+        model_name="ndwi model epochs-1000.keras", 
+        max_multiplier=0.41, # multiply max value of ndwi
+        plot_examples=False, 
+        start_file=0, 
+        n_files=5000
+        )
+    
+    # %% Final
+    TOTAL_TIME = time.monotonic() - MAIN_START_TIME
+    print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
