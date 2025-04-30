@@ -30,6 +30,7 @@ class_names = ["land", "reservoirs", "water bodies"]
 folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
 n_chunks = 5000
 model_epochs = 1000
+n_chunk_preds = 200
 
 predictions_file = f"preds_{str(n_chunks)}chunks_{model_epochs}epochs.csv"
 
@@ -54,6 +55,14 @@ for i, line in enumerate(lines):
     except:
         continue
 
+print("CONTINUING FROM:")
+print(f"chunk {biggest_chunk} out of {n_chunks}")
+print(f"file {biggest_chunk * 25} out of {n_chunks * 25}")
+print(f"\nCOMPLETION: {100 * biggest_chunk / n_chunks}%")
+print("\nTHIS RUN WILL MAKE PREDICTIONS ON:")
+print(f"{n_chunk_preds} chunks")
+print(f"{n_chunk_preds * 25} files")
+
 # %% yield predictions
 the_results = run_model(
     folder=folder, 
@@ -61,8 +70,8 @@ the_results = run_model(
     model_name=f"ndwi model epochs-{model_epochs}.keras", 
     max_multiplier=0.41, 
     plot_examples=False, 
-    start_file=biggest_chunk*25, 
-    n_files=75 # must be divisible by 25
+    start_chunk=biggest_chunk, 
+    n_chunk_preds=int(n_chunk_preds)
     )
 
 # %% find biggest chunk
@@ -87,20 +96,7 @@ with open(predictions_file, mode="a") as ap:
 check_file_permission(predictions_file)
 blank_entry_check(predictions_file)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+print("\nPREDICTIONS COMPLETE UP TO: ")
+print(f"chunk {(biggest_chunk + n_chunk_preds)} out of {n_chunks}")
+print(f"file {int(biggest_chunk + n_chunk_preds) * 25} out of {n_chunks * 25}")
+print(f"\nCOMPLETION: {100 * (biggest_chunk + n_chunk_preds) / n_chunks}%")
