@@ -1,5 +1,7 @@
 import numpy as np
 import random
+import math
+import sys
 
 def get_sentinel_bands(sentinel_n, high_res):
     """
@@ -158,10 +160,10 @@ def create_9_random_coords(ulx, uly, lrx, lry):
     for i in range(3):
         for j in range(3):
             # Calculate the coordinates of the current sub-box with overlap
-            overlap_x1 = random.randint(0, 5)
-            overlap_y1 = random.randint(0, 5)
-            overlap_x2 = random.randint(0, 5)
-            overlap_y2 = random.randint(0, 5)
+            overlap_x1 = random.randint(0, 2)
+            overlap_y1 = random.randint(0, 2)
+            overlap_x2 = random.randint(0, 2)
+            overlap_y2 = random.randint(0, 2)
             
             sub_ulx = ulx + j * sub_width - overlap_x1
             sub_uly = uly + i * sub_height - overlap_y1
@@ -174,7 +176,7 @@ def create_9_random_coords(ulx, uly, lrx, lry):
             sub_lrx = min(sub_lrx, lrx)
             sub_lry = min(sub_lry, lry)
             
-            #handle edge case
+            # handle edge case
             if sub_lrx <= sub_ulx:
                 sub_lrx = sub_ulx + 1
             if sub_lry <= sub_uly:
@@ -183,8 +185,71 @@ def create_9_random_coords(ulx, uly, lrx, lry):
             sub_boxes.append([sub_ulx, sub_uly, sub_lrx, sub_lry])
     return sub_boxes
 
+def convert_seconds_to_hms(total_seconds):
+    """
+    Converts a duration given in total seconds into hours, minutes,
+    and remaining seconds.
+    
+    Args:
+      total_seconds: The total duration in seconds (can be an integer or float).
+                     Negative inputs are not recommended and may raise an error
+                     or be treated as positive depending on desired behavior.
+    
+    Returns:
+      A tuple containing three integers: (hours, minutes, seconds).
+      Raises TypeError if input is not numeric.
+      Raises ValueError if input is negative.
+    """
+    if not isinstance(total_seconds, (int, float)):
+        raise TypeError("Input 'total_seconds' must be a number.")
+    
+    if total_seconds < 0:
+        # Option 1: Raise an error for negative time
+        raise ValueError("Input 'total_seconds' cannot be negative.")
+        # Option 2: Handle negative time, e.g., by taking absolute value
+        # print("Warning: Input duration is negative. Using absolute value.")
+        # total_seconds = abs(total_seconds)
+    
+    # Use math.floor to handle potential float inputs correctly before 
+    # integer division
+    # Ensures we only deal with whole seconds for the division/modulo logic
+    total_seconds_int = math.floor(total_seconds)
+    
+    # Use divmod which efficiently returns quotient and remainder
+    # First, get total minutes and leftover seconds
+    minutes_total, seconds = divmod(total_seconds_int, 60)
+    
+    # Next, get total hours and leftover minutes from the total minutes
+    hours, minutes = divmod(minutes_total, 60)
+    
+    # Return the results as integers
+    return int(hours), int(minutes), int(seconds)
+
+def confirm_continue_or_exit():
+    """
+    Asks the user if they want to continue with the program.
+    
+    If the user enters 'y' or 'yes', the function returns and the script 
+    continues. If the user enters 'n' or 'no', the function prints a message 
+    and exits the script. It will keep asking until a valid 
+    input ('y', 'yes', 'n', 'no') is given.
+    """
+    while True: # Loop until valid input is received
+        response = input("Do you want to continue? (y/n): ").strip().lower()
+        
+        if response in ['y', 'yes']:
+            print("off we go - continuing program")
+            return # Exit the function and let the main script proceed
+        
+        elif response in ['n', 'no']:
+            print("will not continue - exiting program")
+            sys.exit() # Stop the script immediately
+        else:
+            # Ask again if the input was invalid
+            print("invalid input. 'y' for yes or 'n' for no.")
+
 """
-This section is storage for functions that are not currently used in the IPDGS 
+This section is storage for functions that are not currently used in the IPDMP 
 program but may be useful in future. 
 """
 from PIL import Image
