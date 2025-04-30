@@ -11,6 +11,7 @@ import math
 from KRISP import run_model
 from data_handling import check_file_permission, blank_entry_check
 from misc import convert_seconds_to_hms, confirm_continue_or_exit
+from user_interfacing import start_spinner, end_spinner
 
 # %%% iii. Directory Management
 try: # personal pc mode
@@ -25,10 +26,9 @@ except: # uni mode
 class_names = ["land", "reservoirs", "water bodies"]
 
 # %% prelim
-# do it row by row
+stop_event, thread = start_spinner(message="pre-run preparation")
 #folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
 folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
-#folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCU_20250320T151414.SAFE")
 #folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T30UYD_20250320T151414.SAFE")
 
 (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
@@ -38,7 +38,7 @@ folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
 n_chunks = 5000 # do not change!!
 real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
 model_epochs = 1000
-n_chunk_preds = 150
+n_chunk_preds = 10
 
 # file format: P_(chunks)_(minichunks)_(epochs)_(tile number)
 # P for predictions
@@ -84,6 +84,7 @@ est_end_time = start_time_obj + est_duration
 
 start_str = start_time_obj.strftime(time_format)
 est_end_str = est_end_time.strftime(time_format)
+end_spinner(stop_event, thread)
 
 # %% pre-run update
 # note: these numbers are rough estimates for reference only
@@ -122,7 +123,9 @@ the_results = run_model(
     n_chunk_preds=int(n_chunk_preds)
     )
 
-# %% find biggest chunk
+# %% write the results
+os.chdir(os.path.join(HOME, "Sentinel 2", folder))
+stop_event, thread = start_spinner(message="aftercare")
 check_file_permission(predictions_file)
 blank_entry_check(predictions_file)
 
@@ -131,7 +134,6 @@ if biggest_chunk < 1:
         ap.write(minichunk_header)
         ap.write(f"\n{chunk_header}")
 
-# %% write the results
 with open(predictions_file, mode="a") as ap:
     for result in the_results:
         chunk_num, minichunk_num, label, confidence = result
@@ -149,6 +151,7 @@ blank_entry_check(predictions_file)
 h, m, s = convert_seconds_to_hms(time.monotonic() - run_start_time)
 end_time_obj = datetime.datetime.now(zf.ZoneInfo("Europe/London"))
 end_str = end_time_obj.strftime(time_format)
+end_spinner(stop_event, thread)
 
 print("\n=== POST-RUN UPDATE ===")
 print(f"COMPLETED SO FAR: {post_completion}%")
@@ -167,4 +170,4 @@ print(f"\nSTARTED AT: {start_str}")
 print(f"ACTUAL DURATION: {h} hours, {m} minutes, {s} seconds")
 print(f"ENDED AT: {end_str}")
 
-print("=== POST-RUN UPDATE ===\n")
+print("=== POST-RUN UPDATE ===")
