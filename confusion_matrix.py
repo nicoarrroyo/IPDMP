@@ -28,6 +28,9 @@ class_names = ["land", "reservoirs", "water bodies"]
 # do it row by row
 #folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
 folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
+#folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCU_20250320T151414.SAFE")
+#folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T30UYD_20250320T151414.SAFE")
+
 (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
  processing_baseline_number, relative_orbit_number, tile_number_field, 
  product_discriminator_and_format) = folder.split("_")
@@ -35,7 +38,7 @@ folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
 n_chunks = 5000 # do not change!!
 real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
 model_epochs = 1000
-n_chunk_preds = 10
+n_chunk_preds = 150
 
 # file format: P_(chunks)_(minichunks)_(epochs)_(tile number)
 # P for predictions
@@ -69,7 +72,7 @@ if n_chunk_preds > real_n_chunks - biggest_chunk:
 n_files = n_chunk_preds * 25
 # duration relationship for the dell xps 9315 (personal pc)
 duration = (0.0000018258 * (n_files ** 2)) + (0.09669426 * n_files) + 0.88469036
-h, m, s = convert_seconds_to_hms(duration + 9)
+h, m, s = convert_seconds_to_hms(1.1 * duration + 9)
 est_duration = datetime.timedelta(
     hours=h, 
     minutes=m, 
@@ -88,7 +91,7 @@ pre_completion = round(100 * biggest_chunk / real_n_chunks, 2)
 post_completion = round(100 * (biggest_chunk + n_chunk_preds) / real_n_chunks, 2)
 
 print("\n=== PRE-RUN CHECK ===")
-print(f"\nCOMPLETED SO FAR: {pre_completion}%")
+print(f"COMPLETED SO FAR: {pre_completion}%")
 print(f"chunks {biggest_chunk}/{real_n_chunks} | "
       f"files {biggest_chunk * 25}/{real_n_chunks * 25} |")
 
@@ -148,14 +151,17 @@ end_time_obj = datetime.datetime.now(zf.ZoneInfo("Europe/London"))
 end_str = end_time_obj.strftime(time_format)
 
 print("\n=== POST-RUN UPDATE ===")
-print(f"COMPLETED PREDICTIONS UP TO {post_completion}% COMPLETION")
-print(f"chunks ({(biggest_chunk + n_chunk_preds)}/{real_n_chunks}) | "
-      f"files ({int(biggest_chunk + n_chunk_preds) * 25}/{real_n_chunks * 25})")
+print(f"COMPLETED SO FAR: {post_completion}%")
+print(f"chunks {biggest_chunk + n_chunk_preds}/{real_n_chunks} | "
+      f"files {(biggest_chunk + n_chunk_preds) * 25}/{real_n_chunks * 25} |")
 
-print("\nTHIS RUN MADE PREDICTIONS ON "
+print("\nCOMPLETED THIS RUN: "
       f"{round(post_completion - pre_completion, 2)}%")
-print(f"{real_n_chunks - (biggest_chunk + n_chunk_preds)} chunks remaining")
-print(f"{int(biggest_chunk + n_chunk_preds) * 25 - n_files} files remaining")
+print(f"chunks {n_chunk_preds} | files {n_files} | ")
+
+print(f"\nREMAINING: {100 - post_completion}%")
+print(f"chunks {real_n_chunks - biggest_chunk - n_chunk_preds} | "
+      f"files {(real_n_chunks - biggest_chunk - n_chunk_preds) * 25} |")
 
 print(f"\nSTARTED AT: {start_str}")
 print(f"ACTUAL DURATION: {h} hours, {m} minutes, {s} seconds")
