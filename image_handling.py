@@ -313,14 +313,10 @@ def save_image_file(data, image_name, normalise, coordinates,
         if normalise:
             # Ensure cropped_data is not empty before normalization
             if cropped_data.size == 0:
-                print(f"WARNING: Cropped data is empty for {image_name}. "
-                      "Skipping save.")
                 return # Skip saving empty images
         
             # Check for all-NaN slices after cropping
             if np.all(np.isnan(cropped_data)):
-                 print("WARNING: Cropped data contains only NaN "
-                       f"for {image_name}. Saving as black.")
                  # Create a black image of the expected type/channels
                  # Assuming RGBA output from cmap
                  final_data = np.zeros((*cropped_data.shape, 4), dtype=np.uint8)
