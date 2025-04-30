@@ -1,14 +1,33 @@
 
 
-The methodology with which I will be tackling the research question was partly touched upon in the introduction section, but in this section I will go into more detail describing the relevant satellite data that I will be using in the training of the classification model. 
+\section{Overview}
+This chapter will go through a detailed explanation of each step that should be taken to replicate this software developed for this thesis, starting from nothing more than a Python interpreter. It is important to note that the vast majority of the software development for this project (every change from February onwards) has been documented and explained with comments, descriptions, and a \verb|readme.md| file on a publicly accessible GitHub repository named IPDMP. The link to the Individual Project Data-to-Model Pipeline (IPDMP) repository, as well as an extensive "code walk-through" for each major program discussed can be found in Appendix B. 
 
-I will justify the choice of a classification model trained with machine learning, detailing the specific machine learning algorithm, covering the benefits over other forms of autonomous data generation. 
+\subsection{Section Description}
+The methodology for this thesis fundamentally consists of four key steps, which align with the objectives defined in the introduction section. This is a brief overview of the upcoming sections covering brief objective. 
+\subsubsection{Objective 1: Image Selection}
+\begin{itemize}
+    \item Select one appropriate satellite image for the development of the necessary software tools and three more satellite images for model deployment. 
+\end{itemize}
+The first step is to conduct image download. The two approaches for this application are to either download images locally or use a web-based database such as Google Earth Engine. For this study, locally downloading data is appropriate because there is no need to scale up to a large time period or study area yet. 
 
-The methodology in this project will closely follow those in similar studies using machine learning for classification models, such as \cite{ghansah_2022_monitoring}, meaning I will select a specific machine learning model upon which to train the classification model, clean the received results, and then deploy the algorithm over the intended land area. 
+\subsubsection{Objective 2: Data Generation}
+\begin{itemize}
+    \item Develop a software tool to automate satellite imagery handling/pre-processing and facilitate the semi-automated creation of labelled training data through a dedicated user interface. 
+\end{itemize}
+NALIRA, a Python program, automates the generation of training data from Sentinel 2 imagery, avoiding manual labelling. It processes satellite images by extracting bands, performing cloud masking, calculating indices, and optionally displaying plots. The True Colour Image and index plots are divided into user-defined chunks to simplify labelling. Users are prompted to input the number of reservoirs and water bodies per chunk. If present, a GUI enables users to label these features as Regions of Interest (ROIs), with coordinates saved in a CSV file that undergoes rigorous automated validation. This chunk-wise approach allows for breaks and revisiting previous labels. Finally, the labelled coordinates are used to extract individual reservoir/water body images (and corresponding non-water land images) for training data, sized at $\frac{1}{25}$ of the original chunk.
 
-From these results, I will conduct data cleaning, which consists of correcting errors made in identifying water bodies. I expect the most likely causes of these errors will stem from difficulty in differentiating naturally occurring water bodies, like lakes and ponds, from man-made water reservoirs. To account for this, some previous models have used the satellite imagery metrics to eliminate identified water bodies below a certain defined surface area \citep{ghansah_2022_monitoring}. Another approach is to manually eliminate known, man-made water bodies that may be water reservoirs but do not fit in the selection criteria because they are not reservoirs for farm use (e.g. dams or outdoor pools). 
+\subsubsection{Objective 3: Model Training}
+\begin{itemize}
+    \item Build, train, and validate a machine learning classification model (specifically using the Keras Sequential model) for water reservoirs, non-reservoir water bodies, and land.
+\end{itemize}
+The third step is to train the machine learning model that will identify reservoirs, water bodies, and land. This is done using a repurposed Google Colab TensorFlow tutorial initially intended for flower classification with a Keras Sequential Model !!! CITE THIS CITE THIS CITE THIS !!!. To repurpose this tutorial, several unnecessary, non-functional, or superfluous steps were removed, reliability was improved by adding robustness to the process, and the original flower classification training data was swapped out for the images generated with NALIRA. The program encompassing the deployment of the model is called the Keras Reservoir Identification Sequencing Platform, abbreviated to KRISP. The program dedicated to the training and initial validation of the final model is called KRISP Trainer. 
 
-The initial plan of implementation for the model is to first train it on hand-selected images that contain water reservoirs that should be clearly identified, some that may be confused for other bodies of water, and pieces of land that may resemble water reservoirs due to their shape and size. Then the results will be cleaned as described above, and once the model has reached a satisfactory level of classification accuracy, the next step is to then deploy the algorithm for scanning over larger land areas covering much of east England. 
+\subsubsection{Objective 4: Model Deployment}
+\begin{itemize}
+    \item Deploy the model over East England and produce a map of the quantity, location, and size of all water reservoirs in East England for March 2025. 
+\end{itemize}
+The fourth and final step is to deploy the model. For this, the program created is the aforementioned KRISP program. This Python script ingests an un-processed and unseen satellite image from Sentinel 2 then conducts very similar initial steps to NALIRA (image manipulation, cloud masking, index calculation, optional display of the index calculated, optional TCI manipulation, and separation of the full-sized image into chunks smaller chunks). After these steps are complete, KRISP further separates each chunk into 25 "mini-chunks" to match the size of each box containing a training image. This is done to ensure that the test and deployment data for KRISP is the same dimensions as the test upon which KRISP was trained, maximising accuracy and minimising error. 
 
 \section{Objective 1: Image Selection}
 \subsection{Satellite Choice}
@@ -20,10 +39,102 @@ While the KRISP trainer program was developed primarily with Sentinel 2 in mind,
 The NALIRA program was initially developed for Landsat 7 images, then it was adapted for compatibility with any processing level of Landsat 8 and 9 as well. Then, Sentinel 2 data was introduced, and there was a brief period where NALIRA was capable of accepting any image from Landsat 7, Landsat 8, Landsat 9, Sentinel 2A, Sentinel 2B, and Sentinel 2C. 
 
 \subsection{Image Download}
+To download images for Sentinel 2, the Copernicus browser must be used. To access these files it is necessary to log in or create an account, which can be done easily by registering a valid email address. 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{contents/figures/ME copernicus detailed search.jpg}
+    \caption{Copernicus browser detailed search}
+    \label{fig:ME copernicus detailed search}
+\end{figure}
+After logging in or registering an account, the first step of downloading images is to select the appropriate satellite. This thesis focuses on Sentinel 2 images, so we must filter out all other satellites that would not be compatible (figure \ref{fig:ME copernicus detailed search}. Go to "SEARCH" on the upper left and select "SENTINEL 2" $\rightarrow$ "MSI", which stands for Multi-Spectral Instrument. Then, select only "L2A" to filter down the images to the second processing level offered by Sentinel 2. After this, select "Filters" and choose S2A, S2B, and S2C platforms to allow for images from any of the three satellites in the Sentinel constellation.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{contents/figures/ME copernicus time range.jpg}
+    \caption{Copernicus browser time range example}
+    \label{fig:ME copernicus time range}
+\end{figure}
+Once the satellite platform has been selected, scroll down on the sidebar to reach the time frame of the image (figure \ref{fig:ME copernicus time range}. The time period for this study is the month of March 2025, as was discussed in the introduction, so select "2025-03-01" in the "From:" field and "2025-03-31" in the "Until:" field to encompass this period. Once both time period and satellite platform have been defined, press the green "Search" button at the bottom. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{contents/figures/ME copernicus example chunk.jpg}
+    \caption{Copernicus browser image example}
+    \label{fig:ME copernicus image example}
+\end{figure}
+The Copernicus browser will take some time to load the images. After you can see the image names on the left-hand side of the screen, select one where the land is clearly visible in the East Midlands area, as demonstrated in figure \ref{fig:ME copernicus image example}. To download this image, simply press the download button as demonstrated in figure \ref{fig:ME copernicus download example} and wait for the file to download completely. Note: satellite image files are usually very large (around 1 GB in size). The files are packaged in \verb|.zip| folders on Windows which have to be extracted. Further image processing and data generation will increase the required storage available, so ensure you have at least 5 GB available on disk, or use online storage solutions. This is discouraged as there have been incidents of files being deleted automatically by services like OneDrive. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{contents/figures/ME copernicus download example.jpg}
+    \caption{Copernicus browser download example}
+    \label{fig:ME copernicus download example}
+\end{figure}
+Once the image folder has downloaded completely, extract the zip file to a known location, preferably close to the root of your drive to prevent \verb|maximum path length| errors. This error occurs when Python or the operating system tries to access a file but the path to that file is too long (above 250 characters). This can be disabled when installing Python, but to avoid any potential problems, it is generally good practice and strongly recommended to store this folder close to the root. 
+
+For example:
+
+"\verb|C:\Users\abcde\Sen2|" 
+
+as opposed to something like 
+
+"\verb|C:\Users\abcde\Documents\Satellite Image Downloads\Sentinel 2|"
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{contents/figures/ME copernicus exact chunk.jpg}
+    \caption{Copernicus browser exact development image used}
+    \label{fig:ME copernicus exact image}
+\end{figure}
+The actual image used for initial program development is the one shown in figure \ref{fig:ME copernicus exact image}. The name of this image is as follows: 
+
+\verb|S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE|
+
+For all following file naming explanation or referencing, this is the image name that is being used. 
+
+\subsection{Sentinel File Naming Convention}
+Each satellite image folder from the Sentinel satellites follows the same naming convention. This simplifies file searching and enables the automation developed with NALIRA. All the main, important details about a given satellite image is stored in its folder name, and anything that is seen as too granular to include in the name is stored in various meta-data files within the folder. For this study, none of the meta-data information is necessary, so it is important to first explain the meaning of the image folder name. 
+
+Every section of information is split up with underscores ("\verb|_|"), so in total there are seven main sections. We will use the exact image folder that was used for program development in this study to identify these sections. All of this information is given by \cite{copernicus_2025}
+
+\verb|S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE|
+
+\subsubsection{S2C}
+The first section is simply the name of the satellite. In this case, "S2C" stands for "Sentinel 2 C". This bit could also be "S2A" or "S2B" if using Sentinel 2 A or Sentinel 2 B. 
+
+\subsubsection{MSIL2A}
+This sections contains two pieces of information: the first three characters, "MSI" are the abbreviation of the instrument used (MSI = Multi-Spectral Instrument) and the last three characters are the product level (L2A = Product Level 2, meaning that some post-processing has been applied). 
+
+\subsubsection{20250301T111031}
+This is the "datatake start sensing" time. It is split up into the format: 
+
+\verb|YYYYMMDDTHHMMSS|, where \verb|YYYYMMDD| is the year, month, and day, and \verb|HHMMSS| is the hour, minute, and second of the day that the sensor started imaging to produce this data. The \verb|T| character is used to separate the data and time. 
+
+\subsubsection{N0511}
+This is the "Processing Baseline Number", which gives more information about the processing level. 
+
+\subsubsection{R137}
+This is the "Relative Orbit Number", which can range from \verb|001| to \verb|143| because 143 is the number of full orbits that the satellites make before completing a full cycle. 
+
+\subsubsection{T31UCU}
+This is the "tile number field", which essentially describes the 110 km x 110 km area being imaged. There are enough tiles to cover everywhere that a Sentinel 2 satellite could take an image of, so we can use this section to find where on Earth the image is covering. This information can then be used to conduct image compositing, which, although not implemented for this project, is a possible area of future development. 
+
+\subsubsection{20250301T152054.SAFE}
+Finally, this section is the "Product Discriminator". It follows the same format as the datatake start sensing time, however it can be slightly earlier or later than the start time depending on which product it is describing. 
+
+The \verb|.SAFE| suffix is the "Standard Archive Format for Europe". 
+
+\subsubsection{Sub-folders and files}
+The image sub-folder contained in the main image folder may have a different format to each other, however, the sub-folder is always the only item in that level of the directory, so it is relatively simple to search the level and find the sub-folder. The image files themselves all follow a cohesive format. 
+
+If we are trying to access a \verb|10m| resolution \verb|green| band image, we first need to recall which band on Sentinel 2 senses the green wavelength. In table \ref{tab:LR s2 band wavelengths and resolutions}, we can see that the green band is number \verb|3|. We can combine the tile number field, the datatake start sensing time, the band number, preceded by the letter \verb|B| and a \verb|0| if it is a single digit band number, and the resolution. At the end, we have to place the image file format, which is \verb|JPEG2000| for Sentinel 2 images. This is a lossless version of the \verb|jpg| format, and it means that all images are stored with the \verb|.jp2| file extension. The native Windows photo viewer is not capable of opening these images, so it may be helpful to install an image manipulation program like \verb|GIMP| to view these images, although it is not necessary for the processes outlined here. This yields the following file name: 
+
+\verb|T31UCU_20250301T111031_B03_10m.jp2|
+
+This image file is stored within subdirectories of the main folder, and this will be covered in an upcoming section. 
 
 \section{IPDMP System Overview}
-The Individual Project Data-to-Model Pipeline (IPDMP) comprises three core Python scripts designed for the classification of small water reservoirs using Sentinel-2 satellite imagery. The overall process involves data generation and labelling (NALIRA), model training (KRISP trainer), and model deployment for prediction (KRISP).
+The Individual Project Data-to-Model Pipeline (IPDMP) comprises three core Python scripts designed for the classification of small water reservoirs using Sentinel 2 satellite imagery. The overall process involves data generation and labelling (NALIRA), model training (KRISP trainer), and model deployment for prediction (KRISP).
 
 For this study, the Normalised Difference Water Index (NDWI) is selected as the primary spectral index for data labelling and model training/validation due to its ability to leverage Sentinel-2's high-resolution bands (Green and NIR). While other indices like MNDWI, AWEI-SH, and AWEI-NSH are calculated in NALIRA to aid manual labelling by providing multiple visual inputs, the machine learning model focuses on NDWI-derived data.
 
@@ -39,363 +150,71 @@ Cloud masking employs a basic numerical threshold approach. Pixels in the Sentin
 
 A custom Keras-based Convolutional Neural Network (CNN) model, adapted from a TensorFlow tutorial, is used for classification. This approach offers flexibility and aims for good generalisation on the study area. The model is trained to classify image segments into 'reservoirs', 'water bodies' (non-reservoir), or 'land'. The KRISP script then deploys this trained model, applying it iteratively across small image chunks ('mini-chunks') derived from the larger satellite scene, effectively acting as an object detection mechanism for water reservoirs.
 
+\subsection{Helper Functions}
+To improve code readability, each of the programs discussed below make use of helper functions. This also improves the efficiency of the code as fewer variables need to be stored in memory and each file is itself smaller
+
 \section{Objective 2: Data Generation (NALIRA)}
-NALIRA is responsible for processing raw Sentinel-2 imagery, calculating water indices, and facilitating the manual labelling process to create the training dataset for the Keras model.
+The second step is to generate training data. Rather than lengthy and laborious manual labelling, this study develops the Navigable Automated Labelling Interface for Regions of Attention, abbreviated to NALIRA. 
+
+This Python program ingests a Sentinel 2 satellite image, extracts the necessary bands for index calculation, conducts cloud masking, performs index calculations, optionally displays the plots of the indices calculated, manipulates a "True Colour Image" (TCI) found in the Sentinel 2 data folder, and separates the images and index plots into a user-defined number of "chunks". This is done to make data labelling easier for the user as it allows them to split the process up into shorter period of data labelling. So far, the entire process described is entirely automated to offload user intervention onto robust checks and verifications done automatically by the program. 
+
+After the images are split into chunks, the user is iteratively prompted with each chunk and they must enter the number of reservoirs and water bodies in the chunk. If they input one or more of either class, a Graphical User Interface (GUI) is produced for the user to identify (label) those reservoirs or water bodies which are named and saved as regions of interest (ROIs). These "chunk-wise" coordinates are saved to a "comma-separated values" (CSV) format file. 
+
+This file is rigorously checked for file and data validity before the data labelling process even begins, and if any error or inconsistency is found, the user is prompted to fix the error before being allowed to proceed. The file is also checked continuously with every successive chunk to ensure minimal chance of failure, which could result in the loss of a large amount of training data. 
+
+During data labelling, the user is also able to take a break and the progress is automatically saved on disk, or return to any previous chunk examined to view it again and overwrite their entry, introducing the navigable element of NALIRA. Once data labelling is either complete for the entire image or the user has decided to take a break, the automation is resumed and the chunk-wise coordinates are used to individually isolate each reservoir and water body in an image $\frac{1}{25}$ the size of the chunk and that image is saved as training data for both NDWI and TCI. Similar images are saved for non-water land by selecting the top left corner of each chunk with no reservoir or water body. 
 
 \subsection{NALIRA Code Walk-through}
 
-\subsubsection{Preliminaries}
-This initial phase involves importing necessary libraries (os, numpy, csv, PIL, time, custom modules like \verb|data_handling|, \verb|image_handling|, misc, \verb|user_interfacing|), defining global constants and settings (DPI for plots, number of chunks, resolution choice, plotting/saving flags, data filename), and setting up the home directory path based on the operating environment (personal PC vs. university machine). It also records the start time for performance tracking.
-
-\subsubsection{Initial Image Handling}
-This section focuses on locating and loading the required Sentinel-2 spectral band image files.
-\textbf{File Paths}
-It constructs the full paths to the necessary band image files (.jp2 format) based on the satellite name, number, specific image folder name, and the chosen resolution ('10m' or '60m'). It handles Sentinel-2's specific folder structure, including navigating the 'GRANULE' subdirectories and selecting the appropriate resolution folders ('R10m', 'R20m', 'R60m'). It uses helper functions (\verb|get_sentinel_bands|) to determine the correct band identifiers (e.g., 'B03' for Green, 'B08' for NIR at 10m). For high-resolution processing, it combines paths from both R10m and R20m folders as needed (e.g., SWIR bands are only available at 20m).
-\textbf{Converting Image to Array}
-Converting Image to Array: The \verb|image_to_array| function (from \verb|image_handling.py|) is used to open each specified band image file and convert its pixel data into a NumPy array. For high-resolution mode where bands have different native resolutions (10m and 20m), lower-resolution arrays (20m SWIR1, SWIR2) are upscaled later during cloud masking using \verb|upscale_image_array| to match the 10m resolution arrays before index calculation. The resulting arrays are stored in a list.
-
-\subsubsection{Cloud Masking}
-This step aims to remove cloud-contaminated pixels from the band image arrays. It uses the Sentinel 2 Cloud Probability mask file (\verb|MSK_CLDPRB_20m.jp2| or \verb|MSK_CLDPRB_60m.jp2|). 
-\begin{itemize}
-    \item The appropriate resolution cloud mask file is opened and converted to a NumPy array using \verb|image_to_array|.
-    \item If high-resolution bands are used, the 20m cloud mask is upscaled by a factor of 2 (\verb|upscale_image_array|) to match the 10m band resolution. The 20m SWIR1 and SWIR2 band arrays are also upscaled here.
-    \item Pixels in the cloud mask array with a probability value greater than 50 are set to 100.
-    \item The coordinates (indices) of these high-probability cloud pixels are identified using \verb|np.argwhere|.
-    \item These coordinates are then used to set the corresponding pixel values in all the loaded band image arrays (Blue, Green, NIR, SWIR1, SWIR2) to 0, effectively masking them out before index calculation.
-\end{itemize}
-
-\subsubsection{Calculating Water Indices}
-With the cloud-masked (and potentially upscaled) band arrays ready, this section calculates various water indices.
-\begin{itemize}
-    \item The NumPy arrays, initially of type \verb|uint16|, are converted to integer type (\verb|astype(int)|) to prevent overflow issues during calculations.
-    \item The required bands are unpacked: Blue, Green, NIR, SWIR1, SWIR2.
-    \item NumPy's error settings are adjusted to ignore division by zero and invalid value errors that can occur during index calculation (e.g., division by zero if both bands are zero).
-    \item All four indices discussed in the methodology (NDWI, MNDWI, AWEI-SH, and AWEI-NSH) are calculated pixel-wise using standard formulas. 
-    \item The resulting index arrays (NDWI, MNDWI, AWEI-SH, AWEI-NSH) are stored in a list.
-\end{itemize}
-
-\subsubsection{Note on Varying Resolutions}
-The images generated by combining 10m and 20m resolution data can appear to have a slightly higher effective resolution than pure 20m images due to the way these indices are calculated. For indices requiring bands of different native resolutions—such as MNDWI, AWEI-SH, and AWEI-NSH—the lower resolution 20m bands (like SWIR1, SWIR2, and the 20m cloud mask) are upscaled to match the 10m resolution of bands such as Blue, Green, and NIR. During this process, each pixel from the 20m image effectively becomes four pixels, as both the height and width are doubled, ensuring that pixel-wise operations are compatible before performing the index calculations (see step 3.3.3).
-
-% !!!!! PLACEHOLDER !!!!!
-\begin{figure}[ht]
-    \centering
-    \includegraphics[width=0.6\textwidth]{contents/figures/LR RF diagram.jpg}
-    \caption{SVM Confusion Matrix \citep{maity_2016}}
-    \label{fig:NOTHING}
-\end{figure}
-% !!!!! PLACEHOLDER !!!!!
-
-This means that for the calculation of MNDWI, for example, although four pixels of SWIR1 will all have the same value (because they have effectively been 'quadruplicated' to fit the same size array) the four pixels of Green will have the same resolution they had before, meaning they may change slightly from pixel to pixel. This has the effect of creating 2x2 pixel boxes of similar colours because only one of the two bands are changing in value, while the other stays stagnant, effectively limiting the maximum range of change within these boxes. 
-
-\subsubsection{Displaying Indices}
-This optional step visualizes the calculated water index arrays using Matplotlib.
-\begin{itemize}
-    \item It checks the \verb|show_index_plots| flag. If \verb|False|, the step is skipped.
-    \item If \verb|True|, it iterates through the calculated index arrays (NDWI, MNDWI, AWEI-SH, AWEI-NSH).
-    \item For each index, it creates a \verb|matplotlib| figure (\verb|plt.figure|) and displays the index array as an image (\verb|plt.imshow|).
-    \item A title indicating the satellite, index name, DPI, and resolution is added. Axis labels and ticks are hidden for clarity.
-    \item It checks the \verb|save_images| flag. If \verb|True|, the plot is saved as a PNG file (\verb|plt.savefig|) with a descriptive name, handling potential duplicate filenames by appending a counter.
-    \item The plot is displayed on the screen ('plt.show').
-\end{itemize}
-
-\subsubsection{Data File Preparation}
-This section prepares the CSV file used to store the manual labels.
-\begin{itemize}
-    \item It defines the path for the labelling data, creating the 'training data' subdirectory if it doesn't exist using \verb|change_to_folder|.
-    \item The target CSV filename (\verb|responses_<n_chunks>_chunks.csv|) is defined.
-    \item \verb|blank_entry_check| is called to remove any empty rows from the CSV file, ensuring data integrity. \verb|check_file_permission| is called within \verb|blank_entry_check| to avoid errors if the file is open elsewhere.
-    \item File Validity Check: The script reads the existing CSV file (if any) and checks for validity. It verifies that the first column (chunk number) increments sequentially. If inconsistencies (e.g., missing chunks, incorrect order) or formatting errors are found, it prompts the user to retry, create a new file ('new'), or quit ('quit'). If a new file is created, it writes the header row and a dummy first entry.
-    \item Data Completion Check: After validating the sequence, it checks if existing entries are complete. It iterates through the rows, verifying that if a row indicates the presence of reservoirs (column 1 \textgreater 0) or water bodies (column 2 \textgreater 0), the corresponding coordinate columns (column 3 onwards for reservoirs, column 8 onwards for bodies) actually contain coordinate data (identified by starting with '['). It also flags rows where coordinates exist but the count is zero. If incomplete or inconsistent rows are found, it sets a \verb|data_correction| flag and identifies the row indices needing correction. The labelling process (Step 6) will start from the first problematic chunk if \verb|data_correction| is \verb|True|.
-    \item The starting chunk index \verb|i| is set to the last valid chunk number + 1, or to the index of the first invalid chunk if \verb|data_correction| is \verb|True|.
-\end{itemize}
-
-\textbf{Data File Format}
-\begin{table}[h]
-\centering
-\begin{tabular}{l | l | l | l | l}
-Chunk & Reservoirs & Water Bodies & Reservoir Positions & Water Body Positions \\
-\hline
-0 & 0 & 0 & - & - \\
-1 & 1 & 0 & 12 11 31 33 & - \\
-2 & 0 & 1 & - & 12 11 31 33 \\
-3 & 1 & 1 & 12 11 31 33 & 12 11 31 33 \\
-i & (n res) & (n bodies) & ulx uly lrx lry & ulx uly lrx lry \\
-\end{tabular}
-\caption{Example data file entries}
-\label{tab:abc}
-\end{table}
-
-\subsubsection{Manual Data Labelling}
-This interactive step uses a Tkinter GUI for the user to label reservoirs and other water bodies within image chunks. It only runs if the \verb|label_data| flag is \verb|True|.
-\begin{itemize}
-    \item It iterates through the image chunks, starting from the index \verb|i| determined in the previous step.
-    \item For each chunk \verb|i|:
-        \begin{itemize}
-            \item \verb|plot_chunks| displays the NDWI, MNDWI, and TCI (True Color Image) representations of the current chunk, along with a low-resolution overview TCI showing the chunk's location. Maximum NDWI and MNDWI values for the chunk are printed.
-            \item The user is prompted in the console to enter the number of reservoirs and non-reservoir water bodies visible in the chunk.
-            \item \textbf{Input Handling:} The code handles integer inputs for counts. It also accepts \texttt{"break"} (to save progress and exit), \texttt{"back"} (to go back and re-label the previous chunk(s) by removing entries from the CSV), or \texttt{"back n"} (to go back n chunks). Error handling catches non-integer inputs.
-            \item \textbf{ROI Selection:} If the user enters a non-zero count for reservoirs or water bodies, the \verb|prompt_roi| function is called. This function displays the TCI chunk in a Tkinter window. The user draws bounding boxes around the specified number of features. \verb|prompt_roi| returns a list of coordinates (\([ulx, uly, lrx, lry]\)) for each drawn box. These coordinates are appended to the \verb|entry_list| for the current chunk.
-            \item \textbf{Saving Results:} After gathering counts and coordinates for a chunk, the \verb|entry_list| (containing chunk index, reservoir count, body count, reservoir coordinates\ldots, body coordinates\ldots) is formatted into a comma-separated string.
-                \begin{itemize}
-                    \item If in \verb|data_correction| mode, the existing line in the \verb|lines| list (read from the CSV earlier) is overwritten with the new data, and the entire file is rewritten. The index \verb|i| is then updated to the next invalid chunk index or proceeds normally if all corrections are done.
-                    \item If not in \verb|data_correction| mode, the formatted string is appended as a new line to the \verb|data_file| CSV.
-                \end{itemize}
-            \item The loop continues until all chunks are processed or the user enters \verb|"break"|.
-        \end{itemize}
-\end{itemize}
-
-\subsubsection{Data Segmentation}
-After labelling is complete (or skipped), this step extracts the labelled regions (reservoirs and water bodies) and saves them as individual image files, thereby creating the dataset for the model trainer.
-\begin{itemize}
-    \item \textbf{Extract Coordinates:}
-    \begin{itemize}
-        \item It reads the completed \verb|data_file| CSV. It iterates through the rows, identifying chunks containing reservoirs (column 1 \> 0) and water bodies (column 2 \> 0). For each identified feature, it extracts the corresponding coordinates using \verb|extract_coords| and stores them along with the chunk number (e.g., \texttt{res\_coords = [(chunk\_num, [ulx, uly, lrx, lry]), \ldots]}). Sea areas identified by specific coordinates are excluded from the water body list.
-        \item \textbf{Isolate and Save Images:} It iterates through the extracted reservoir coordinates (\verb|res_coords|) and water body coordinates (\verb|body_coords|).
-        \begin{itemize}
-            \item For each coordinate set:
-            \begin{itemize}
-                \item It determines the corresponding chunk number.
-                \item It defines paths to save the segmented images (e.g., \texttt{training data/ndwi/reservoirs/}, \texttt{training data/tci/water bodies/}), creating directories if necessary using \verb|change_to_folder|.
-                \item It calls \verb|save_image_file| once for the NDWI chunk (\verb|index_chunks[0]|), saving a normalized (\verb|colormap| applied based on global NDWI min/max multiplied by a factor) PNG image of the region defined by the coordinates plus a margin. The filename includes the chunk number and feature type/index (e.g., \verb|ndwi chunk 10 reservoir 1.png|). Duplicate checks prevent overwriting existing files. 
-                \item Then calls \verb|save_image_file| once for the TCI chunk (\verb|tci_chunks|), saving a non-normalized PNG image of the same region plus a margin, with a similar filename structure (e.g., \verb|tci chunk 10 reservoir 1.png|).
-            \end{itemize}
-        \end{itemize}
-        \item \textbf{!!! ADD SECTION ON SAVING "NEITHER" CHUNKS !!!}
-    \end{itemize}
-\end{itemize}
 
 \section{Objective 3: Model Training (KRISP Trainer)}
-This script trains the Keras CNN model using the segmented image data generated by NALIRA.
+This script trains the Keras CNN model using the segmented image data generated by NALIRA. This is the script that was adapted from an existing image classification tutorial created to classify images of different types of flowers \citep{imageclassification_2024}. 
+
+\subsection{Changes from Flower Classification}
+Originally, the flower classification tutorial had several steps which were not directly applicable to this study, as can be seen in figure \ref{fig:ME outline OG flower classification}. 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{contents/figures/ME outline of flower classification.jpg}
+    \caption{Table of Contents for the original flower classification tutorial \citep{imageclassification_2024}}
+    \label{fig:ME outline OG flower classification}
+\end{figure}
+
+Some of the steps up to \verb|A basic Keras Model| are necessary for proper data handling, although they had to be adapted to function with the specific paths used in KRISP Trainer. Most of these initial steps, however, are not necessary for the function of KRISP Trainer, such as \verb|Visualize the data| which simply chooses an image from the dataset and displays it in the console. These steps were removed for KRISP Trainer, which is solely concerned with handling data and training the model. 
+
+The basic Keras model created in the tutorial is used as a way of showing the common pitfalls of machine learning, specifically overfitting, and the two techniques used to mitigate this problem, data augmentation and dropout. To avoid training unnecessary models, the training of the basic Keras model with no mitigations against overfitting was removed altogether, but the strategies of data augmentation and dropout were both included in the training of the final model. 
+
+The steps of \verb|Compile and train the model|, \verb|Visualize training results|, and \verb|Predict on new data|, were all preserved and adjusted for KRISP Trainer. Although visualising training results is not explicitly necessary for model training, it is helpful for identifying the ideal duration of training and for spotting the inflection point as the model suffers from overfitting. 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{contents/figures/ME KRISP trainer outline.jpg}
+    \caption{Table of Contents for KRISP Trainer \citep{imageclassification_2024}}
+    \label{fig:ME outline krisp trainer}
+\end{figure}
+
+As can be seen from figure \ref{fig:ME outline krisp trainer}, the contents of KRISP Trainer are significantly reduced to the ones of the original flower image classification tutorial. Given that the tutorial is designed to explain each step in detail, the steps that were deemed "unnecessary" are in reality very useful in understanding the strategies behind the training of a Keras model. However, efficiency and performance are a priority throughout this project, so KRISP Trainer keeps only the essentials from the flower classification tutorial and the rest is reworked for the purposes of this particular study. 
 
 \subsection{KRISP Trainer Code Walk-through}
 
-\subsubsection{Preliminaries}
-Imports necessary libraries: \verb|time|, \verb|pathlib|, \verb|os|, \verb|matplotlib|, \verb|numpy|, \verb|datetime|, \verb|sys|, \verb|tensorflow|, \verb|keras|. It also imports \verb|image_to_array| and spinner functions from custom modules. Records the \verb|MAIN_START_TIME|.
-
-\subsubsection{Path Handling}
-Defines and validates paths used throughout the script:
-\begin{itemize}
-    \item \verb|BASE_PROJECT_DIR|: Root directory of the project.
-    \item \verb|SENTINEL_FOLDER|: Specific Sentinel-2 image folder being used.
-    \item \verb|DATA_BASE_PATH|: Path to the training data directory created by NALIRA.
-    \item \verb|DATA_DIR_NAME|: Specifies the subdirectory containing the images to train on (\texttt{ndwi} or \texttt{tci}).
-    \item \verb|MODEL_SAVE_DIR|: Directory where the trained model will be saved.
-    \item \verb|MODEL_FILENAME|: Name for the saved model file (includes type and epoch count).
-    \item \verb|TEST_IMAGE_SUBDIR| and \verb|TEST_IMAGE_NAME|: Path components for a sample image used for a final prediction test.
-    \item It constructs the full paths (\verb|data_dir|, \verb|model_save_path|, \verb|test_image_path|).
-    \item It checks if the \verb|data_dir| exists; if not, it prints an error and exits.
-    \item It checks if the \verb|test_image_path| exists and prints a warning if not.
-    \item It creates the \verb|MODEL_SAVE_DIR| if it doesn't exist and \verb|SAVE_MODEL| is \verb|True|.
-    \item It counts the number of PNG images within the class subdirectories (\verb|reservoirs|, \verb|water bodies|) inside \verb|data_dir| using \verb|pathlib| and prints the count, warning if it's zero or less than the batch size.
-\end{itemize}
-
-\subsubsection{Dataset Preparation}
-Loads and prepares the image dataset for training and validation using TensorFlow/Keras utilities.
-\begin{itemize}
-    \item \verb|tf.keras.utils.image_dataset_from_directory|: This function loads images from the specified \verb|data_dir|. It automatically infers class labels (\verb|reservoirs|, \verb|water bodies|) from the subdirectory names.
-    \begin{itemize}
-        \item \verb|validation_split|: Reserves a fraction of the data for validation (e.g., 0.2 for 20\%).
-        \item \verb|subset|: Specifies \verb|training| or \verb|validation| to get the respective datasets.
-        \item \verb|seed|: Ensures the split is reproducible.
-        \item \verb|image_size|: Resizes all images to the specified height and width (e.g., 157x157).
-        \item \verb|batch_size|: Groups images into batches (e.g., 32).
-    \end{itemize}
-    \item It retrieves the \verb|class_names| from the loaded dataset and checks that there are at least two classes.
-    \item Performance Optimization:
-    \begin{itemize}
-        \item \verb|AUTOTUNE|: Lets TensorFlow dynamically tune prefetching buffer sizes.
-        \item \verb|.cache()|: Caches the datasets in memory (after the first epoch) for faster subsequent access.
-        \item \verb|.shuffle()|: Randomly shuffles the training dataset (buffer size determines the extent of shuffling).
-        \item \verb|.prefetch()|: Prepares subsequent batches while the current batch is being processed by the model, overlapping data loading/preprocessing with training steps.
-    \end{itemize}
-\end{itemize}
-
-
-\subsubsection{Model Improvements}
-Defines strategies to improve model performance and prevent overfitting, common with smaller datasets.
-
-\textbf{Data Augmentation}
-A \verb|keras.Sequential| layer named \verb|data_augmentation| is defined. It includes:
-\begin{itemize}
-    \item \verb|layers.RandomFlip("horizontal")|: Randomly flips images horizontally.
-    \item \verb|layers.RandomRotation(0.1)|: Randomly rotates images by a small fraction.
-    \item \verb|layers.RandomZoom(0.1)|: Randomly zooms into images.
-    \item This layer will be added as the first layer of the main model, applying these transformations on-the-fly during training to increase dataset diversity. The \verb|input_shape| is specified here.
-\end{itemize}
-
-\textbf{Dropout}
-A \verb|layers.Dropout(DROPOUT_RATE)| layer is included in the main model architecture (defined later). During training, it randomly sets a fraction (\verb|DROPOUT_RATE|, e.g., 0.2) of input units to 0 at each update step, which helps prevent overfitting by reducing reliance on specific neurons. The CNN model itself is defined as a \verb|keras.Sequential| model:
-\begin{itemize}
-    \item \textbf{Input:} Data Augmentation layer, followed by \verb|layers.Rescaling(1./255)| to normalise pixel values from [0, 255] to [0, 1].
-    \item \textbf{Convolutional Blocks:} Three blocks, each consisting of:
-    \begin{itemize}
-        \item \verb|layers.Conv2D|: Learns spatial hierarchies of features (16, 32, 64 filters, 3x3 kernel, \verb|"same"| padding, \verb|ReLU| activation).
-        \item \verb|layers.MaxPooling2D|: Downsamples the feature maps, reducing dimensionality and providing spatial invariance.
-    \end{itemize}
-    \item \textbf{Dropout Layer:} Applied after the convolutional blocks.
-    \item \texttt{layers.Flatten}: Converts the 2D feature maps into a 1D vector.
-    \item \texttt{layers.Dense(128, activation='relu')}: A fully connected hidden layer.
-    \item \textbf{Output Layer:} \verb|layers.Dense(num_classes)|: The final output layer with units equal to the number of classes. It outputs raw \verb|logits| (no activation function here, as specified by \verb|from_logits=True| in the loss function).
-\end{itemize}
-The model is compiled using \verb|model.compile()|:
-\begin{itemize}
-    \item \texttt{optimizer}: Adam optimizer with a specified \verb|LEARNING_RATE|.
-    \item \texttt{loss}: \verb|tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)| is used because the labels are integers (0, 1, ...) and the model outputs \verb|logits|.
-    \item \verb|metrics|: Tracks \verb|accuracy| during training and evaluation.
-\end{itemize}
-
-\subsubsection{Model Training}
-Executes the training process.
-\begin{itemize}
-    \item \verb|model.fit()|: This function trains the model.
-    \begin{itemize}
-        \item \verb|train_ds|: The prepared training dataset.
-        \item \verb|validation_data=val_ds|: The prepared validation dataset, used to evaluate performance on unseen data after each epoch.
-        \item \verb|epochs=EPOCHS|: The number of times the entire training dataset is passed through the model.
-    \end{itemize}
-    \item The training history (accuracy, loss, validation accuracy, validation loss for each epoch) is stored in the \verb|history| object. Error handling wraps the \verb|fit| call.
-\end{itemize}
-
-\subsubsection{Training Result Visualisation}
-Plots the training and validation accuracy and loss curves over epochs using \verb|matplotlib|.
-\begin{itemize}
-    \item It checks if the \texttt{history} object exists (i.e., if training completed successfully).
-    \item Extracts accuracy (\texttt{acc}), validation accuracy (\verb|val_acc|), loss (\texttt{loss}), and validation loss (\verb|val_loss|) from \texttt{history.history}.
-    \item Creates a figure with two subplots:
-    \begin{itemize}
-        \item Left subplot: Plots training vs. validation accuracy against epochs.
-        \item Right subplot: Plots training vs. validation loss against epochs.
-    \end{itemize}
-    \item Adds labels, titles, legends, and adjusts axis limits for clarity.
-    \item \verb|plt.tight_layout()| adjusts spacing, and \texttt{plt.show()} displays the plots.
-\end{itemize}
-
-\subsubsection{Predicting on New Data}
-Uses the trained model to predict the class of a single, predefined test image.
-\begin{itemize}
-    \item Checks if the \verb|test_image_path| exists.
-    \item Loads the test image using \verb|image_to_array| and displays it using \texttt{plt.imshow}.
-    \item Loads the same image using \verb|tf.keras.utils.load_img|, resizing it to the model's expected input size (\verb|IMG_HEIGHT|, \verb|IMG_WIDTH|).
-    \item Converts the image to a NumPy array (\verb|img_to_array|) and adds a batch dimension (\verb|tf.expand_dims|).
-    \item \verb|model.predict()|: Feeds the prepared image array to the trained model to get predictions (\verb|logits|).
-    \item \texttt{tf.nn.softmax()}: Converts the output logits into probabilities for each class.
-    \item \texttt{np.argmax()}: Finds the index of the class with the highest probability.
-    \item Retrieves the corresponding \verb|class_name| using the index.
-    \item Calculates the confidence percentage (\texttt{100 * np.max(score)}).
-    \item Prints the predicted class name and confidence score. It also includes a simple check to see if the prediction matches the expected class based on the filename (\texttt{"reservoir"}).
-\end{itemize}
-
-\subsubsection{Saving and Summary}
-Optionally saves the trained model and prints a final summary.
-\begin{itemize}
-    \item Checks the '\verb|SAVE_MODEL|' flag and if training was successful ('history' exists).
-    \item If the target '\verb|model_save_path|' already exists, it creates a new versioned filename by appending a timestamp ('\verb|_YYYYMMDD_HHMMSS|') to avoid overwriting.
-    \item '\verb|model.save()|': Saves the entire model (architecture, weights, optimizer state) to the specified path in Keras format ('\verb|.keras|').
-    \item Prints the final save path or error messages if saving fails.
-    \item Prints the total script execution time.
-\end{itemize}
 
 \section{Objective 4: Model Deployment (KRISP)}
-This script deploys the trained Keras model (saved by \verb|KRISP_trainer|) to classify mini-chunks generated from a larger Sentinel-2 scene.
+This script deploys the trained Keras model (saved by \verb|KRISP_trainer|) to classify mini-chunks generated from a larger Sentinel-2 scene. While the KRISP program makes predictions over a given number of chunks, the KRISP-Yield program (KRISP-Y) was developed to yield the data (predictions) made by KRISP and to save everything to a CSV file. 
 
-\subsection{KRISP Walk-through}
+\subsection{KRISP Code Walk-through}
 
-\subsubsection{Preliminaries}
-Imports necessary libraries: time, os, numpy, sys, re (for regex filename parsing), math, matplotlib, tensorflow, keras. Imports custom functions: '\verb|image_to_array|', '\verb|mask_sentinel|', '\verb|save_image_file|', '\verb|split_array|', '\verb|create_9_random_coords|', spinner functions. Sets up the home directory path. Defines '\verb|class_names|'.
-
-\subsubsection{Checking for Pre-Existing Files}
-This section manages the generation of small image 'mini-chunks' from the input Sentinel-2 scene, which will be fed into the model for prediction. It includes checks to avoid regenerating data unnecessarily.
-\begin{itemize}
-    \item Defines the path ('\verb|test_data_path|') where the NDWI mini-chunk images will be saved (e.g., '\verb|test data/ndwi_0.4/|').
-    \item Lists existing files in that directory.
-    \item Uses \verb|regex| ('\verb|re.compile|') to parse filenames like '\verb|ndwi chunk <i> minichunk <j>.png|' to find the highest chunk index ('\verb|max_chunk_index|') already processed and saved.
-    \item Calculates remaining chunks and percentage.
-    \item If existing chunks are found, it prompts the user ('input()') whether to continue generating the remaining chunks ('\verb|generate_chunks = True|') or exit ('\verb|sys.exit(0)|'). If no existing files match or the directory doesn't exist, it assumes generation is needed ('\verb|generate_chunks = True|' implicitly or explicitly).
-\end{itemize}
-
-\subsubsection{Initial Image Handling (Conditional)}
-Note: this step only runs if \verb|generate_chunks| is \verb|True|.
-
-\begin{itemize}
-    \item Locates and opens the Green (B03) and NIR (B08) 10m band images from the specified Sentinel-2 folder, similar to NALIRA (steps 3.3.2).
-    \item Converts them to NumPy arrays using '\verb|image_to_array|'.
-\end{itemize}
-
-\subsubsection{Cloud Masking (Conditional)}
-Note: this step only runs if \verb|generate_chunks| is \verb|True|.
-
-\begin{itemize}
-    \item Applies cloud masking using the 20m cloud probability file, upscaling the mask to 10m resolution, similar to NALIRA (step 3.3.3). The function '\verb|mask_sentinel|' modifies the '\verb|image_arrays|' (Green, NIR) in place.
-\end{itemize}
-
-\subsubsection{Calculating NDWI (Condtional)}
-Note: this step only runs if \verb|generate_chunks| is \verb|True|.
-
-Calculates the NDWI array from the masked Green and NIR arrays, similar to NALIRA (step 3.3.4).
-
-\subsubsection{True Colour Image Handling (Optional)}
-Note: this step only runs if \verb|generate_chunks| is \verb|True|. 
-
-\subsubsection{Generating Chunks and Saving Images (Conditional)}
-Note: this step only runs if \verb|generate_chunks| is \verb|True|.
-
-\begin{itemize}
-    \item Splits the full NDWI array into '\verb|n_chunks|' using '\verb|split_array|'.
-    \item Determines the global minimum and maximum NDWI values across all chunks (max is scaled by '\verb|max_multiplier|').
-    \item Iterates through the NDWI chunks ('\verb|ndwi_chunks|'). If resuming, it skips chunks with index less than '\verb|start_chunk_index|'.
-    \item For each chunk '\verb|i|':
-    \begin{itemize}
-        \item '\verb|create_9_random_coords|': Generates coordinates for 9 slightly overlapping mini-chunks within the current chunk.
-        \item For each mini-chunk coordinate set 'j':
-        \begin{itemize}
-            \item Defines the output image name (e.g., 'ndwi chunk i minichunk j.png').
-            \item '\verb|save_image_file|': Saves the mini-chunk region from the parent NDWI chunk 'i' as a normalised PNG image file in the '\verb|test_data_path|'. Normalization uses the pre-calculated global min/max. '\verb|dupe_check|' is \verb|False| as overwriting might be intended if resuming.
-        \end{itemize}
-    \end{itemize}
-\end{itemize}
-
-
-\subsubsection{Model Deployment}
-Loads the pre-trained model and uses it to classify the generated (or pre-existing) NDWI mini-chunk images.
-\begin{itemize}
-    \item Load model
-    \begin{itemize}
-        \item Defines the path to the saved Keras model file ('\verb|model_path|') based on 'HOME', 'IPDMP', '\verb|saved_models|', and the specified '\verb|model_name|'.
-        \item '\verb|keras.models.load_model()|': Loads the trained model architecture and weights.
-    \end{itemize}
-    \item Prediction Loop
-    \begin{itemize}
-        \item Gets a list of all mini-chunk image filenames from the '\verb|test_data_path|' (limited to the first 20 in the provided code for demonstration).
-        \item Iterates through each '\verb|file_name|':
-        \begin{itemize}
-            \item Constructs the full '\verb|file_path|'.
-            \item '\verb|tf.keras.utils.load_img()|': Loads the mini-chunk image, resizing it to the model's expected input dimensions ('height', 'width' - e.g., 157x157).
-            \item Displays the loaded mini-chunk image using 'plt.imshow'.
-            \item '\verb|tf.keras.utils.img_to_array()|': Converts the image to a NumPy array.
-            \item '\verb|tf.expand_dims()|': Adds a batch dimension.
-            \item 'model.predict()': Feeds the prepared image array to the loaded model, obtaining prediction logits.
-            \item 'tf.nn.softmax()': Converts logits to class probabilities.
-            \item 'np.argmax()': Finds the index of the highest probability class.
-            \item Retrieves the corresponding '\verb|predicted_class_name|' from '\verb|class_names|'.
-            \item Calculates the 'confidence' percentage.
-            \item Prints the prediction result (class name and confidence) for the mini-chunk image.
-        \end{itemize}
-    \end{itemize}
-\end{itemize}
+\subsection{KRISP-Y Code Walk-through}
 
 \section{Technical Challenges}
 \subsubsection{Identifying water}
-One of the main challenges in this research will be the differentiation between water reservoirs from land areas, or other bodies of water. Below is a screenshot taken from Google Maps showing a farm in east England with a water reservoir on the left and some tree cover on the right. 
+One of the main challenges in this research will be the differentiation between water reservoirs from land areas, or other bodies of water. Below is a screenshot taken from Google Maps showing a farm in east England with a water reservoir in the middle, some tree cover nearby, and a house. 
 
-% !!! PLACEHOLDER !!!
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.4\textwidth]{contents/figures/LR RF diagram.jpg}
+\includegraphics[width=0.4\textwidth]{contents/figures/gmaps screenshot.jpg}
 \caption{Google Maps screenshot showing a water reservoir near trees}
 \label{fig:NISH}
 \end{figure}
-% !!! PLACEHOLDER !!!
 
 In this example, a human could easily identify that the upper right side of this image shows trees, and the lower left side shows a river with a nearby water reservoir. However, a computer algorithm may find this differentiation more difficult, as relying solely on colours may lead it to the conclusion that both sides of the image contain a water reservoir. Instead, more complex techniques must be adopted that allow the computer to determine the shape, surrounding area, and other contextual information about the water reservoir. For this reason, one of the goals of this project is also to determine what the most valuable metrics are, from a satellite imagery perspective, for identifying water reservoirs. A further challenge will then be implementing these metrics and training a machine learning algorithm to make use of them to classify large areas of land. 
 

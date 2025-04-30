@@ -178,6 +178,7 @@ Only four of the thirteen optical imaging sensors on Sentinel 2 can achieve the 
 \hline
 \end{tabular}
 \caption{Sentinel 2 Spectral Bands Information \citep{sinergise_2025}}
+\label{tab:LR s2 band wavelengths and resolutions}
 \end{table}
 
 As will be covered in more depth in the methodology section, the way that spectral indices must be calculated involves ensuring all arrays converted from an image must be of the same size. This means that, if an index is calculated using two bands of different resolutions, the lower resolution band takes precedent, resulting in a lower resolution image. Given that MNDWI, AWEI-SH, and AWEI-NSH all require at least one band with 20m resolution, every image generated displaying any of these water will have roughly half the resolution of an image generated using NDWI. This is because NDWI uses only the green and NIR bands, both of which are supported with 10m resolution. 
