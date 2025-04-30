@@ -282,7 +282,8 @@ def sort_prediction_results(data_list):
         sorted_list = sorted(data_list, key=lambda item: (item[0], item[1]))
         return sorted_list
     except (IndexError, TypeError) as e:
-        # Handle cases where inner items aren't lists or don't have enough elements
+        # Handle cases where inner items aren't lists or don't have 
+        # enough elements
         print(f"Error during sorting: {e}")
         print("Please ensure input is a list of lists, each with at least two "
               "sortable elements.")
@@ -291,7 +292,8 @@ def sort_prediction_results(data_list):
 def extract_chunk_minichunk_key(filename):
     """
     Helper function to extract (chunk, minichunk) numbers from a filename.
-    Used as the key for sorting. Returns numbers or values that sort last on error.
+    Used as the key for sorting. Returns numbers or values that sort last 
+    on error.
     """
     # Get just the filename part without extension, in case a full path is passed
     base_name = os.path.splitext(os.path.basename(str(filename)))[0]
@@ -322,8 +324,8 @@ def sort_file_names(filename_list):
     
     Assumes filenames generally follow the pattern 
     '... chunk [num] minichunk [num] ...'.
-    Sorts ascending primarily by chunk number, then secondarily by minichunk number.
-    Filenames not matching the pattern are sorted towards the end.
+    Sorts ascending primarily by chunk number, then secondarily by minichunk 
+    number. Filenames not matching the pattern are sorted towards the end.
     
     Args:
       filename_list: A list of strings, where each string is a filename.
