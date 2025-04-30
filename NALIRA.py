@@ -71,8 +71,8 @@ data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 try: # personal pc mode
     title_size = 8
     label_size = 4
-    HOME = os.path.join("C:\\", "Users", "nicol", "OneDrive - "
-                        "The University of Manchester", "Individual Project")
+    HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
+                        "Individual Project", "Downloads")
     os.chdir(HOME)
     plot_size = (3, 3) # larger plots increase detail and pixel count
     plot_size_chunks = (6, 6)
@@ -198,7 +198,7 @@ def get_sat(sat_name, sat_number, folder):
     
     # first convert to int... np.uint16 type is bad for algebraic operations!
     for i, image_array in enumerate(image_arrays):
-        image_arrays[i] = image_array.astype(int)
+        image_arrays[i] = image_array.astype(np.float32)
     blue, green, nir, swir1, swir2 = image_arrays
     
     np.seterr(divide="ignore", invalid="ignore")
@@ -206,7 +206,7 @@ def get_sat(sat_name, sat_number, folder):
     mndwi = ((green - swir1) / (green + swir1))
     awei_sh = (green + 2.5 * blue - 1.5 * (nir + swir1) - 0.25 * swir2)
     awei_nsh = (4 * (green - swir1) - (0.25 * nir + 2.75 * swir2))
-    
+    del blue, green, nir, swir1, swir2
     indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
     time_taken = time.monotonic() - start_time
@@ -574,7 +574,8 @@ def get_sat(sat_name, sat_number, folder):
         # if there is a water body
         if int(lines[i][2]) > 0:
             body_rows.append(lines[i])
-            first_coords = extract_coords(body_rows[-1][8], create_box_flag=True)
+            first_coords = extract_coords(body_rows[-1][8], 
+                                          create_box_flag=False)
             # and the water body is not the sea
             if first_coords[0] != 0 and first_coords[-1] != 157:
                 if int(body_rows[-1][2]) > 1:
@@ -583,7 +584,9 @@ def get_sat(sat_name, sat_number, folder):
                                                     create_box_flag=True)
                         body_coords.append((i, this_coord))
                 elif int(body_rows[-1][2]) == 1:
-                    body_coords.append((i, first_coords))
+                    this_coord = extract_coords(body_rows[-1][8], 
+                                                  create_box_flag=True)
+                    body_coords.append((i, this_coord))
         # if it's just land, save a minichunk of it too
         if int(lines[i][1]) == 0 and int(lines[i][2]) == 0:
             land_rows.append(lines[i])
@@ -600,10 +603,9 @@ def get_sat(sat_name, sat_number, folder):
     """nico!! remember to add a description! 0.4*max to bring down the ceiling 
     of ndwi so that reservoir and water bodies are better highlighted"""
     ndwi_chunks = index_chunks[0]
-        
     valid_chunks = [chunk
-        for chunk in ndwi_chunks
-        if not np.all(np.isnan(chunk))]
+                    for chunk in ndwi_chunks
+                    if not np.all(np.isnan(chunk))]
     if valid_chunks:
         global_min = min(np.nanmin(chunk) for chunk in valid_chunks)
         global_max = 0.4*max(np.nanmax(chunk) for chunk in valid_chunks)
