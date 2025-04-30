@@ -15,6 +15,8 @@ import tensorflow as tf
 # %%% ii. Import Internal Functions
 from data_handling import change_to_folder, extract_chunk_details
 from data_handling import sort_prediction_results, sort_file_names
+from data_handling import check_positive_int
+
 from image_handling import image_to_array, mask_sentinel, save_image_file
 from misc import split_array
 from user_interfacing import start_spinner, end_spinner
@@ -33,20 +35,16 @@ class_names = ["land", "reservoirs", "water bodies"]
 
 # %% Big guy
 def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples, 
-              start_file, n_files):
-    while n_files % 25 != 0:
-        print(f"\nerror: The number of files ({n_files}) is not "
-              "divisible by 25.")
-        user_input = input("please enter a new number of "
-                           "files (divisible by 25): ")
-        try:
-            new_n_files = int(user_input)
-            if new_n_files <= 0:
-                print("error: must be positive")
-                continue
-            n_files = new_n_files
-        except:
-            print("error: must be integer")
+              start_chunk, n_chunk_preds):
+    start_chunk = check_positive_int(
+        var=start_chunk, 
+        description="chunk to start on")
+    n_chunk_preds = check_positive_int(
+        var=n_chunk_preds, 
+        description="number of chunks to make predictions on")
+    
+    n_files = n_chunk_preds * 25
+    start_file = start_chunk * 25
     # %%% 0. Check for Pre-existing Files
     print("==========")
     print("| STEP 0 |")
@@ -154,18 +152,19 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
                 else:
                     print("Invalid input. Please enter 'y' or 'n'.")
             else:
+                print("disabling chunk generations")
                 generate_chunks = False
                 break
     
     end_spinner(stop_event, thread)
     time_taken = time.monotonic() - start_time
-    print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 0 complete! time taken: {round(time_taken, 2)} seconds")
 
     # %%% 1. Load Sentinel 2 Image File
-    print("==========")
-    print("| STEP 1 |")
-    print("==========")
     if generate_chunks:
+        print("==========")
+        print("| STEP 1 |")
+        print("==========")
         stop_event, thread = start_spinner(message="opening images and "
                                            "creating image arrays")
         start_time = time.monotonic()
@@ -230,14 +229,11 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         time_taken = time.monotonic() - start_time
         end_spinner(stop_event, thread)
         print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
-    else:
-        print("chunk generation disabled, skipping this step")
     
     # %%% 2. Mask Clouds From the Image
-    print("==========")
-    print("| STEP 2 |")
-    print("==========")
-    if generate_chunks:
+        print("==========")
+        print("| STEP 2 |")
+        print("==========")
         stop_event, thread = start_spinner(message="masking clouds")
         start_time = time.monotonic()
         
@@ -249,14 +245,11 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         time_taken = time.monotonic() - start_time
         end_spinner(stop_event, thread)
         print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
-    else:
-        print("chunk generation disabled, skipping this step")
-    
+        
     # %%% 3. Calculate NDWI
-    print("==========")
-    print("| STEP 3 |")
-    print("==========")
-    if generate_chunks:
+        print("==========")
+        print("| STEP 3 |")
+        print("==========")
         stop_event, thread = start_spinner(message="populating ndwi array")
         start_time = time.monotonic()
         
@@ -271,15 +264,12 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         end_spinner(stop_event, thread)
         time_taken = time.monotonic() - start_time
         print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
-    else:
-        print("chunk generation disabled, skipping this step")
-    
+        
     # %%% 4. Open and Convert True Colour Image
-    """nico!! remember to add a description!"""
-    print("==========")
-    print("| STEP 4 |")
-    print("==========")
-    if generate_chunks:
+        """nico!! remember to add a description!"""
+        print("==========")
+        print("| STEP 4 |")
+        print("==========")
         stop_event, thread = start_spinner(message="opening 10m "
                                            "resolution true colour image")
         start_time = time.monotonic()
@@ -289,15 +279,12 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         end_spinner(stop_event, thread)
         time_taken = time.monotonic() - start_time
         print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
-    else:
-        print("chunk generation disabled, skipping this step")
-    
+        
     # %%% 5. Save Satellite Image Chunks
-    """nico!! remember to add a description!"""
-    print("==========")
-    print("| STEP 5 |")
-    print("==========")
-    if generate_chunks:
+        """nico!! remember to add a description!"""
+        print("==========")
+        print("| STEP 5 |")
+        print("==========")
         # %%%% 5.1 Create Chunks
         stop_event, thread = start_spinner(message=f"creating {n_chunks} "
                                            "chunks from satellite imagery")
@@ -353,7 +340,10 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         time_taken = time.monotonic() - start_time
         print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
     else:
-        print("chunk generation disabled, skipping this step")
+        print("============")
+        print("| STEP 1-5 |")
+        print("============")
+        print("chunk generation disabled, skipping steps 1-5")
     # %%% 6. Load and Deploy Model
     print("==========")
     print("| STEP 6 |")
@@ -382,7 +372,8 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
     # %%%% 6.2 Make Predictions on the Loaded Data
     if not plot_examples:
         stop_event, thread = start_spinner(message="making predictions on "
-                                           f"{n_files} files")
+                                           f"{n_files} files "
+                                           f"({n_chunk_preds} chunks)")
     
     for file_name in selected_file_names:
         file_path = os.path.join(test_data_path, file_name)
@@ -436,8 +427,8 @@ if __name__ == "__main__":
         model_name="ndwi model epochs-1000.keras", 
         max_multiplier=0.41, # multiply max value of ndwi
         plot_examples=False, 
-        start_file=0, 
-        n_files=5000
+        start_chunk=0, 
+        n_chunk_preds=5
         )
     
     # %% Final
