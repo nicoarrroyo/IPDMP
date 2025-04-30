@@ -346,3 +346,18 @@ def sort_file_names(filename_list):
         # Catch any other unexpected errors during sorting
         print(f"An unexpected error occurred during sorting: {e}")
         return []
+
+def check_positive_int(var, description):
+    while not isinstance(var, int):
+        print(f"\nerror: {description} ({var}) is not "
+              "an integer.")
+        user_input = input("please enter a new {description} (integer): ")
+        try:
+            new_var = int(user_input)
+            if new_var <= 0:
+                print("error: must be positive")
+                continue
+            return new_var
+        except:
+            print("error: must be integer")
+    return var
