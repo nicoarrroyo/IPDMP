@@ -3,15 +3,14 @@
 import time
 MAIN_START_TIME = time.monotonic()
 import os
-import numpy as np
-import re # for parsing filenames
-import sys
+import datetime
+import zoneinfo as zf
 import math
-import matplotlib.pyplot as plt
 
 # %%% ii. Import Internal Functions
 from KRISP import run_model
 from data_handling import check_file_permission, blank_entry_check
+from misc import convert_seconds_to_hms, confirm_continue_or_exit
 
 # %%% iii. Directory Management
 try: # personal pc mode
@@ -27,12 +26,20 @@ class_names = ["land", "reservoirs", "water bodies"]
 
 # %% prelim
 # do it row by row
-folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
-n_chunks = 5000
-model_epochs = 1000
-n_chunk_preds = 200
+#folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
+folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
+(sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
+ processing_baseline_number, relative_orbit_number, tile_number_field, 
+ product_discriminator_and_format) = folder.split("_")
 
-predictions_file = f"preds_{str(n_chunks)}chunks_{model_epochs}epochs.csv"
+n_chunks = 5000 # do not change!!
+real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
+model_epochs = 1000
+n_chunk_preds = 10
+
+# file format: P_(chunks)_(minichunks)_(epochs)_(tile number)
+# P for predictions
+predictions_file = f"P_{str(n_chunks)}_{model_epochs}_{tile_number_field}.csv"
 
 minichunk_header = ",minichunks,"
 chunk_header = "chunk," + ",".join(map(str, range(25)))
@@ -46,7 +53,7 @@ blank_entry_check(predictions_file)
 with open(predictions_file, mode="r") as file:
     lines = file.readlines()
 
-biggest_chunk = -1
+biggest_chunk = 0
 for i, line in enumerate(lines):
     if i < 2:
         continue # skip first couple rows, otherwise it's not worth saving
@@ -55,18 +62,56 @@ for i, line in enumerate(lines):
     except:
         continue
 
-print("CONTINUING FROM:")
-print(f"chunk {biggest_chunk} out of {n_chunks}")
-print(f"file {biggest_chunk * 25} out of {n_chunks * 25}")
-print(f"\nCOMPLETION: {100 * biggest_chunk / n_chunks}%")
-print("\nTHIS RUN WILL MAKE PREDICTIONS ON:")
-print(f"{n_chunk_preds} chunks")
-print(f"{n_chunk_preds * 25} files")
+# %% yield expected duration of run
+if n_chunk_preds > real_n_chunks - biggest_chunk:
+    n_chunk_preds = real_n_chunks - biggest_chunk
+
+n_files = n_chunk_preds * 25
+# duration relationship for the dell xps 9315 (personal pc)
+duration = (0.0000018258 * (n_files ** 2)) + (0.09669426 * n_files) + 0.88469036
+h, m, s = convert_seconds_to_hms(duration + 9)
+est_duration = datetime.timedelta(
+    hours=h, 
+    minutes=m, 
+    seconds=s)
+
+time_format = "%H:%M:%S %B %d %Y"
+start_time_obj = datetime.datetime.now(zf.ZoneInfo("Europe/London"))
+est_end_time = start_time_obj + est_duration
+
+start_str = start_time_obj.strftime(time_format)
+est_end_str = est_end_time.strftime(time_format)
+
+# %% pre-run update
+# note: these numbers are rough estimates for reference only
+pre_completion = round(100 * biggest_chunk / real_n_chunks, 2)
+post_completion = round(100 * (biggest_chunk + n_chunk_preds) / real_n_chunks, 2)
+
+print("\n=== PRE-RUN CHECK ===")
+print(f"\nCOMPLETED SO FAR: {pre_completion}%")
+print(f"chunks {biggest_chunk}/{real_n_chunks} | "
+      f"files {biggest_chunk * 25}/{real_n_chunks * 25} |")
+
+print(f"\nREMAINING: {100 - pre_completion}%")
+print(f"chunks {real_n_chunks - biggest_chunk} | "
+      f"files {(real_n_chunks - biggest_chunk) * 25} |")
+
+print("\nTO BE COMPLETED THIS RUN: "
+      f"{round(post_completion - pre_completion, 2)}%")
+print(f"chunks {n_chunk_preds} | files {n_files} | ")
+
+print(f"\nSTARTING AT: {start_str}")
+print(f"EXPECTED DURATION: {h} hours, {m} minutes, {s} seconds")
+print(f"EXPECTED TO END AT: {est_end_str}")
+print("=== PRE-RUN CHECK ===\n")
+
+confirm_continue_or_exit()
 
 # %% yield predictions
+run_start_time = time.monotonic()
 the_results = run_model(
     folder=folder, 
-    n_chunks=n_chunks, 
+    n_chunks=5000, 
     model_name=f"ndwi model epochs-{model_epochs}.keras", 
     max_multiplier=0.41, 
     plot_examples=False, 
@@ -96,7 +141,24 @@ with open(predictions_file, mode="a") as ap:
 check_file_permission(predictions_file)
 blank_entry_check(predictions_file)
 
-print("\nPREDICTIONS COMPLETE UP TO: ")
-print(f"chunk {(biggest_chunk + n_chunk_preds)} out of {n_chunks}")
-print(f"file {int(biggest_chunk + n_chunk_preds) * 25} out of {n_chunks * 25}")
-print(f"\nCOMPLETION: {100 * (biggest_chunk + n_chunk_preds) / n_chunks}%")
+# %% post-run update
+# note: these numbers are rough estimates for reference only
+h, m, s = convert_seconds_to_hms(time.monotonic() - run_start_time)
+end_time_obj = datetime.datetime.now(zf.ZoneInfo("Europe/London"))
+end_str = end_time_obj.strftime(time_format)
+
+print("\n=== POST-RUN UPDATE ===")
+print(f"COMPLETED PREDICTIONS UP TO {post_completion}% COMPLETION")
+print(f"chunks ({(biggest_chunk + n_chunk_preds)}/{real_n_chunks}) | "
+      f"files ({int(biggest_chunk + n_chunk_preds) * 25}/{real_n_chunks * 25})")
+
+print("\nTHIS RUN MADE PREDICTIONS ON "
+      f"{round(post_completion - pre_completion, 2)}%")
+print(f"{real_n_chunks - (biggest_chunk + n_chunk_preds)} chunks remaining")
+print(f"{int(biggest_chunk + n_chunk_preds) * 25 - n_files} files remaining")
+
+print(f"\nSTARTED AT: {start_str}")
+print(f"ACTUAL DURATION: {h} hours, {m} minutes, {s} seconds")
+print(f"ENDED AT: {end_str}")
+
+print("=== POST-RUN UPDATE ===\n")
