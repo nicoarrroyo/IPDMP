@@ -121,12 +121,14 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         end_spinner(stop_event, thread)
         print(f"Target directory contains {len(existing_files)} file(s).")
         if max_chunk_index != -1:
-            print(f"{max_chunk_index} chunks saved in 'ndwi_{max_multiplier}'.")
             start_chunk_index = max_chunk_index + 1
             chunks_rem = real_n_chunks - max_chunk_index
             percent_rem = round(100 * (chunks_rem / real_n_chunks), 2)
-            print(f"{chunks_rem} chunks remaining")
-            print(f"{percent_rem}% remaining")
+            if chunks_rem > 0:
+                print(f"{max_chunk_index} chunks saved in "
+                      f"'ndwi_{max_multiplier}'.")
+                print(f"{chunks_rem} chunks remaining, "
+                      f"{percent_rem}% remaining")
         else:
             print("No files matching the 'ndwi chunk i minichunk j.png' "
                   f"pattern found in 'ndwi_{max_multiplier}'.")
@@ -152,7 +154,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
                 else:
                     print("Invalid input. Please enter 'y' or 'n'.")
             else:
-                print("disabling chunk generations")
+                print("disabling chunk generation")
                 generate_chunks = False
                 break
     
