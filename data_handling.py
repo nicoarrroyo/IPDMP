@@ -4,7 +4,7 @@ import re
 
 def rewrite(write_file, rows):
     """
-    Used to rewrite the lines in a pre-opened file with a given list of "rows"
+    Used to remove any blank or blatantly invalid entries in a csv
     
     Parameters
     ----------
@@ -218,38 +218,17 @@ def check_duplicate_name(search_dir, file_name):
             duplicates = True
     return duplicates
 
-def extract_chunk_details(file_name):
-    base_name = os.path.splitext(os.path.basename(file_name))[0]
-    
-    # Define a pattern to find "chunk" followed by digits,
-    # and "minichunk" followed by digits.
-    # (\d+) creates capturing groups for the digits.
-    pattern = re.compile(r"chunk\s+(\d+)\s+minichunk\s+(\d+)")
-    
-    # Search the base name for the pattern
+def extract_chunk_details(filename, pattern):
+    base_name = os.path.splitext(os.path.basename(str(filename)))[0]
     match = pattern.search(base_name)
-    
-    chunk_num = None
-    minichunk_num = None
-    
     if match:
         try:
-            chunk_num = int(match.group(1))
-            minichunk_num = int(match.group(2))
-        except ValueError:
-            print("Error: Could not convert extracted parts to integers "
-                  f"in '{file_name}'")
-            chunk_num = 0
-            minichunk_num = 0
-        except IndexError:
-             print("Error: Could not find expected groups in regex match "
-                   f"for '{file_name}'")
-             chunk_num = 0
-             minichunk_num = 0
-    else:
-        chunk_num = 0
-        minichunk_num = 0
-    return chunk_num, minichunk_num
+            return int(match.group(1)), int(match.group(2))
+        except (ValueError, IndexError):
+            # Failed conversion or groups missing
+            pass # Fall through to return default error indicator
+    # Return an indicator if pattern doesn't match or conversion fails
+    return -1, -1 # Use -1 or None to indicate failure
 
 def sort_prediction_results(data_list):
     """
