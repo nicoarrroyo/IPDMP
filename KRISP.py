@@ -7,7 +7,6 @@ import numpy as np
 import re # "regular expressions" for parsing filenames
 import sys
 import math
-import matplotlib.pyplot as plt
 
 from tensorflow import keras
 import tensorflow as tf
@@ -32,6 +31,7 @@ except: # uni mode
     os.chdir(HOME)
 
 class_names = ["land", "reservoirs", "water bodies"]
+batch_size = 64
 
 # %% Big guy
 def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples, 
@@ -160,7 +160,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
     
     end_spinner(stop_event, thread)
     time_taken = time.monotonic() - start_time
-    print(f"step 0 complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 0 complete! time taken: {time_taken:.2f} seconds")
 
     # %%% 1. Load Sentinel 2 Image File
     if generate_chunks:
@@ -230,7 +230,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         
         time_taken = time.monotonic() - start_time
         end_spinner(stop_event, thread)
-        print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 1 complete! time taken: {time_taken:.2f} seconds")
     
     # %%% 2. Mask Clouds From the Image
         print("==========")
@@ -246,7 +246,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         
         time_taken = time.monotonic() - start_time
         end_spinner(stop_event, thread)
-        print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 2 complete! time taken: {time_taken:.2f} seconds")
         
     # %%% 3. Calculate NDWI
         print("==========")
@@ -265,7 +265,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         
         end_spinner(stop_event, thread)
         time_taken = time.monotonic() - start_time
-        print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 3 complete! time taken: {time_taken:.2f} seconds")
         
     # %%% 4. Open and Convert True Colour Image
         """nico!! remember to add a description!"""
@@ -280,7 +280,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         
         end_spinner(stop_event, thread)
         time_taken = time.monotonic() - start_time
-        print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 4 complete! time taken: {time_taken:.2f} seconds")
         
     # %%% 5. Save Satellite Image Chunks
         """nico!! remember to add a description!"""
@@ -302,9 +302,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         # %%%% 5.2 Create and Save Mini-Chunks
         print("saving chunks as image files")
         change_to_folder(test_data_path)
-        
-        total_minichunks_saved = 0 # Optional counter
-        
+                
         for i, chunk in enumerate(ndwi_chunks):
             if i > real_n_chunks:
                 print("WARNING: Exceeded expected number of chunks "
@@ -337,10 +335,8 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
                                     g_max=global_max, g_min=global_min, 
                                     dupe_check=False)
                     mc_idx += 1
-                    total_minichunks_saved += 1
-        
         time_taken = time.monotonic() - start_time
-        print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 5 complete! time taken: {time_taken:.2f} seconds")
     else:
         print("============")
         print("| STEP 1-5 |")
@@ -350,13 +346,14 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
     print("==========")
     print("| STEP 6 |")
     print("==========")
-    # %%%% 6.1 Load Data into Memory
-    stop_event, thread = start_spinner(message="sorting and loading data")
+    # %%%% 6.1 Load Essential Info & Prepare File List
+    stop_event, thread = start_spinner(message="loading model and "
+                                       "preparing file list")
     start_time = time.monotonic()
     results_list = []
     
-    height = int(157/mc_per_len)
-    width = int(157/mc_per_len)
+    height = int(157 / mc_per_len)
+    width = int(157 / mc_per_len)
     
     model_path = os.path.join(HOME, "saved_models", model_name)
     model = keras.models.load_model(model_path)
@@ -367,52 +364,60 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
     selected_file_names = all_file_names[start_file:(start_file+n_files)]
     del all_file_names # save memory
     
-    if len(selected_file_names) > 50:
-        plot_examples = False # override decision - that would be too many plots
     end_spinner(stop_event, thread)
-    
-    # %%%% 6.2 Make Predictions on the Loaded Data
-    if not plot_examples:
-        stop_event, thread = start_spinner(message="making predictions on "
-                                           f"{n_files} files "
-                                           f"({n_chunk_preds} chunks)")
-    
-    for file_name in selected_file_names:
-        file_path = os.path.join(test_data_path, file_name)
         
-        img = tf.keras.utils.load_img(
-            file_path, target_size=(height, width)
+    # %%%% 6.2 Make Predictions using Batch Processing
+    stop_event, thread = start_spinner(message="making predictions on "
+                               f"{n_files} files "
+                               f"({n_chunk_preds} chunks)")
+    # --- Create tf.data Pipeline ---
+    all_file_paths = [
+        os.path.join(test_data_path, fname) 
+        for fname in selected_file_names
+        ]
+    path_ds = tf.data.Dataset.from_tensor_slices(all_file_paths)
+    
+    # Define the loading/preprocessing function
+    def load_and_preprocess_image(path):
+        img = tf.io.read_file(path)
+        img = tf.image.decode_png(img, channels=3)
+        img = tf.image.resize(img, [height, width])
+        return img, path # Return path as well to identify errors
+    
+    # Map, batch, prefetch
+    image_ds = path_ds.map(load_and_preprocess_image, 
+                           num_parallel_calls=tf.data.AUTOTUNE)
+    image_batch_ds = image_ds.batch(batch_size)
+    image_batch_ds = image_batch_ds.prefetch(buffer_size=tf.data.AUTOTUNE)
+    
+    # --- Run Prediction ---
+    # Pass only the image tensor part of the dataset to predict
+    all_predictions = model.predict(
+        image_batch_ds.map(lambda img, path: img), 
+        verbose=1
         )
-        
-        if plot_examples:
-            plt.figure(figsize=(3, 3))
-            plt.imshow(img)
-            plt.title(f"{file_name}", fontsize=7)
-            plt.axis("off")
-            plt.show()
-        
-        img_array = tf.keras.utils.img_to_array(img)
-        img_array = tf.expand_dims(img_array, 0) # Create a batch
-        
-        # Make prediction
-        predictions = model.predict(img_array, verbose=0)
+    
+    # --- Process Results ---
+    filename_pattern = re.compile(r"chunk\s+(\d+)\s+minichunk\s+(\d+)")
+    for i, prediction in enumerate(all_predictions):
+        file_name = selected_file_names[i] # Get corresponding filename
+
         # Apply softmax to get probabilities because the model outputs logits
-        score = tf.nn.softmax(predictions[0])
-        
+        score = tf.nn.softmax(prediction)
         predicted_class_index = np.argmax(score)
         predicted_class_name = class_names[predicted_class_index].upper()
+
         confidence = (100 * np.max(score)).astype(np.float32)
-        chunk_num, minichunk_num = extract_chunk_details(file_name)
+
+        # Parse filename using optimized function
+        file_name = selected_file_names[i]
+        chunk_num, minichunk_num = extract_chunk_details(file_name, 
+                                                         filename_pattern)
+        
         result = [chunk_num, minichunk_num, predicted_class_name, confidence]
         results_list.append(result)
-        
-        if plot_examples:
-            print("PREDICTED | CONFIDENCE")
-            print(f"|{predicted_class_name}| |{confidence}%|")
-    
-    if not plot_examples:
-        end_spinner(stop_event, thread)
-    
+
+    end_spinner(stop_event, thread)
     time_taken = time.monotonic() - start_time
     print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
     
@@ -436,3 +441,16 @@ if __name__ == "__main__":
     # %% Final
     TOTAL_TIME = time.monotonic() - MAIN_START_TIME
     print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
+
+def extract_chunk_details(filename, pattern):
+    base_name = os.path.splitext(os.path.basename(str(filename)))[0]
+    match = pattern.search(base_name)
+    if match:
+        try:
+            return int(match.group(1)), int(match.group(2))
+        except (ValueError, IndexError):
+            # Failed conversion or groups missing
+            pass # Fall through to return default error indicator
+    # Return an indicator if pattern doesn't match or conversion fails
+    return -1, -1 # Use -1 or None to indicate failure
+
