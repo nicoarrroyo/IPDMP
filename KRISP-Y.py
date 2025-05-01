@@ -6,6 +6,7 @@ import os
 import datetime
 import zoneinfo as zf
 import math
+import sys
 
 # %%% ii. Import Internal Functions
 from KRISP import run_model
@@ -40,8 +41,9 @@ folder = ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE")
  product_discriminator_and_format) = folder.split("_")
 
 real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
-model_epochs = 1000
-n_chunk_preds = 2000
+# "model_epochs" options: [50, 100, 300, 500, 1000]
+model_epochs = 300
+n_chunk_preds = 5000 # can be bigger than n_chunks
 
 # file format: P_(chunks)_(minichunks)_(epochs)_(tile number)
 # P for predictions
@@ -68,13 +70,18 @@ for i, line in enumerate(lines):
     except:
         continue
 
-# %% yield expected duration of run
 if n_chunk_preds > real_n_chunks - biggest_chunk:
     n_chunk_preds = real_n_chunks - biggest_chunk
 
+if n_chunk_preds == 0:
+    end_spinner(stop_event, thread)
+    print("this image is complete! exiting program")
+    sys.exit(0)
+
+# %% yield expected duration of run
 n_files = n_chunk_preds * 25
 # duration relationship for the dell xps 9315 (personal pc)
-duration = (0.0000006 * (n_files ** 2)) + (0.07590036 * n_files) + 5.40839049
+duration = (0.00045 * n_files) + 6.62
 h, m, s = convert_seconds_to_hms(1.1 * duration)
 est_duration = datetime.timedelta(
     hours=h, 
@@ -90,11 +97,11 @@ est_end_str = est_end_time.strftime(time_format)
 end_spinner(stop_event, thread)
 
 # %% pre-run update
-# note: these numbers are rough estimates for reference only
+# note: these numbers are estimates for reference only
 pre_completion = round(100 * biggest_chunk / real_n_chunks, 2)
 post_completion = round(100 * (biggest_chunk + n_chunk_preds) / real_n_chunks, 2)
 
-print("\n=== PRE-RUN CHECK ===")
+print(f"\n=== PRE-RUN CHECK | MODEL EPOCHS {model_epochs} ===")
 print(f"COMPLETED SO FAR: {pre_completion}%")
 print(f"chunks {biggest_chunk}/{real_n_chunks} | "
       f"files {biggest_chunk * 25}/{real_n_chunks * 25} |")
@@ -110,13 +117,13 @@ print(f"chunks {n_chunk_preds} | files {n_files} | ")
 print(f"\nSTARTING AT: {start_str}")
 print(f"EXPECTED DURATION: {h} hours, {m} minutes, {s} seconds")
 print(f"EXPECTED TO END AT: {est_end_str}")
-print("=== PRE-RUN CHECK ===\n")
+print(f"=== PRE-RUN CHECK | MODEL EPOCHS {model_epochs} ===\n")
 
 confirm_continue_or_exit()
 
 # %% yield predictions
 run_start_time = time.monotonic()
-print("\n=== RUNNING PREDICTIONS ===")
+print("\n=== KRISP RUN START ===")
 the_results = run_model(
     folder=folder, 
     n_chunks=5000, 
@@ -126,7 +133,7 @@ the_results = run_model(
     start_chunk=biggest_chunk, 
     n_chunk_preds=int(n_chunk_preds)
     )
-print("=== RUNNING PREDICTIONS ===\n")
+print("=== KRISP RUN COMPLETE ===\n")
 
 # %% write the results
 stop_event, thread = start_spinner(message="aftercare")
@@ -152,13 +159,13 @@ check_file_permission(predictions_file)
 blank_entry_check(predictions_file)
 
 # %% post-run update
-# note: these numbers are rough estimates for reference only
+# note: these numbers are estimates for reference only
 h, m, s = convert_seconds_to_hms(time.monotonic() - run_start_time)
 end_time_obj = datetime.datetime.now(zf.ZoneInfo("Europe/London"))
 end_str = end_time_obj.strftime(time_format)
 end_spinner(stop_event, thread)
 
-print("\n=== POST-RUN UPDATE ===")
+print(f"\n=== POST-RUN UPDATE | MODEL EPOCHS {model_epochs} ===")
 print(f"COMPLETED SO FAR: {post_completion}%")
 print(f"chunks {biggest_chunk + n_chunk_preds}/{real_n_chunks} | "
       f"files {(biggest_chunk + n_chunk_preds) * 25}/{real_n_chunks * 25} |")
@@ -175,4 +182,4 @@ print(f"\nSTARTED AT: {start_str}")
 print(f"ACTUAL DURATION: {h} hours, {m} minutes, {s} seconds")
 print(f"ENDED AT: {end_str}")
 
-print("=== POST-RUN UPDATE ===")
+print(f"=== POST-RUN UPDATE | MODEL EPOCHS {model_epochs} ===")
