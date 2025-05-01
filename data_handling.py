@@ -4,7 +4,7 @@ import re
 
 def rewrite(write_file, rows):
     """
-    Used to remove any blank or blatantly invalid entries in a csv
+    Used to rewrite the lines in a pre-opened file with a given list of "rows"
     
     Parameters
     ----------
