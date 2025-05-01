@@ -29,9 +29,10 @@ n_chunks = 5000 # do not change!!
 
 # %% prelim
 stop_event, thread = start_spinner(message="pre-run preparation")
-# = to download, ## = download, ### = fully predicted
-###folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
-folder = ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE")
+# = to download, ## = downloaded
+### = fully predicted, #### fully predicted with every model
+folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
+####folder = ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE")
 ##folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE")
 ###folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
 ###folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
@@ -42,7 +43,7 @@ folder = ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE")
 
 real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
 # "model_epochs" options: [50, 100, 300, 500, 1000]
-model_epochs = 300
+model_epochs = 100
 n_chunk_preds = 5000 # can be bigger than n_chunks
 
 # file format: P_(chunks)_(minichunks)_(epochs)_(tile number)
@@ -101,7 +102,7 @@ end_spinner(stop_event, thread)
 pre_completion = round(100 * biggest_chunk / real_n_chunks, 2)
 post_completion = round(100 * (biggest_chunk + n_chunk_preds) / real_n_chunks, 2)
 
-print(f"\n=== PRE-RUN CHECK | MODEL EPOCHS {model_epochs} ===")
+print(f"\n=== PRE-RUN CHECK == MODEL EPOCHS {model_epochs} ===")
 print(f"COMPLETED SO FAR: {pre_completion}%")
 print(f"chunks {biggest_chunk}/{real_n_chunks} | "
       f"files {biggest_chunk * 25}/{real_n_chunks * 25} |")
@@ -117,7 +118,7 @@ print(f"chunks {n_chunk_preds} | files {n_files} | ")
 print(f"\nSTARTING AT: {start_str}")
 print(f"EXPECTED DURATION: {h} hours, {m} minutes, {s} seconds")
 print(f"EXPECTED TO END AT: {est_end_str}")
-print(f"=== PRE-RUN CHECK | MODEL EPOCHS {model_epochs} ===\n")
+print(f"=== PRE-RUN CHECK == MODEL EPOCHS {model_epochs} ===\n")
 
 confirm_continue_or_exit()
 
@@ -165,7 +166,7 @@ end_time_obj = datetime.datetime.now(zf.ZoneInfo("Europe/London"))
 end_str = end_time_obj.strftime(time_format)
 end_spinner(stop_event, thread)
 
-print(f"\n=== POST-RUN UPDATE | MODEL EPOCHS {model_epochs} ===")
+print(f"\n=== POST-RUN UPDATE == MODEL EPOCHS {model_epochs} ===")
 print(f"COMPLETED SO FAR: {post_completion}%")
 print(f"chunks {biggest_chunk + n_chunk_preds}/{real_n_chunks} | "
       f"files {(biggest_chunk + n_chunk_preds) * 25}/{real_n_chunks * 25} |")
@@ -182,4 +183,4 @@ print(f"\nSTARTED AT: {start_str}")
 print(f"ACTUAL DURATION: {h} hours, {m} minutes, {s} seconds")
 print(f"ENDED AT: {end_str}")
 
-print(f"=== POST-RUN UPDATE | MODEL EPOCHS {model_epochs} ===")
+print(f"=== POST-RUN UPDATE == MODEL EPOCHS {model_epochs} ===")
