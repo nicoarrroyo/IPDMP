@@ -24,25 +24,28 @@ except: # uni mode
     os.chdir(HOME)
 
 class_names = ["land", "reservoirs", "water bodies"]
+n_chunks = 5000 # do not change!!
 
 # %% prelim
 stop_event, thread = start_spinner(message="pre-run preparation")
-#folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
-folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
-#folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T30UYD_20250320T151414.SAFE")
+# = to download, ## = download, ### = fully predicted
+###folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
+##folder = ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE")
+##folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE")
+###folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
+folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
 
 (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
  processing_baseline_number, relative_orbit_number, tile_number_field, 
  product_discriminator_and_format) = folder.split("_")
 
-n_chunks = 5000 # do not change!!
 real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
 model_epochs = 1000
-n_chunk_preds = 10
+n_chunk_preds = 1000
 
 # file format: P_(chunks)_(minichunks)_(epochs)_(tile number)
 # P for predictions
-predictions_file = f"P_{str(n_chunks)}_{model_epochs}_{tile_number_field}.csv"
+predictions_file = f"P_{n_chunks}_{model_epochs}_{tile_number_field}.csv"
 
 minichunk_header = ",minichunks,"
 chunk_header = "chunk," + ",".join(map(str, range(25)))
