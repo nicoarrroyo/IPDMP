@@ -367,7 +367,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
     end_spinner(stop_event, thread)
         
     # %%%% 6.2 Make Predictions using Batch Processing
-    stop_event, thread = start_spinner(message="making predictions on "
+    stop_event, thread = start_spinner(message="preparing for predictions on "
                                f"{n_files} files "
                                f"({n_chunk_preds} chunks)")
     # --- Create tf.data Pipeline ---
@@ -389,6 +389,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
                            num_parallel_calls=tf.data.AUTOTUNE)
     image_batch_ds = image_ds.batch(batch_size)
     image_batch_ds = image_batch_ds.prefetch(buffer_size=tf.data.AUTOTUNE)
+    end_spinner(stop_event, thread)
     
     # --- Run Prediction ---
     # Pass only the image tensor part of the dataset to predict
@@ -416,8 +417,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         
         result = [chunk_num, minichunk_num, predicted_class_name, confidence]
         results_list.append(result)
-
-    end_spinner(stop_event, thread)
+    
     time_taken = time.monotonic() - start_time
     print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
     
@@ -441,16 +441,3 @@ if __name__ == "__main__":
     # %% Final
     TOTAL_TIME = time.monotonic() - MAIN_START_TIME
     print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
-
-def extract_chunk_details(filename, pattern):
-    base_name = os.path.splitext(os.path.basename(str(filename)))[0]
-    match = pattern.search(base_name)
-    if match:
-        try:
-            return int(match.group(1)), int(match.group(2))
-        except (ValueError, IndexError):
-            # Failed conversion or groups missing
-            pass # Fall through to return default error indicator
-    # Return an indicator if pattern doesn't match or conversion fails
-    return -1, -1 # Use -1 or None to indicate failure
-
