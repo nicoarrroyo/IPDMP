@@ -1,4 +1,4 @@
-def get_metrics(class_predictions, class_n, tp, tn, fp, fn):
+def update_counts(class_predictions, class_n, tp, tn, fp, fn):
     if class_predictions == class_n:
         tp += class_n
         tn += 25 - class_predictions
@@ -11,6 +11,13 @@ def get_metrics(class_predictions, class_n, tp, tn, fp, fn):
         tn += 25 - class_n
         fn += class_n - class_predictions
     return tp, tn, fp, fn
+
+def get_metrics(tp, tn, fp, fn, tot_predicts):
+    acc = (tp + tn) / tot_predicts
+    prec = tp / (tp + fp)
+    sensitivity = tp / (tp + fn)
+    specificity = tn / (tn + fp)
+    return acc, prec, sensitivity, specificity
 
 import os
 
@@ -68,42 +75,33 @@ for i, response in enumerate(responses):
         elif "land" in cell.strip().lower():
             land_predictions += 1
     
-    if res_predictions == res_n:
-        tp_res += res_n
-        tn_res += 25 - res_predictions
-    if res_predictions > res_n:
-        tp_res += res_n
-        tn_res += 25 - res_predictions
-        fp_res += res_predictions - res_n
-    if res_predictions < res_n:
-        tp_res += res_predictions
-        tn_res += 25 - res_n
-        fn_res += res_n - res_predictions
+    tp_res, tn_res, fp_res, fn_res = update_counts(res_predictions, 
+                                                   res_n, 
+                                                   tp_res, tn_res, 
+                                                   fp_res, fn_res)
     
-    if bod_predictions == bod_n:
-        tp_bod += bod_n
-        tn_bod += 25 - bod_predictions
-    if bod_predictions > bod_n:
-        tp_bod += bod_n
-        tn_bod += 25 - bod_predictions
-        fp_bod += bod_predictions - bod_n
-    if bod_predictions < bod_n:
-        tp_bod += bod_predictions
-        tn_bod += 25 - bod_n
-        fn_bod += bod_n - bod_predictions
+    tp_bod, tn_bod, fp_bod, fn_bod = update_counts(bod_predictions, 
+                                                   bod_n, 
+                                                   tp_bod, tn_bod, 
+                                                   fp_bod, fn_bod)
     
-    if land_predictions == land_n and land_n > 0:
-        tp_land += land_n
-        tn_land += 25 - land_predictions
-    if land_predictions > land_n:
-        tp_land += land_n
-        tn_land += 25 - land_predictions
-        fp_land += land_predictions - land_n
-    if land_predictions < land_n:
-        tp_land += land_predictions
-        tn_land += 25 - land_n
-        fn_land += land_n - land_predictions
-    
-    
-    
+    tp_land, tn_land, fp_land, fn_land = update_counts(land_predictions, 
+                                                       land_n, 
+                                                       tp_land, tn_land, 
+                                                       fp_land, fn_land)
+
+metrics = get_metrics(tp_res, tn_res, 
+                      fp_res, fn_res, 
+                      (25*len(predictions)))
+acc_res, prec_res, sensitivity_res, specificity_res = metrics
+
+metrics = get_metrics(tp_bod, tn_bod, 
+                      fp_bod, fn_bod, 
+                      (25*len(predictions)))
+acc_bod, prec_bod, sensitivity_bod, specificity_bod = metrics
+
+metrics = get_metrics(tp_land, tn_land, 
+                      fp_land, fn_land, 
+                      (25*len(predictions)))
+acc_land, prec_land, sensitivity_land, specificity_land = metrics
 
