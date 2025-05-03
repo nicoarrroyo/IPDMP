@@ -15,7 +15,7 @@ from misc import convert_seconds_to_hms, confirm_continue_or_exit
 from user_interfacing import start_spinner, end_spinner
 
 # %%% iii. Directory Management
-try: # personal pc mode
+try: # personal pc mode - must be changed to own directory
     HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
                         "Individual Project", "Downloads")
     os.chdir(HOME)
@@ -24,18 +24,17 @@ except: # uni mode
                         "The University of Manchester", "Individual Project")
     os.chdir(HOME)
 
-class_names = ["land", "reservoirs", "water bodies"]
 n_chunks = 5000 # do not change!!
 
 # %% prelim
 stop_event, thread = start_spinner(message="pre-run preparation")
-# = to download, ## = downloaded
-### = fully predicted, #### fully predicted with every model
+# "#" = to download, "##" = downloaded
+# "###" = fully predicted, "####" fully predicted with every model
 folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
 ####folder = ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE")
-##folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE")
-###folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
-###folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
+####folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE")
+####folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
+####folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
 
 (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
  processing_baseline_number, relative_orbit_number, tile_number_field, 
@@ -43,7 +42,7 @@ folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
 
 real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
 # "model_epochs" options: [50, 100, 300, 500, 1000]
-model_epochs = 100
+model_epochs = 300
 n_chunk_preds = 5000 # can be bigger than n_chunks
 
 # file format: P_(chunks)_(minichunks)_(epochs)_(tile number)
@@ -130,7 +129,6 @@ the_results = run_model(
     n_chunks=5000, 
     model_name=f"ndwi model epochs-{model_epochs}.keras", 
     max_multiplier=0.41, 
-    plot_examples=False, 
     start_chunk=biggest_chunk, 
     n_chunk_preds=int(n_chunk_preds)
     )
