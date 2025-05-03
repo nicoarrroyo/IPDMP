@@ -41,7 +41,7 @@ def get_metrics(tp, tn, fp, fn, tot_predicts):
     specificity = float(f"{(100*specificity):.2f}")
     return acc, prec, sensitivity, specificity
 
-def get_confusion_matrix(model_epochs):
+def get_confusion_matrix(model_epochs, confidence_threshold):
     os.chdir(
         os.path.join(
             "C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
@@ -50,7 +50,6 @@ def get_confusion_matrix(model_epochs):
             )
         )
     
-    confidence_threshold = 50
     
     # responses file
     with open("responses_5000_chunks.csv", mode="r") as file:
@@ -136,80 +135,89 @@ def get_confusion_matrix(model_epochs):
     
 
 if __name__ == "__main__":
-    metrics_res = []
-    metrics_bod = []
-    metrics_land = []
-    
-    epoch_options = [50, 55, 60, 65, 70]
-    for epoch_option in epoch_options:
-        m_res, m_bod, m_land = get_confusion_matrix(epoch_option)
-        metrics_res.append(m_res)
-        metrics_bod.append(m_bod)
-        metrics_land.append(m_land)
-    
+    for C in range(40, 100, 10): # anything below C = 30 makes no difference
+        metrics_res = []
+        metrics_bod = []
+        metrics_land = []
+        
+        #epoch_options = [50, 55, 60, 65, 70]
+        epoch_options = [50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70]
+        for epoch_option in epoch_options:
+            m_res, m_bod, m_land = get_confusion_matrix(epoch_option, 
+                                                        confidence_threshold=C)
+            metrics_res.append(m_res)
+            metrics_bod.append(m_bod)
+            metrics_land.append(m_land)
+        
+    # =============================================================================
+    #     accuracies = [metrics_bod[i][0] for i in range(len(epoch_options))]
+    #     plt.plot(epoch_options, accuracies, label="Water Bodies", linewidth=1)
+    #     accuracies = [metrics_res[i][0] for i in range(len(epoch_options))]
+    #     plt.plot(epoch_options, accuracies, label="Reservoirs", linewidth=1)
+    #     plt.title("Epoch vs Accuracies")
+    #     plt.xlabel("Epoch")
+    #     plt.ylabel("Accuracy")
+    #     plt.legend(fontsize=5)
+    #     plt.grid(True)
+    #     plt.show()
+    # =============================================================================
+        
+        precisions_bod = [metrics_bod[i][1] for i in range(len(epoch_options))]
+        precisions_res = [metrics_res[i][1] for i in range(len(epoch_options))]
 # =============================================================================
-#     accuracies = [metrics_bod[i][0] for i in range(5)]
-#     plt.plot(epoch_options, accuracies, label="Water Bodies")
-#     accuracies = [metrics_res[i][0] for i in range(5)]
-#     plt.plot(epoch_options, accuracies, label="Reservoirs")
-#     plt.title("Epoch vs Accuracies")
-#     plt.xlabel("Epoch")
-#     plt.ylabel("Accuracy")
-#     plt.legend()
-#     plt.grid(True)
-#     plt.show()
+#         plt.plot(epoch_options, precisions_bod, label="Water Bodies", linewidth=1)
+#         plt.plot(epoch_options, precisions_res, label="Reservoirs", linewidth=1)
+#         plt.title(f"Epoch vs Precisions: Threshold {C}%")
+#         plt.xlabel("Epoch")
+#         plt.ylabel("Precision")
+#         plt.legend(fontsize=5)
+#         plt.grid(True)
+#         plt.show()
 # =============================================================================
-    
-    precisions_bod = [metrics_bod[i][1] for i in range(5)]
-    plt.plot(epoch_options, precisions_bod, label="Water Bodies")
-    precisions_res = [metrics_res[i][1] for i in range(5)]
-    plt.plot(epoch_options, precisions_res, label="Reservoirs")
-    plt.title("Epoch vs Precisions")
-    plt.xlabel("Epoch")
-    plt.ylabel("Precision")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-    
-    sensitivities_bod = [metrics_bod[i][2] for i in range(5)]
-    plt.plot(epoch_options, sensitivities_bod, label="Water Bodies")
-    sensitivities_res = [metrics_res[i][2] for i in range(5)]
-    plt.plot(epoch_options, sensitivities_res, label="Reservoirs")
-    plt.title("Epoch vs Sensitivities")
-    plt.xlabel("Epoch")
-    plt.ylabel("Sensitivity")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-    
+        
+        sensitivities_bod = [metrics_bod[i][2] for i in range(len(epoch_options))]
+        sensitivities_res = [metrics_res[i][2] for i in range(len(epoch_options))]
+        #plt.plot(epoch_options, sensitivities_bod, label="Water Bodies", linewidth=1)
+        plt.plot(epoch_options, sensitivities_res, label="Reservoirs Confidence "
+                 f"Threshold {C}", linewidth=1)
+        plt.title("Epoch vs Sensitivities")
+        plt.xlabel("Epoch")
+        plt.ylabel("Sensitivity")
+        plt.legend(fontsize=5)
+        plt.grid(True)
+        #plt.show()
+        
+    # =============================================================================
+    #     specificities = [metrics_bod[i][3] for i in range(len(epoch_options))]
+    #     plt.plot(epoch_options, specificities, label="Water Bodies", linewidth=1)
+    #     specificities = [metrics_res[i][3] for i in range(len(epoch_options))]
+    #     plt.plot(epoch_options, specificities, label="Reservoirs", linewidth=1)
+    #     plt.title("Epoch vs Specificities")
+    #     plt.xlabel("Epoch")
+    #     plt.ylabel("Specificity")
+    #     plt.legend(fontsize=5)
+    #     plt.grid(True)
+    #     plt.show()
+    # =============================================================================
+        
+        # the threshold that maximises this plot is ideal
 # =============================================================================
-#     specificities = [metrics_bod[i][3] for i in range(5)]
-#     plt.plot(epoch_options, specificities, label="Water Bodies")
-#     specificities = [metrics_res[i][3] for i in range(5)]
-#     plt.plot(epoch_options, specificities, label="Reservoirs")
-#     plt.title("Epoch vs Specificities")
-#     plt.xlabel("Epoch")
-#     plt.ylabel("Specificity")
-#     plt.legend()
-#     plt.grid(True)
-#     plt.show()
+#         precisions_bod = np.array(precisions_bod)
+#         sensitivities_bod = np.array(sensitivities_bod)
+#         f1_scores = 2 * precisions_bod * sensitivities_bod / (precisions_bod + 
+#                                                               sensitivities_bod)
+#         #plt.plot(epoch_options, f1_scores, label="Water Bodies")
+#         precisions_res = np.array(precisions_res)
+#         sensitivities_res = np.array(sensitivities_res)
+#         f1_scores = 2 * precisions_res * sensitivities_res / (precisions_res + 
+#                                                               sensitivities_res)
+#         plt.plot(epoch_options, f1_scores, label="Reservoirs Confidence "
+#                  f"Threshold {C}", linewidth=1)
+#         plt.title("Epoch vs F1 Score")
+#         plt.xlabel("Epoch")
+#         plt.ylabel("F1 Score")
+#         plt.legend(fontsize=5)
+#         plt.grid(True)
 # =============================================================================
-    
-    # maximising the threshold that maximises this plot is ideal
-    precisions_bod = np.array(precisions_bod)
-    sensitivities_bod = np.array(sensitivities_bod)
-    f1_scores = 2 * precisions_bod * sensitivities_bod / (precisions_bod + 
-                                                          sensitivities_bod)
-    plt.plot(epoch_options, f1_scores, label="Water Bodies")
-    precisions_res = np.array(precisions_res)
-    sensitivities_res = np.array(sensitivities_res)
-    f1_scores = 2 * precisions_res * sensitivities_res / (precisions_res + 
-                                                          sensitivities_res)
-    plt.plot(epoch_options, f1_scores, label="Reservoirs")
-    plt.title("Epoch vs Specificities")
-    plt.xlabel("Epoch")
-    plt.ylabel("F1 Score")
-    plt.legend()
-    plt.grid(True)
     plt.show()
 
