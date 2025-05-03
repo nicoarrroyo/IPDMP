@@ -141,7 +141,8 @@ if __name__ == "__main__":
     metrics_land = []
     
     #epoch_options = [50, 55, 60, 65, 70]
-    epoch_options = [50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70]
+    #epoch_options = [50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70]
+    epoch_options = []
     for epoch_option in epoch_options:
         m_res, m_bod, m_land = get_confusion_matrix(epoch_option, 
                                                     confidence_threshold=100)
@@ -169,18 +170,18 @@ if __name__ == "__main__":
     plt.ylabel("Precision")
     plt.legend(fontsize=5)
     plt.grid(True)
-    #plt.show()
+    plt.show()
     
     sensitivities_bod = [metrics_bod[i][2] for i in range(len(epoch_options))]
     sensitivities_res = [metrics_res[i][2] for i in range(len(epoch_options))]
-    #plt.plot(epoch_options, sensitivities_bod, label="Water Bodies", linewidth=1)
+    plt.plot(epoch_options, sensitivities_bod, label="Water Bodies", linewidth=1)
     plt.plot(epoch_options, sensitivities_res, label="Reservoirs", linewidth=1)
     plt.title("Epoch vs Sensitivities")
     plt.xlabel("Epoch")
     plt.ylabel("Sensitivity")
     plt.legend(fontsize=5)
     plt.grid(True)
-    #plt.show()
+    plt.show()
     
     specificities = [metrics_bod[i][3] for i in range(len(epoch_options))]
     plt.plot(epoch_options, specificities, label="Water Bodies", linewidth=1)
@@ -191,14 +192,14 @@ if __name__ == "__main__":
     plt.ylabel("Specificity")
     plt.legend(fontsize=5)
     plt.grid(True)
-    #plt.show()
+    plt.show()
     
     # the threshold that maximises this plot is ideal
     precisions_bod = np.array(precisions_bod)
     sensitivities_bod = np.array(sensitivities_bod)
     f1_scores = 2 * precisions_bod * sensitivities_bod / (precisions_bod + 
                                                           sensitivities_bod)
-    #plt.plot(epoch_options, f1_scores, label="Water Bodies")
+    plt.plot(epoch_options, f1_scores, label="Water Bodies")
     precisions_res = np.array(precisions_res)
     sensitivities_res = np.array(sensitivities_res)
     f1_scores = 2 * precisions_res * sensitivities_res / (precisions_res + 
