@@ -21,7 +21,7 @@ from misc import split_array
 from user_interfacing import start_spinner, end_spinner
 
 # %%% iii. Directory Management
-try: # personal pc mode
+try: # personal pc mode - must be changed to own directory
     HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
                         "Individual Project", "Downloads")
     os.chdir(HOME)
@@ -31,14 +31,16 @@ except: # uni mode
     os.chdir(HOME)
 
 class_names = ["land", "reservoirs", "water bodies"]
-batch_size = 64
+batch_size = 128
 
 # %% Big guy
-def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples, 
+def run_model(folder, n_chunks, model_name, max_multiplier, 
               start_chunk, n_chunk_preds):
+    
     start_chunk = check_positive_int(
         var=start_chunk, 
         description="chunk to start on")
+    
     n_chunk_preds = check_positive_int(
         var=n_chunk_preds, 
         description="number of chunks to make predictions on")
@@ -267,25 +269,10 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         time_taken = time.monotonic() - start_time
         print(f"step 3 complete! time taken: {time_taken:.2f} seconds")
         
-    # %%% 4. Open and Convert True Colour Image
+    # %%% 4. Save Satellite Image Chunks
         """nico!! remember to add a description!"""
         print("==========")
         print("| STEP 4 |")
-        print("==========")
-        stop_event, thread = start_spinner(message="opening 10m "
-                                           "resolution true colour image")
-        start_time = time.monotonic()
-        
-        path = os.path.join(HOME, satellite, folder)
-        
-        end_spinner(stop_event, thread)
-        time_taken = time.monotonic() - start_time
-        print(f"step 4 complete! time taken: {time_taken:.2f} seconds")
-        
-    # %%% 5. Save Satellite Image Chunks
-        """nico!! remember to add a description!"""
-        print("==========")
-        print("| STEP 5 |")
         print("==========")
         # %%%% 5.1 Create Chunks
         stop_event, thread = start_spinner(message=f"creating {n_chunks} "
@@ -336,12 +323,12 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
                                     dupe_check=False)
                     mc_idx += 1
         time_taken = time.monotonic() - start_time
-        print(f"step 5 complete! time taken: {time_taken:.2f} seconds")
+        print(f"step 4 complete! time taken: {time_taken:.2f} seconds")
     else:
         print("============")
-        print("| STEP 1-5 |")
+        print("| STEP 1-4 |")
         print("============")
-        print("chunk generation disabled, skipping steps 1-5")
+        print("chunk generation disabled, skipping steps 1-4")
     # %%% 6. Load and Deploy Model
     print("==========")
     print("| STEP 6 |")
@@ -399,6 +386,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         )
     
     # --- Process Results ---
+    stop_event, thread = start_spinner(message="pr0cessing results")
     filename_pattern = re.compile(r"chunk\s+(\d+)\s+minichunk\s+(\d+)")
     for i, prediction in enumerate(all_predictions):
         file_name = selected_file_names[i] # Get corresponding filename
@@ -417,6 +405,7 @@ def run_model(folder, n_chunks, model_name, max_multiplier, plot_examples,
         
         result = [chunk_num, minichunk_num, predicted_class_name, confidence]
         results_list.append(result)
+    end_spinner(stop_event, thread)
     
     time_taken = time.monotonic() - start_time
     print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
@@ -433,7 +422,6 @@ if __name__ == "__main__":
         n_chunks=5000, # number of chunks to split the image into
         model_name="ndwi model epochs-1000.keras", 
         max_multiplier=0.41, # multiply max value of ndwi
-        plot_examples=False, 
         start_chunk=0, 
         n_chunk_preds=5
         )
