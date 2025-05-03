@@ -35,7 +35,7 @@ DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2",
 DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs', 'water bodies', and 'land'
 
 # --- Training Parameters ---
-EPOCHS = 100
+EPOCHS = 120
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
