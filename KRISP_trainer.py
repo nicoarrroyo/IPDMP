@@ -25,6 +25,7 @@ print("Imports complete.")
 print("=== 1. Configuring Parameters ===")
 # --- Core Settings ---
 MODEL_TYPE = "ndwi" # Options: "ndwi", "tci"
+# - must be changed to own directory
 BASE_PROJECT_DIR = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", 
                                 "YEAR 3", "Individual Project", "Downloads")
 SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
@@ -34,11 +35,11 @@ DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2",
 DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs', 'water bodies', and 'land'
 
 # --- Training Parameters ---
-EPOCHS = 1000
+EPOCHS = 100
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
-SAVE_MODEL = True # Set to True to save the trained model
+SAVE_MODEL = False # Set to True to save the trained model
 MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "saved_models")
 MODEL_FILENAME = f"{MODEL_TYPE} model epochs-{EPOCHS}.keras"
 
@@ -53,7 +54,7 @@ TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
 # --- Dataset Parameters ---
 IMG_HEIGHT = int(157/5) # must adjust this for the actual image size!!!!
 IMG_WIDTH = int(157/5)
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 VALIDATION_SPLIT = 0.2
 RANDOM_SEED = 123 # For reproducibility of splits
 print(f"Image size: ({IMG_HEIGHT}, {IMG_WIDTH})")
@@ -220,18 +221,24 @@ end_spinner(stop_event, thread)
 
 # %% 5. Train the Model
 print(f"=== 5. Starting Training for {EPOCHS} Epochs ===")
-
+verbose = 0
+if verbose == 0:
+    stop_event, thread = start_spinner(message=f"training model for "
+                                       f"{EPOCHS} epochs")
 try:
     history = model.fit(
       train_ds,
       validation_data=val_ds,
-      epochs=EPOCHS
+      epochs=EPOCHS, 
+      verbose=verbose
     )
     print("Training complete.")
 except Exception as e:
     print(f"An error occurred during training: {e}")
     # Optionally exit or try to proceed depending on the error
     history = None # Ensure history is None if training failed
+if verbose == 0:
+    end_spinner(stop_event, thread)
 
 # %% 6. Visualize Training Results
 print("=== 6. Visualizing Training Results ===")
