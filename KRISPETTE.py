@@ -1,6 +1,10 @@
+""" KRISP External Technical Testing Environment (KRISPETTE)
+"""
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from data_handling import extract_coords
 
 def update_counts(class_predictions, class_n, tp, tn, fp, fn):
     if class_predictions == class_n:
@@ -79,18 +83,37 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
     fp_land = 0 # false positive
     fn_land = 0 # false negative
     
+    tp_sea = 0 # true positive
+    tn_sea = 0 # true negative
+    fp_sea = 0 # false positive
+    fn_sea = 0 # false negative
+    
     for i, response in enumerate(responses):
         split_response = response.split(",")
         
         res_n = int(split_response[1])
-        bod_n = int(split_response[2])
+        
+        water_n = int(split_response[2])
+        water_coords = extract_coords(split_response[8], create_box_flag=False)
+        if water_n == 1 and water_coords[0] == 0 and water_coords[-1] == 157:
+            sea_n = 25
+        else:
+            sea_n = 0
+            bod_n = water_n
+        
         # each of the 25 minichunks that isn't res or bod must be land
         land_n = 25 - res_n - bod_n
+        
+        if sea_n == 25: # unless it's the sea
+            res_n = 0
+            bod_n = 0
+            land_n = 0
         
         prediction = predictions[i].split(",")
         res_predictions = 0
         bod_predictions = 0
         land_predictions = 0
+        sea_predictions = 0
         for j, cell in enumerate(prediction):
             try:
                 confidence = float(cell.split(" ")[-1])
@@ -109,6 +132,8 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
                     land_predictions += 1
             elif "land" in cell.strip().lower():
                 land_predictions += 1
+            elif "sea" in cell.strip().lower():
+                sea_predictions += 1
         
         tp_res, tn_res, fp_res, fn_res = update_counts(res_predictions, 
                                                        res_n, 
@@ -124,6 +149,11 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
                                                            land_n, 
                                                            tp_land, tn_land, 
                                                            fp_land, fn_land)
+        
+        tp_sea, tn_sea, fp_sea, fn_sea = update_counts(sea_predictions, 
+                                                           sea_n, 
+                                                           tp_sea, tn_sea, 
+                                                           fp_sea, fn_sea)
     
     metrics_res = get_metrics(tp_res, tn_res, 
                               fp_res, fn_res, 
@@ -137,49 +167,62 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
                               fp_land, fn_land, 
                               (25*len(predictions)))
     
-    return metrics_res, metrics_bod, metrics_land
+    metrics_sea = get_metrics(tp_sea, tn_sea, 
+                              fp_sea, fn_sea, 
+                              (25*len(predictions)))
+    
+    return metrics_res, metrics_bod, metrics_land, metrics_sea
 
 if __name__ == "__main__":
-    m_res, m_bod, m_land = get_confusion_matrix(model_epochs=100, 
-                                                confidence_threshold=40)
+    model_epochs = 150
+    conf_thresh = 40
+    m_res, m_bod, m_land, m_sea = get_confusion_matrix(
+        model_epochs=model_epochs, 
+        confidence_threshold=conf_thresh
+        )
     
     # --- Prepare data for plotting ---
     labels = ["Accuracy", "Precision", "Recall", "Specificity", "F1-Score"]
     reservoir_scores = list(m_res)
     water_body_scores = list(m_bod)
     land_scores = list(m_land)
+    sea_scores = list(m_sea)
     
     x = np.arange(len(labels))  # the label locations
-    width = 0.25  # the width of the bars
+    width = 0.2  # the width of the bars
     
     # --- Create the Plot ---
     plt.style.use("seaborn-v0_8-darkgrid")
     fig, ax = plt.subplots(figsize=(5, 3))
     
     # Create the bars for each class, offsetting the x position
-    rects1 = ax.bar(x - width, reservoir_scores, width, 
+    rects1 = ax.bar(x - 1.5*width, reservoir_scores, width, 
                     label="Reservoirs", color="royalblue")
-    rects2 = ax.bar(x, water_body_scores, width, 
+    rects2 = ax.bar(x - 0.5*width, water_body_scores, width, 
                     label="Water Bodies", color="mediumseagreen")
-    rects3 = ax.bar(x + width, land_scores, width, 
+    rects3 = ax.bar(x + 0.5*width, land_scores, width, 
                     label="Land", color="sandybrown")
+    rects4 = ax.bar(x + 1.5*width, sea_scores, width, 
+                    label="Sea", color="aquamarine")
     
     # Add some text for labels, title and axes ticks
     ax.set_ylabel("Score (%)", fontsize=8)
     ax.set_xlabel("Performance Metric", fontsize=8)
-    ax.set_title("Model Performance Metrics by Class", fontsize=8)
+    ax.set_title(f"Model Performance Metrics by Class, {conf_thresh}% "
+                 "Confidence Threshold", fontsize=8)
     ax.set_xticks(x) # Position ticks in the center of the groups
     ax.set_xticklabels(labels)
     ax.tick_params(axis="both", which="major", labelsize=7)
-    ax.legend(fontsize=5)
+    ax.legend(fontsize=6, loc="right")
     
     # Set y-axis limit
     ax.set_ylim(0, 105) # Go slightly above 100 for visibility
     
     # Add value labels on top of bars (optional, can be cluttered)
-    ax.bar_label(rects1, padding=3, fmt="%.1f", fontsize=7)
-    ax.bar_label(rects2, padding=3, fmt="%.1f", fontsize=7)
-    ax.bar_label(rects3, padding=3, fmt="%.1f", fontsize=7)
+    ax.bar_label(rects1, padding=3, fmt="%.1f", fontsize=6)
+    ax.bar_label(rects2, padding=3, fmt="%.1f", fontsize=6)
+    ax.bar_label(rects3, padding=3, fmt="%.1f", fontsize=6)
+    ax.bar_label(rects4, padding=3, fmt="%.1f", fontsize=6)
     
     fig.tight_layout() # Adjust layout
     plt.show()
