@@ -28,20 +28,33 @@ n_chunks = 5000 # do not change!!
 
 # %% prelim
 stop_event, thread = start_spinner(message="pre-run preparation")
-# = to download, ## = downloaded
-### = fully predicted, #### fully predicted with every model
-###folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
-####folder = ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE")
+# =============================================================================
+# folders = [
+#     ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE"), 
+#     ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE"), 
+#     ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE"), 
+#     ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE"), 
+#     ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
+#     ]
+# =============================================================================
+# "#" = to download, "##" = downloaded
+# "###" = fully predicted, "####" fully predicted with every model
+# all have to be retrainded on balanced set
+##folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
+##folder = ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE")
 ##folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE")
-folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
-###folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
+##folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
+##folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
+folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T31UCU_20250331T143812.SAFE")
 
 (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
  processing_baseline_number, relative_orbit_number, tile_number_field, 
  product_discriminator_and_format) = folder.split("_")
 
 real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
-model_epoch_options = [50, 100, 300, 500, 1000]
+# model_epoch_options = [50, 55, 60, 65, 70]
+# model_epoch_options = [50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70]
+model_epoch_options = [50, 75, 100, 125, 150]
 
 for model_epochs in model_epoch_options:
     n_chunk_preds = 5000 # has to be reset every time
@@ -125,17 +138,16 @@ for model_epochs in model_epoch_options:
     
     # %% yield predictions
     run_start_time = time.monotonic()
-    print("\n=== KRISP RUN START | MODEL EPOCHS {model_epochs} ===")
+    print(f"\n=== KRISP RUN START | MODEL EPOCHS {model_epochs} ===")
     the_results = run_model(
         folder=folder, 
         n_chunks=5000, 
         model_name=f"ndwi model epochs-{model_epochs}.keras", 
         max_multiplier=0.41, 
-        plot_examples=False, 
         start_chunk=biggest_chunk, 
         n_chunk_preds=int(n_chunk_preds)
         )
-    print("=== KRISP RUN COMPLETE | MODEL EPOCHS {model_epochs} ===\n")
+    print(f"=== KRISP RUN COMPLETE | MODEL EPOCHS {model_epochs} ===\n")
     
     # %% write the results
     stop_event, thread = start_spinner(message="aftercare")
@@ -185,3 +197,7 @@ for model_epochs in model_epoch_options:
     print(f"ENDED AT: {end_str}")
     
     print(f"=== POST-RUN UPDATE | MODEL EPOCHS {model_epochs} ===")
+
+# %% end
+time_taken = time.monotonic() - MAIN_START_TIME
+print(f"total processing time: {round(time_taken, 2)} seconds")
