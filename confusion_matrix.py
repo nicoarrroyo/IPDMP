@@ -1,44 +1,52 @@
 import os
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
 def update_counts(class_predictions, class_n, tp, tn, fp, fn):
     if class_predictions == class_n:
         tp += class_n
         tn += 25 - class_predictions
-    if class_predictions > class_n:
+    elif class_predictions > class_n:
         tp += class_n
         tn += 25 - class_predictions
         fp += class_predictions - class_n
-    if class_predictions < class_n:
+    elif class_predictions < class_n:
         tp += class_predictions
         tn += 25 - class_n
         fn += class_n - class_predictions
+    else:
+        print("counting error")
+    
     return tp, tn, fp, fn
 
 def get_metrics(tp, tn, fp, fn, tot_predicts):
     acc = (tp + tn) / tot_predicts
-    acc = float(f"{(100*acc):.2f}")
+    acc = float(f"{(100 * acc):.2f}")
     
     try: # tp and fp could be 0
         prec = tp / (tp + fp)
-        prec = float(f"{(100*prec):.2f}")
+        prec = float(f"{(100 * prec):.2f}")
     except: # in which case precision is 100 but causes a zero-division error
         prec = 100
     
     try:
-        sensitivity = tp / (tp + fn)
-        sensitivity = float(f"{(100*sensitivity):.2f}")
+        sens = tp / (tp + fn)
+        sens = float(f"{(100 * sens):.2f}")
     except:
-        sensitivity = 100
+        sens = 100
     
     try:
-        specificity = tn / (tn + fp)
-        specificity = float(f"{(100*specificity):.2f}")
+        spec = tn / (tn + fp)
+        spec = float(f"{(100 * spec):.2f}")
     except:
-        specificity = 100
-    return acc, prec, sensitivity, specificity
-
+        spec = 100
+    
+    try:
+        f1 = 2 * prec * sens / (prec + sens)
+        f1 = float(f"{(f1):.2f}")
+    except:
+        f1 = 100
+    return acc, prec, sens, spec, f1
 
 def get_confusion_matrix(model_epochs, confidence_threshold):
     os.chdir(
@@ -49,10 +57,9 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
             )
         )
     
-    
     # responses file
     with open("responses_5000_chunks.csv", mode="r") as file:
-        responses = file.readlines()[1:1650]
+        responses = file.readlines()[1:6]
     
     # predictions file
     with open (f"P_5000_{model_epochs}_T31UCU.csv", mode="r") as file:
@@ -89,12 +96,13 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
             try:
                 confidence = float(cell.split(" ")[1])
             except:
-                continue
+                confidence = 100
             if "reservoir" in cell.strip().lower():
                 if confidence >= confidence_threshold:
                     res_predictions += 1
                 else:
                     land_predictions += 1
+            # the cell will be separated into three different 
             elif "water bod" in cell.strip().lower():
                 if confidence >= confidence_threshold:
                     bod_predictions += 1
@@ -131,83 +139,48 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
                               (25*len(predictions)))
     
     return metrics_res, metrics_bod, metrics_land
-    
 
 if __name__ == "__main__":
-    #for C in range(30, 60, 10): # anything below C = 30 makes no difference
-    metrics_res = []
-    metrics_bod = []
-    metrics_land = []
+    m_res, m_bod, m_land = get_confusion_matrix(model_epochs=100, 
+                                                confidence_threshold=50)
     
-    #epoch_options = [50, 55, 60, 65, 70]
-    #epoch_options = [50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70]
-    epoch_options = [50, 75, 100, 125, 150]
-    for epoch_option in epoch_options:
-        m_res, m_bod, m_land = get_confusion_matrix(epoch_option, 
-                                                    confidence_threshold=50)
-        metrics_res.append(m_res)
-        metrics_bod.append(m_bod)
-        metrics_land.append(m_land)
+    # --- Prepare data for plotting ---
+    labels = ["Accuracy", "Precision", "Recall", "Specificity", "F1-Score"]
+    reservoir_scores = list(m_res)
+    water_body_scores = list(m_bod)
+    land_scores = list(m_land)
     
-    accuracies = [metrics_bod[i][0] for i in range(len(epoch_options))]
-    plt.plot(epoch_options, accuracies, label="Water Bodies", linewidth=1)
-    accuracies = [metrics_res[i][0] for i in range(len(epoch_options))]
-    plt.plot(epoch_options, accuracies, label="Reservoirs", linewidth=1)
-    plt.title("Epoch vs Accuracies")
-    plt.xlabel("Epoch")
-    plt.ylabel("Accuracy")
-    plt.legend(fontsize=5)
-    plt.grid(True)
+    x = np.arange(len(labels))  # the label locations
+    width = 0.25  # the width of the bars
+    
+    # --- Create the Plot ---
+    plt.style.use("seaborn-v0_8-darkgrid")
+    fig, ax = plt.subplots(figsize=(5, 3))
+    
+    # Create the bars for each class, offsetting the x position
+    rects1 = ax.bar(x - width, reservoir_scores, width, 
+                    label="Reservoirs", color="royalblue")
+    rects2 = ax.bar(x, water_body_scores, width, 
+                    label="Water Bodies", color="mediumseagreen")
+    rects3 = ax.bar(x + width, land_scores, width, 
+                    label="Land", color="sandybrown")
+    
+    # Add some text for labels, title and axes ticks
+    ax.set_ylabel("Score (%)", fontsize=8)
+    ax.set_xlabel("Performance Metric", fontsize=8)
+    ax.set_title("Model Performance Metrics by Class", fontsize=8)
+    ax.set_xticks(x) # Position ticks in the center of the groups
+    ax.set_xticklabels(labels)
+    ax.tick_params(axis="both", which="major", labelsize=7)
+    ax.legend(fontsize=5)
+    
+    # Set y-axis limit
+    ax.set_ylim(0, 105) # Go slightly above 100 for visibility
+    
+    # Add value labels on top of bars (optional, can be cluttered)
+    ax.bar_label(rects1, padding=3, fmt="%.1f", fontsize=7)
+    ax.bar_label(rects2, padding=3, fmt="%.1f", fontsize=7)
+    ax.bar_label(rects3, padding=3, fmt="%.1f", fontsize=7)
+    
+    fig.tight_layout() # Adjust layout
     plt.show()
-    
-    precisions_bod = [metrics_bod[i][1] for i in range(len(epoch_options))]
-    precisions_res = [metrics_res[i][1] for i in range(len(epoch_options))]
-    plt.plot(epoch_options, precisions_bod, label="Water Bodies", linewidth=1)
-    plt.plot(epoch_options, precisions_res, label="Reservoirs", linewidth=1)
-    plt.title("Epoch vs Precisions")
-    plt.xlabel("Epoch")
-    plt.ylabel("Precision")
-    plt.legend(fontsize=5)
-    plt.grid(True)
-    plt.show()
-    
-    sensitivities_bod = [metrics_bod[i][2] for i in range(len(epoch_options))]
-    sensitivities_res = [metrics_res[i][2] for i in range(len(epoch_options))]
-    plt.plot(epoch_options, sensitivities_bod, label="Water Bodies", linewidth=1)
-    plt.plot(epoch_options, sensitivities_res, label="Reservoirs", linewidth=1)
-    plt.title("Epoch vs Sensitivities")
-    plt.xlabel("Epoch")
-    plt.ylabel("Sensitivity")
-    plt.legend(fontsize=5)
-    plt.grid(True)
-    plt.show()
-    
-    specificities = [metrics_bod[i][3] for i in range(len(epoch_options))]
-    plt.plot(epoch_options, specificities, label="Water Bodies", linewidth=1)
-    specificities = [metrics_res[i][3] for i in range(len(epoch_options))]
-    plt.plot(epoch_options, specificities, label="Reservoirs", linewidth=1)
-    plt.title("Epoch vs Specificities")
-    plt.xlabel("Epoch")
-    plt.ylabel("Specificity")
-    plt.legend(fontsize=5)
-    plt.grid(True)
-    plt.show()
-    
-    # the threshold that maximises this plot is ideal
-    precisions_bod = np.array(precisions_bod)
-    sensitivities_bod = np.array(sensitivities_bod)
-    f1_scores = 2 * precisions_bod * sensitivities_bod / (precisions_bod + 
-                                                          sensitivities_bod)
-    plt.plot(epoch_options, f1_scores, label="Water Bodies")
-    precisions_res = np.array(precisions_res)
-    sensitivities_res = np.array(sensitivities_res)
-    f1_scores = 2 * precisions_res * sensitivities_res / (precisions_res + 
-                                                          sensitivities_res)
-    plt.plot(epoch_options, f1_scores, label="Reservoirs", linewidth=1)
-    plt.title("Epoch vs F1 Score")
-    plt.xlabel("Epoch")
-    plt.ylabel("F1 Score")
-    plt.legend(fontsize=5)
-    plt.grid(True)
-    plt.show()
-
