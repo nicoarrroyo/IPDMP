@@ -65,10 +65,10 @@ n_chunks = 5000 # number of chunks into which images are split
 high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
-label_data = False
+label_data = True
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
-try: # personal pc mode
+try: # personal pc mode - must be changed to own directory
     title_size = 8
     label_size = 4
     HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
@@ -287,8 +287,8 @@ def get_sat(sat_name, sat_number, folder):
     checked directly before this step, as well as any blank entries. Although 
     this may seem an excessive step to perform every time, it is necessary to 
     ensure that the file data is exactly as it should be. 
-    All these checks are carried out in 'read-only' mode unless the user s
-    pecifies otherwise. This is to make sure that the data is not accidentally 
+    All these checks are carried out in 'read-only' mode unless the user 
+    specifies otherwise. This is to make sure that the data is not accidentally 
     overwritten at any point, again, unless the user is sure this is the 
     intended behaviour."""
     while True:
