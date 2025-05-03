@@ -142,7 +142,7 @@ if __name__ == "__main__":
     
     #epoch_options = [50, 55, 60, 65, 70]
     #epoch_options = [50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70]
-    epoch_options = []
+    epoch_options = [50, 75, 100, 125, 150]
     for epoch_option in epoch_options:
         m_res, m_bod, m_land = get_confusion_matrix(epoch_option, 
                                                     confidence_threshold=100)
