@@ -16,7 +16,6 @@ def update_counts(class_predictions, class_n, tp, tn, fp, fn):
         fn += class_n - class_predictions
     else:
         print("counting error")
-    
     return tp, tn, fp, fn
 
 def get_metrics(tp, tn, fp, fn, tot_predicts):
@@ -59,7 +58,7 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
     
     # responses file
     with open("responses_5000_chunks.csv", mode="r") as file:
-        responses = file.readlines()[1:6]
+        responses = file.readlines()[1:1650]
     
     # predictions file
     with open (f"P_5000_{model_epochs}_T31UCU.csv", mode="r") as file:
@@ -94,7 +93,7 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
         land_predictions = 0
         for j, cell in enumerate(prediction):
             try:
-                confidence = float(cell.split(" ")[1])
+                confidence = float(cell.split(" ")[-1])
             except:
                 confidence = 100
             if "reservoir" in cell.strip().lower():
@@ -142,7 +141,7 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
 
 if __name__ == "__main__":
     m_res, m_bod, m_land = get_confusion_matrix(model_epochs=100, 
-                                                confidence_threshold=50)
+                                                confidence_threshold=40)
     
     # --- Prepare data for plotting ---
     labels = ["Accuracy", "Precision", "Recall", "Specificity", "F1-Score"]
