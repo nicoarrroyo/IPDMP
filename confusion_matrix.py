@@ -1,5 +1,6 @@
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 
 def update_counts(class_predictions, class_n, tp, tn, fp, fn):
     if class_predictions == class_n:
@@ -13,6 +14,17 @@ def update_counts(class_predictions, class_n, tp, tn, fp, fn):
         tp += class_predictions
         tn += 25 - class_n
         fn += class_n - class_predictions
+    
+    # to prevent "division by zero" errors
+    if tp == 0:
+        tp += 1
+    if tn == 0:
+        tn += 1
+    if fp == 0:
+        fp += 1
+    if fn == 0:
+        fn += 1
+    
     return tp, tn, fp, fn
 
 def get_metrics(tp, tn, fp, fn, tot_predicts):
@@ -38,6 +50,8 @@ def get_confusion_matrix(model_epochs):
             )
         )
     
+    confidence_threshold = 50
+    
     # responses file
     with open("responses_5000_chunks.csv", mode="r") as file:
         responses = file.readlines()[1:1650]
@@ -61,13 +75,8 @@ def get_confusion_matrix(model_epochs):
     fp_land = 0 # false positive
     fn_land = 0 # false negative
     
-    res_rows = []
-    bod_rows = []
-    land_rows = []
-    
     for i, response in enumerate(responses):
         split_response = response.split(",")
-        chunk_n = int(split_response[0])
         
         res_n = int(split_response[1])
         bod_n = int(split_response[2])
@@ -79,10 +88,20 @@ def get_confusion_matrix(model_epochs):
         bod_predictions = 0
         land_predictions = 0
         for j, cell in enumerate(prediction):
+            try:
+                confidence = float(cell.split(" ")[1])
+            except:
+                continue
             if "reservoir" in cell.strip().lower():
-                res_predictions += 1
+                if confidence > confidence_threshold:
+                    res_predictions += 1
+                else:
+                    land_predictions += 1
             elif "water bod" in cell.strip().lower():
-                bod_predictions += 1
+                if confidence > confidence_threshold:
+                    bod_predictions += 1
+                else:
+                    land_predictions += 1
             elif "land" in cell.strip().lower():
                 land_predictions += 1
         
@@ -128,43 +147,69 @@ if __name__ == "__main__":
         metrics_bod.append(m_bod)
         metrics_land.append(m_land)
     
-    accuracies = [metrics_bod[i][0] for i in range(5)]
-    plt.plot(epoch_options, accuracies)
-    accuracies = [metrics_res[i][0] for i in range(5)]
-    plt.plot(epoch_options, accuracies)
-    plt.title("epochs vs accuracies")
+# =============================================================================
+#     accuracies = [metrics_bod[i][0] for i in range(5)]
+#     plt.plot(epoch_options, accuracies, label="Water Bodies")
+#     accuracies = [metrics_res[i][0] for i in range(5)]
+#     plt.plot(epoch_options, accuracies, label="Reservoirs")
+#     plt.title("Epoch vs Accuracies")
+#     plt.xlabel("Epoch")
+#     plt.ylabel("Accuracy")
+#     plt.legend()
+#     plt.grid(True)
+#     plt.show()
+# =============================================================================
+    
+    precisions_bod = [metrics_bod[i][1] for i in range(5)]
+    plt.plot(epoch_options, precisions_bod, label="Water Bodies")
+    precisions_res = [metrics_res[i][1] for i in range(5)]
+    plt.plot(epoch_options, precisions_res, label="Reservoirs")
+    plt.title("Epoch vs Precisions")
+    plt.xlabel("Epoch")
+    plt.ylabel("Precision")
+    plt.legend()
+    plt.grid(True)
     plt.show()
     
-    precisions = [metrics_bod[i][1] for i in range(5)]
-    plt.plot(epoch_options, precisions)
-    precisions = [metrics_res[i][1] for i in range(5)]
-    plt.plot(epoch_options, precisions)
-    plt.title("epochs vs precisions")
-    plt.show()
-    
-    sensitivities = [metrics_bod[i][2] for i in range(5)]
-    plt.plot(epoch_options, sensitivities)
-    sensitivities = [metrics_res[i][2] for i in range(5)]
-    plt.plot(epoch_options, sensitivities)
-    plt.title("epochs vs sensitivities")
-    plt.show()
-    
-    specificities = [metrics_bod[i][3] for i in range(5)]
-    plt.plot(epoch_options, specificities)
-    specificities = [metrics_res[i][3] for i in range(5)]
-    plt.plot(epoch_options, specificities)
-    plt.title("epochs vs specificities")
+    sensitivities_bod = [metrics_bod[i][2] for i in range(5)]
+    plt.plot(epoch_options, sensitivities_bod, label="Water Bodies")
+    sensitivities_res = [metrics_res[i][2] for i in range(5)]
+    plt.plot(epoch_options, sensitivities_res, label="Reservoirs")
+    plt.title("Epoch vs Sensitivities")
+    plt.xlabel("Epoch")
+    plt.ylabel("Sensitivity")
+    plt.legend()
+    plt.grid(True)
     plt.show()
     
 # =============================================================================
-#     for i in range(5):
-#         plt.plot(metrics_bod[i], epoch_options[i])
-#     plt.show()
-#     for i in range(5):
-#         plt.plot(metrics_res[i], epoch_options[i])
-#     plt.show()
-#     for i in range(5):
-#         plt.plot(metrics_land[i], epoch_options[i])
+#     specificities = [metrics_bod[i][3] for i in range(5)]
+#     plt.plot(epoch_options, specificities, label="Water Bodies")
+#     specificities = [metrics_res[i][3] for i in range(5)]
+#     plt.plot(epoch_options, specificities, label="Reservoirs")
+#     plt.title("Epoch vs Specificities")
+#     plt.xlabel("Epoch")
+#     plt.ylabel("Specificity")
+#     plt.legend()
+#     plt.grid(True)
 #     plt.show()
 # =============================================================================
+    
+    # maximising the threshold that maximises this plot is ideal
+    precisions_bod = np.array(precisions_bod)
+    sensitivities_bod = np.array(sensitivities_bod)
+    f1_scores = 2 * precisions_bod * sensitivities_bod / (precisions_bod + 
+                                                          sensitivities_bod)
+    plt.plot(epoch_options, f1_scores, label="Water Bodies")
+    precisions_res = np.array(precisions_res)
+    sensitivities_res = np.array(sensitivities_res)
+    f1_scores = 2 * precisions_res * sensitivities_res / (precisions_res + 
+                                                          sensitivities_res)
+    plt.plot(epoch_options, f1_scores, label="Reservoirs")
+    plt.title("Epoch vs Specificities")
+    plt.xlabel("Epoch")
+    plt.ylabel("F1 Score")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
 
