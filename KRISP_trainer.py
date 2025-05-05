@@ -1,4 +1,7 @@
 # %% 0.Start
+""" KRISP Trainer
+Keras Reservoir Identification Sequential Platform Trainer
+"""
 print("=== Script Start ===")
 # %%% i. Import External Libraries
 import time
@@ -32,10 +35,11 @@ SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                    "20250301T152054.SAFE")
 DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2", 
                               SENTINEL_FOLDER, "training data")
-DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs', 'water bodies', and 'land'
+# contains "reservoirs", "water bodies", "land", and "sea"
+DATA_DIR_NAME = MODEL_TYPE
 
 # --- Training Parameters ---
-EPOCHS = 120
+EPOCHS = 150
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
