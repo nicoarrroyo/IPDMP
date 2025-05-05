@@ -1,4 +1,7 @@
 # %% 0. Start
+""" KRISP
+Keras Reservoir Identification Sequential Platform
+"""
 # %%% i. Import External Libraries
 import time
 MAIN_START_TIME = time.monotonic()
