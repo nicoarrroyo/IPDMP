@@ -1,4 +1,7 @@
 # %% 0.Start
+""" eepy
+epoch pathfinder python
+"""
 print("=== Script Start (Epoch Comparison) ===")
 # %%% i. Import External Libraries
 import time
@@ -39,14 +42,14 @@ BASE_PROJECT_DIR = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM",
 SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                    "20250301T152054.SAFE") # Adjust if needed
 DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2",
-                              SENTINEL_FOLDER, "training data") #
-DATA_DIR_NAME = MODEL_TYPE # contains 'reservoirs' and 'water bodies' #
+                              SENTINEL_FOLDER, "training data")
+DATA_DIR_NAME = MODEL_TYPE
 
 # --- Training Parameters ---
 # EPOCHS = 500 # Original single epoch setting - REMOVED #
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified #
-EPOCH_SETTINGS = list(range(10, 151, 10)) # NEW: List of epochs to test
-NUM_REPEATS = 5 # NEW: Number of times to repeat training for each epoch setting
+EPOCH_SETTINGS = list(range(100, 171, 10)) # NEW: List of epochs to test
+NUM_REPEATS = 10 # NEW: Number of times to repeat training for each epoch setting
 
 # --- Output Settings ---
 # SAVE_MODEL = True # We won't save models during this experiment loop #
