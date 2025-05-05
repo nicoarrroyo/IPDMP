@@ -213,7 +213,9 @@ if __name__ == "__main__":
     ax.set_xticks(x) # Position ticks in the center of the groups
     ax.set_xticklabels(labels)
     ax.tick_params(axis="both", which="major", labelsize=7)
-    ax.legend(fontsize=6, loc="right")
+    #ax.legend(fontsize=6, loc="right")
+    ax.legend(title='', loc='upper center',fontsize=6, 
+              bbox_to_anchor=(0.5, -0.15), ncol=4)
     
     # Set y-axis limit
     ax.set_ylim(0, 105) # Go slightly above 100 for visibility
