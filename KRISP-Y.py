@@ -1,4 +1,7 @@
 # %% 0. Start
+""" KRISP-Y
+Keras Reservoir Identification Sequential Platform - Yielding of data
+"""
 # %%% i. Import External Libraries
 import time
 MAIN_START_TIME = time.monotonic()
@@ -10,6 +13,7 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm
+from collections import Counter
 
 # %%% ii. Import Internal Functions
 from KRISP import run_model
@@ -170,6 +174,38 @@ if n_chunk_preds == 0:
         print(f"map saved as {plot_name}")
     
     plt.show()
+    
+    # creating confidence distribution
+    stop_event, thread = start_spinner(message="plotting confidence "
+                                       "distribution")
+    # Extract confidence values and round them to the nearest integer
+    confidences = [(round(res[1] / 2)) * 2 for res in sorted_res]
+    
+    # Count occurrences of each confidence level
+    confidence_counts = Counter(confidences)
+    
+    # Sort by confidence level
+    sorted_confidences = sorted(confidence_counts.items())
+    
+    # Extract data for plotting
+    x_vals, y_vals = zip(*sorted_confidences)
+    
+    # Plot the histogram
+    plt.figure(figsize=(5, 3))
+    plt.bar(x_vals, y_vals, color='royalblue', edgecolor='black')
+    plt.xlabel("Confidence Level (%)")
+    plt.ylabel("Number of Reservoirs")
+    plt.title("Distribution of Confidence Levels for Predicted Reservoirs")
+    plt.xticks(range(min(x_vals), max(x_vals) + 5, 5))
+    
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    end_spinner(stop_event, thread)
+    plt.show()
+    # Compute the average confidence
+    average_confidence = sum(res[1] for res in sorted_res) / len(sorted_res)
+    
+    print(f"Average Confidence Level: {average_confidence:.2f}%")
+    
     sys.exit(0)
 
 # %% yield expected duration of run
