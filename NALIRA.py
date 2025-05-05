@@ -267,7 +267,6 @@ def get_sat(sat_name, sat_number, folder):
     
     # %%%% 5.3 Preparing File for Labelling
     """nico!! remember to add a description!"""
-    stop_event, thread = start_spinner(message="preparing file for labelling")
     index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     break_flag = False
     
@@ -291,6 +290,7 @@ def get_sat(sat_name, sat_number, folder):
     specifies otherwise. This is to make sure that the data is not accidentally 
     overwritten at any point, again, unless the user is sure this is the 
     intended behaviour."""
+    stop_event, thread = start_spinner(message="preparing file for labelling")
     while True:
         # file will always exist due to blank_entry_check call
         with open(data_file, "r") as file:
@@ -301,6 +301,7 @@ def get_sat(sat_name, sat_number, folder):
                 current_chunk = int(lines[i].split(",")[0])
                 next_chunk = int(lines[i+1].split(",")[0])
                 if next_chunk - current_chunk != 1:
+                    end_spinner(stop_event, thread)
                     print(f"Line {i + 2}, expected chunk {current_chunk + 1}")
                     raise ValueError("File validity error")
             last_chunk = int(lines[-1].split(",")[0])
@@ -545,6 +546,10 @@ def get_sat(sat_name, sat_number, folder):
     
     # %%%% 7.1 Extract Reservoir and Water Body Coordinates
     """nico!! remember to add a description!"""
+    if not high_res:
+        print("high resolution setting must be activated for data segmentation")
+        print("exiting program")
+        #return indices
     stop_event, thread = start_spinner(message="coordinate extraction")
     res_rows = []
     res_coords = []
@@ -554,7 +559,8 @@ def get_sat(sat_name, sat_number, folder):
     
     land_rows = []
     land_coords = []
-    none_coord = [50.0, 50.0, 55.0, 55.0]
+    none_coord = "[50.0 50.0 55.0 55.0]" # replicate res and bod coords format
+    # allows it to be passed as an argument of extract_coords
     
     sea_rows = []
     sea_coords = []
@@ -602,10 +608,6 @@ def get_sat(sat_name, sat_number, folder):
                                                   create_box_flag=True)))
     
     globals()["lines"] = lines
-    globals()["res_rows"] = res_rows
-    globals()["body_rows"] = body_rows
-    globals()["land_rows"] = land_rows
-    globals()["sea_rows"] = sea_rows
     end_spinner(stop_event, thread)
     
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
@@ -647,14 +649,12 @@ def get_sat(sat_name, sat_number, folder):
                 )
             change_to_folder(res_tci_path)
             image_name = f"tci chunk {chunk_n} reservoir {i+1}.png"
-# =============================================================================
-#             save_image_file(data=tci_chunks[chunk_n], 
-#                             image_name=image_name, 
-#                             normalise=False, 
-#                             coordinates=res_coords[i][1], 
-#                             g_min=global_min, g_max=global_max, 
-#                             dupe_check=True)
-# =============================================================================
+            save_image_file(data=tci_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=False, 
+                            coordinates=res_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
         except:
             had_an_oopsie = True
     
@@ -682,19 +682,17 @@ def get_sat(sat_name, sat_number, folder):
                             g_min=global_min, g_max=global_max, 
                             dupe_check=True)
             # TCI data
-# =============================================================================
-#             body_tci_path = os.path.join(
-#                 path, "training data", "tci", "water bodies"
-#                 )
-#             change_to_folder(body_tci_path)
-#             image_name = f"tci chunk {chunk_n} water body {i+1}.png"
-#             save_image_file(data=tci_chunks[chunk_n], 
-#                             image_name=image_name, 
-#                             normalise=False, 
-#                             coordinates=body_coords[i][1], 
-#                             g_min=global_min, g_max=global_max, 
-#                             dupe_check=True)
-# =============================================================================
+            body_tci_path = os.path.join(
+                path, "training data", "tci", "water bodies"
+                )
+            change_to_folder(body_tci_path)
+            image_name = f"tci chunk {chunk_n} water body {i+1}.png"
+            save_image_file(data=tci_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=False, 
+                            coordinates=body_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
         except:
             had_an_oopsie = True
     
@@ -706,7 +704,7 @@ def get_sat(sat_name, sat_number, folder):
     # %%%%# 7.3.1 Land
     stop_event, thread = start_spinner(message="land data segmentation")
     had_an_oopsie = False
-    for i in range(len(land_coords)):
+    for i in range(len(res_coords)):
         chunk_n = (int(land_coords[i][0])-1)
         
         # NDWI data
@@ -719,23 +717,21 @@ def get_sat(sat_name, sat_number, folder):
             save_image_file(data=ndwi_chunks[chunk_n], 
                             image_name=image_name, 
                             normalise=True, 
-                            coordinates=body_coords[i][1], 
+                            coordinates=land_coords[i][1], 
                             g_min=global_min, g_max=global_max, 
                             dupe_check=True)
             # TCI data
-# =============================================================================
-#             land_tci_path = os.path.join(
-#                 path, "training data", "tci", "land"
-#                 )
-#             change_to_folder(land_tci_path)
-#             image_name = f"tci chunk {chunk_n} land {i+1}.png"
-#             save_image_file(data=tci_chunks[chunk_n], 
-#                             image_name=image_name, 
-#                             normalise=False, 
-#                             coordinates=body_coords[i][1], 
-#                             g_min=global_min, g_max=global_max, 
-#                             dupe_check=True)
-# =============================================================================
+            land_tci_path = os.path.join(
+                path, "training data", "tci", "land"
+                )
+            change_to_folder(land_tci_path)
+            image_name = f"tci chunk {chunk_n} land {i+1}.png"
+            save_image_file(data=tci_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=False, 
+                            coordinates=land_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
         except:
             had_an_oopsie = True
     
@@ -744,9 +740,9 @@ def get_sat(sat_name, sat_number, folder):
         print("error in land data segmentation")
     
     # %%%%# 7.3.2 Sea
-    stop_event, thread = start_spinner(message="land data segmentation")
+    stop_event, thread = start_spinner(message="sea data segmentation")
     had_an_oopsie = False
-    for i in range(len(sea_coords)):
+    for i in range(len(res_coords)):
         chunk_n = (int(sea_coords[i][0])-1)
         
         # NDWI data
@@ -759,7 +755,19 @@ def get_sat(sat_name, sat_number, folder):
             save_image_file(data=ndwi_chunks[chunk_n], 
                             image_name=image_name, 
                             normalise=True, 
-                            coordinates=body_coords[i][1], 
+                            coordinates=sea_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
+            # TCI data
+            sea_tci_path = os.path.join(
+                path, "training data", "tci", "sea"
+                )
+            change_to_folder(sea_tci_path)
+            image_name = f"tci chunk {chunk_n} sea {i+1}.png"
+            save_image_file(data=tci_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=False, 
+                            coordinates=sea_coords[i][1], 
                             g_min=global_min, g_max=global_max, 
                             dupe_check=True)
         except:
