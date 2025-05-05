@@ -33,10 +33,10 @@ def get_metrics(tp, tn, fp, fn, tot_predicts):
         prec = 100
     
     try:
-        sens = tp / (tp + fn)
-        sens = float(f"{(100 * sens):.2f}")
+        recall = tp / (tp + fn)
+        recall = float(f"{(100 * recall):.2f}")
     except:
-        sens = 100
+        recall = 100
     
     try:
         spec = tn / (tn + fp)
@@ -45,11 +45,11 @@ def get_metrics(tp, tn, fp, fn, tot_predicts):
         spec = 100
     
     try:
-        f1 = 2 * prec * sens / (prec + sens)
+        f1 = 2 * prec * recall / (prec + recall)
         f1 = float(f"{(f1):.2f}")
     except:
         f1 = 100
-    return acc, prec, sens, spec, f1
+    return acc, prec, recall, spec, f1
 
 def get_confusion_matrix(model_epochs, confidence_threshold):
     os.chdir(
@@ -174,7 +174,7 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
     return metrics_res, metrics_bod, metrics_land, metrics_sea
 
 if __name__ == "__main__":
-    model_epochs = 150
+    model_epochs = 150 # 150 for ndwi, 151 for tci on nico personal pc
     conf_thresh = 40
     m_res, m_bod, m_land, m_sea = get_confusion_matrix(
         model_epochs=model_epochs, 
