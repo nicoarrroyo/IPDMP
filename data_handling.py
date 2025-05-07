@@ -342,3 +342,53 @@ def check_positive_int(var, description):
         except:
             print("error: must be integer")
     return var
+
+def deduplicate_by_max_confidence(class_prediction_list):
+    """
+    Filters a list of predictions to keep only the one with the highest 
+    confidence for each unique chunk.
+    Each item in class_prediction_list is expected to be [chunk_index, 
+    confidence, ...possibly_other_data...].
+    """
+    if not class_prediction_list:
+        return []
+
+    # Dictionary to store the best prediction for each chunk
+    # Key: chunk_index, Value: the entire prediction item [chunk_index, 
+    # confidence, ...]
+    best_predictions_for_chunk = {}
+
+    for prediction_item in class_prediction_list:
+        if not prediction_item or len(prediction_item) < 2:
+            print(f"Warning: Skipping invalid prediction item: "
+                  f"{prediction_item}")
+            continue
+        
+        try:
+            chunk_index = int(prediction_item[0])
+            confidence = float(prediction_item[1])
+        except (ValueError, TypeError, IndexError) as e:
+            print(f"Warning: Could not parse chunk or confidence from "
+                  f"{prediction_item}: {e}")
+            continue
+
+        # If this chunk is already seen, check if the current prediction has 
+        # higher confidence
+        if chunk_index in best_predictions_for_chunk:
+            if confidence > best_predictions_for_chunk[chunk_index][1]:
+                best_predictions_for_chunk[chunk_index] = prediction_item
+        else:
+            # If this is the first time we see this chunk, store its prediction
+            best_predictions_for_chunk[chunk_index] = prediction_item
+            
+    # Convert the dictionary values back to a list
+    # Sort by original chunk index to maintain some order, though the primary 
+    # purpose
+    # of the input lists (sorted_res etc.) was sorting by confidence.
+    # If original order of chunks (not confidence) is important for the 
+    # de-duplicated list,
+    # you might need a different sorting strategy here or ensure input list is 
+    # pre-sorted by chunk.
+    # For now, sorting by chunk index after de-duplication.
+    return sorted(list(best_predictions_for_chunk.values()), 
+                  key=lambda item: item[0])
