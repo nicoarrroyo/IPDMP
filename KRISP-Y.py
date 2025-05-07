@@ -18,6 +18,7 @@ from collections import Counter
 # %%% ii. Import Internal Functions
 from KRISP import run_model
 from data_handling import check_file_permission, blank_entry_check
+from data_handling import deduplicate_by_max_confidence
 from image_handling import image_to_array
 from misc import convert_seconds_to_hms, confirm_continue_or_exit
 from user_interfacing import start_spinner, end_spinner
@@ -34,8 +35,16 @@ except: # uni mode
 
 n_chunks = 5000 # do not change!!
 confidence_threshold = 40 # do not change!! these are calculated
-precision = 0.1027 # do not change!! these are calculated
-recall = 0.8952 # do not change!! these are calculated
+
+res_precision = 0.1027 # do not change!! these are calculated
+bod_precision = 0.130
+land_precision = 0.964
+sea_precision = 0.960
+
+res_recall = 0.8952 # do not change!! these are calculated
+bod_recall = 0.909
+land_recall = 0.748
+sea_recall = 0.985
 
 # %% prelim
 stop_event, thread = start_spinner(message="pre-run preparation")
@@ -93,11 +102,14 @@ if n_chunk_preds == 0:
     end_spinner(stop_event, thread)
     print("this image is complete! commencing data processing")
     # %% data processing
-    # predictions file
     with open (f"P_5000_{model_epochs}_{tile_number_field}.csv", mode="r") as file:
         predictions = file.readlines()
     
+    # %%% collecting and printing prediction results
     res_predictions = []
+    bod_predictions = []
+    land_predictions = []
+    sea_predictions = []
     for i, prediction in enumerate(predictions):
         prediction = predictions[i].split(",")
         for j, cell in enumerate(prediction):
@@ -108,17 +120,46 @@ if n_chunk_preds == 0:
             if "reservoir" in cell.strip().lower():
                 if confidence >= confidence_threshold:
                     res_predictions.append([i, confidence])
+            if "water" in cell.strip().lower():
+                if confidence >= confidence_threshold:
+                    bod_predictions.append([i, confidence])
+            if "land" in cell.strip().lower():
+                if confidence >= confidence_threshold:
+                    land_predictions.append([i, confidence])
+            if "sea" in cell.strip().lower():
+                if confidence >= confidence_threshold:
+                    sea_predictions.append([i, confidence])
     
-    res_estimate = int(len(res_predictions) * precision / recall)
+    res_estimate = int(len(res_predictions) * res_precision / res_recall)
+    bod_estimate = int(len(bod_predictions) * bod_precision / bod_recall)
+    land_estimate = int(len(land_predictions) * land_precision / land_recall)
+    sea_estimate = int(len(sea_predictions) * sea_precision / sea_recall)
+    
     print("congratulations!")
     print("krisp, with help from nalira and krispette, and everyone else, "
           "have found...")
     print(f"{res_estimate} reservoirs in east england!")
+    print(f"{bod_estimate} non-reservoir water bodies in east england!")
+    print(f"{land_estimate} land minichunks in east england!")
+    print(f"{sea_estimate} sea minichunks in east england!")
     
     stop_event, thread = start_spinner(message="creating map")
     sorted_res = sorted(res_predictions, reverse=True, key=lambda row: row[1])
     sorted_res = sorted_res[:res_estimate]
+    sorted_bod = sorted(bod_predictions, reverse=True, key=lambda row: row[1])
+    sorted_bod = sorted_bod[:bod_estimate]
+    sorted_land = sorted(land_predictions, reverse=True, key=lambda row: row[1])
+    sorted_land = sorted_land[:land_estimate]
+    sorted_sea = sorted(sea_predictions, reverse=True, key=lambda row: row[1])
+    sorted_sea = sorted_sea[:sea_estimate]
     
+    # deduplication
+    deduplicated_sorted_res = deduplicate_by_max_confidence(sorted_res)
+    deduplicated_sorted_bod = deduplicate_by_max_confidence(sorted_bod)
+    deduplicated_sorted_land = deduplicate_by_max_confidence(sorted_land)
+    deduplicated_sorted_sea = deduplicate_by_max_confidence(sorted_sea)
+    
+    # %%% creating the reservoir map
     path = os.path.join(os.getcwd(), "GRANULE")
     subdirs = [d for d in os.listdir(path) 
                if os.path.isdir(os.path.join(path, d))]
@@ -144,23 +185,25 @@ if n_chunk_preds == 0:
     sm.set_array([])
     # blue is lowest confidence, red is highest confidence
     
-    for res in sorted_res:
-        # calculate chunk geometry
-        chunk = int(res[0])
-        chunks_per_side = int(np.sqrt(n_chunks))
-        side_length = map_image.shape[0]
-        chunk_length = side_length / chunks_per_side
-        
+    # calculate chunk geometry
+    chunks_per_side = int(np.sqrt(n_chunks))
+    side_length = map_image.shape[0]
+    chunk_length = side_length / chunks_per_side
+    
+    # %%%% plotting reservoir map
+    for res_item in deduplicated_sorted_res:      
+        chunk = int(res_item[0])
         chunk_col = chunk % chunks_per_side
         chunk_ulx = chunk_col * chunk_length
         
         chunk_row = chunk // chunks_per_side
         chunk_uly = chunk_row * chunk_length
         
-        marker_color = cmap(norm(res[1]))
-        plt.plot(chunk_ulx, chunk_uly, marker="o", color=marker_color, ms=2)
+        marker_color = cmap(norm(res_item[1]))
+        ax.plot(chunk_ulx, chunk_uly, marker="o", color=marker_color, ms=2)
     end_spinner(stop_event, thread)
     
+    # %%%% saving reservoir map
     if save_map:
         stop_event, thread = start_spinner(message="saving map")
         plot_name_base = "the_map"
@@ -175,11 +218,11 @@ if n_chunk_preds == 0:
     
     plt.show()
     
-    # creating confidence distribution
+    # %%% creating confidence distribution plot
     stop_event, thread = start_spinner(message="plotting confidence "
                                        "distribution")
     # Extract confidence values and round them to the nearest integer
-    confidences = [(round(res[1] / 2)) * 2 for res in sorted_res]
+    confidences = [(round(res[1] / 2)) * 2 for res in deduplicated_sorted_res]
     
     # Count occurrences of each confidence level
     confidence_counts = Counter(confidences)
@@ -205,6 +248,56 @@ if n_chunk_preds == 0:
     average_confidence = sum(res[1] for res in sorted_res) / len(sorted_res)
     
     print(f"Average Confidence Level: {average_confidence:.2f}%")
+    
+    # %%% create everything bagel map
+    stop_event, thread = start_spinner(message="creating everything bagel plot")
+    deduplicated_sorted_classes = [
+        deduplicated_sorted_res, 
+        deduplicated_sorted_bod, 
+        deduplicated_sorted_land, 
+        deduplicated_sorted_sea
+        ]
+    colours = ["b", "g", "y", "c"]
+    
+    plt.figure(figsize=(6, 6))
+    plt.imshow(map_image)
+    ax = plt.gca()
+    
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.tick_params(left=False, bottom=False, 
+                   labelleft=False, labelbottom=False)
+    end_spinner(stop_event, thread)
+    
+    # %%%% plotting everything bagel map
+    for i, deduplicated_sorted_class in enumerate(deduplicated_sorted_classes):
+        stop_event, thread = start_spinner(message=f"plotting class {i+1}")
+        for element in deduplicated_sorted_class:
+            chunk = int(element[0])
+            chunk_col = chunk % chunks_per_side
+            chunk_ulx = chunk_col * chunk_length
+            
+            chunk_row = chunk // chunks_per_side
+            chunk_uly = chunk_row * chunk_length
+            
+            marker_color = colours[i]
+            ax.plot(chunk_ulx, chunk_uly, marker="o", color=marker_color, ms=1)
+        end_spinner(stop_event, thread)
+    
+    # %%%% saving everything bagel map
+    if save_map:
+        stop_event, thread = start_spinner(message="saving 'everything bagel' map")
+        plot_name_base = "the_everything_bagel"
+        counter = 0
+        plot_name = f"{plot_name_base}.jpg"
+        while os.path.exists(plot_name):
+            counter += 1
+            plot_name = f"{plot_name_base}_{counter}.jpg"
+        plt.savefig(plot_name, dpi=3000, bbox_inches="tight")
+        end_spinner(stop_event, thread)
+        print(f"map saved as {plot_name}")
+    end_spinner(stop_event, thread)
+    plt.show()
     
     sys.exit(0)
 
