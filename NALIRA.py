@@ -65,25 +65,19 @@ n_chunks = 5000 # number of chunks into which images are split
 high_res = True # use finer 10m spatial resolution (slower)
 show_index_plots = False
 save_images = False
-label_data = False
+label_data = True
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
 try: # personal pc mode - must be changed to own directory
     title_size = 8
     label_size = 4
-    HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
+    HOME = os.path.join("C:\\", "Users", "nicol", "Documents", 
                         "Individual Project", "Downloads")
     os.chdir(HOME)
-    plot_size = (3, 3) # larger plots increase detail and pixel count
-    plot_size_chunks = (6, 6)
-except: # uni mode
-    title_size = 15
-    label_size = 8
-    HOME = os.path.join("C:\\", "Users", "c55626na", "OneDrive - "
-                        "The University of Manchester", "Individual Project")
-    os.chdir(HOME)
     plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (11, 11)
+    plot_size_chunks = (6, 6)
+except:
+    print("error: non-existent path")
 
 # %% General Mega Giga Function
 response_time = 0.0
@@ -209,9 +203,34 @@ def get_sat(sat_name, sat_number, folder):
     del blue, green, nir, swir1, swir2
     indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
+    """ TROUBLESHOOTING """
+    import matplotlib.pyplot as plt
+    from collections import Counter
+    
+    data = ndwi
+    rounded_data = np.round(data, 2)
+    flat_list = rounded_data.flatten()
+    frequency = Counter(flat_list)
+    sorted_items = sorted(frequency.keys())
+    sorted_counts = [frequency[item] for item in sorted_items]
+    
+    item_labels = [f"{item:.2f}" for item in sorted_items]
+    
+    plt.figure(figsize=(9, 5))
+    plt.bar(item_labels, sorted_counts, color='teal')
+    
+    plt.xlabel("Rounded Items (float32, 2 d.p.)")
+    plt.ylabel("Frequency")
+    plt.title("Frequency of Rounded Items in a 2D Array")
+    plt.xticks(rotation=45, ha="right", fontsize=4)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    """ TROUBLESHOOTING """
+    
     time_taken = time.monotonic() - start_time
     end_spinner(stop_event, thread)
     print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
+    return indices # TROUBLESHOOTING
     
     # %%% 4. Showing Indices
     print("==========")
@@ -448,7 +467,7 @@ def get_sat(sat_name, sat_number, folder):
                             entry_list.append(coord)
                     while len(entry_list) < 8:
                         entry_list.append("")
-                    
+                     
                     # handle number of non-reservoir water bodies entry
                     n_bodies = input("how many ""non-reservoir "
                                      "water bodies? ").strip().lower()
@@ -704,7 +723,7 @@ def get_sat(sat_name, sat_number, folder):
     # %%%%# 7.3.1 Land
     stop_event, thread = start_spinner(message="land data segmentation")
     had_an_oopsie = False
-    for i in range(len(res_coords)):
+    for i in range(len(land_coords)):
         chunk_n = (int(land_coords[i][0])-1)
         
         # NDWI data
@@ -742,7 +761,7 @@ def get_sat(sat_name, sat_number, folder):
     # %%%%# 7.3.2 Sea
     stop_event, thread = start_spinner(message="sea data segmentation")
     had_an_oopsie = False
-    for i in range(len(res_coords)):
+    for i in range(len(sea_coords)):
         chunk_n = (int(sea_coords[i][0])-1)
         
         # NDWI data
@@ -790,8 +809,7 @@ NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have
 with the SWIR2 band. 
 """
 s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
-                          folder=("S2C_MSIL2A_20250301T111031_N0511_R137"
-                                  "_T31UCU_20250301T152054.SAFE"))
+                          folder=("S2C_MSIL2A_20250619T110641_N0511_R137_T30UXD_20250619T151116.SAFE"))
 stop_event, thread = start_spinner(message="splitting indices")
 ndwi, mndwi, awei_sh, awei_nsh = s2_indices
 end_spinner(stop_event, thread)
