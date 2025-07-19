@@ -57,7 +57,7 @@ from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
 
-from user_interfacing import table_print, start_spinner, end_spinner, prompt_roi
+from user_interfacing import table_print, prompt_roi
 
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
@@ -71,7 +71,7 @@ data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 try: # personal pc mode - must be changed to own directory
     title_size = 8
     label_size = 4
-    HOME = os.path.join("C:\\", "Users", "nicol", "Documents", 
+    HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
                         "Individual Project", "Downloads")
     os.chdir(HOME)
     plot_size = (5, 5) # larger plots increase detail and pixel count
@@ -94,8 +94,7 @@ def get_sat(sat_name, sat_number, folder):
     print("==========")
     print("| STEP 1 |")
     print("==========")
-    stop_event, thread = start_spinner(message="opening images and "
-                                       "creating image arrays")
+    print("opening images and creating image arrays")
     start_time = time.monotonic()
     
     # %%%% 1.1 Establishing Paths
@@ -115,7 +114,6 @@ def get_sat(sat_name, sat_number, folder):
     searching for any available directories in the GRANULE folder, and if 
     there is more than one, then alert the user and exit, otherwise go into 
     that one directory because it will be the one we're looking for."""
-    # path = path + "\\GRANULE"
     path = os.path.join(path, "GRANULE")
     subdirs = [d for d in os.listdir(path) 
                if os.path.isdir(os.path.join(path, d))]
@@ -166,28 +164,26 @@ def get_sat(sat_name, sat_number, folder):
     image_arrays = image_to_array(file_paths)
     
     time_taken = time.monotonic() - start_time
-    end_spinner(stop_event, thread)
     print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 2. Masking Clouds
     print("==========")
     print("| STEP 2 |")
     print("==========")
-    stop_event, thread = start_spinner(message="masking clouds")
+    print("masking clouds")
     start_time = time.monotonic()
     
     path = os.path.join(path, "QI_DATA")
     image_arrays = mask_sentinel(path, high_res, image_arrays)
     
     time_taken = time.monotonic() - start_time
-    end_spinner(stop_event, thread)
     print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 3. Calculating Water Indices
     print("==========")
     print("| STEP 3 |")
     print("==========")
-    stop_event, thread = start_spinner(message="populating water index arrays")
+    print("populating water index arrays")
     start_time = time.monotonic()
     
     # first convert to int... np.uint16 type is bad for algebraic operations!
@@ -203,34 +199,8 @@ def get_sat(sat_name, sat_number, folder):
     del blue, green, nir, swir1, swir2
     indices = [ndwi, mndwi, awei_sh, awei_nsh]
     
-    """ TROUBLESHOOTING """
-    import matplotlib.pyplot as plt
-    from collections import Counter
-    
-    data = ndwi
-    rounded_data = np.round(data, 2)
-    flat_list = rounded_data.flatten()
-    frequency = Counter(flat_list)
-    sorted_items = sorted(frequency.keys())
-    sorted_counts = [frequency[item] for item in sorted_items]
-    
-    item_labels = [f"{item:.2f}" for item in sorted_items]
-    
-    plt.figure(figsize=(9, 5))
-    plt.bar(item_labels, sorted_counts, color='teal')
-    
-    plt.xlabel("Rounded Items (float32, 2 d.p.)")
-    plt.ylabel("Frequency")
-    plt.title("Frequency of Rounded Items in a 2D Array")
-    plt.xticks(rotation=45, ha="right", fontsize=4)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    """ TROUBLESHOOTING """
-    
     time_taken = time.monotonic() - start_time
-    end_spinner(stop_event, thread)
     print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
-    return indices # TROUBLESHOOTING
     
     # %%% 4. Showing Indices
     print("==========")
@@ -238,9 +208,9 @@ def get_sat(sat_name, sat_number, folder):
     print("==========")
     if show_index_plots:
         if save_images:
-            print("saving and displaying water index images...")
+            print("saving and displaying water index images")
         else:
-            print("displaying water index images...")
+            print("displaying water index images")
         start_time = time.monotonic()
         plot_indices(indices, sat_number, plot_size, dpi, save_images, res)
         time_taken = time.monotonic() - start_time
@@ -258,8 +228,7 @@ def get_sat(sat_name, sat_number, folder):
     
     # %%%% 5.1 Searching for, Opening, and Converting RGB Image
     """nico!! remember to add a description!"""
-    stop_event, thread = start_spinner(message=f"opening {res} "
-                                       "resolution true colour image")
+    print(f"opening {res} resolution true colour image")
     path = os.path.join(HOME, satellite, folder)
     
     tci_path = os.path.join(path, "GRANULE", subdirs[0], "IMG_DATA", f"R{res}")
@@ -272,17 +241,14 @@ def get_sat(sat_name, sat_number, folder):
     with Image.open(os.path.join(tci_60_path, tci_60_file_name)) as img:
         size = (img.width//10, img.height//10)
         tci_60_array = np.array(img.resize(size))
-    end_spinner(stop_event, thread)
     
     # %%%% 5.2 Creating Chunks from Satellite Imagery
     """nico!! remember to add a description!"""
-    stop_event, thread = start_spinner(message=f"creating {n_chunks} chunks"
-                                       " from satellite imagery")
+    print(f"creating {n_chunks} chunks from satellite imagery")
     index_chunks = []
     for index in indices:
         index_chunks.append(split_array(array=index, n_chunks=n_chunks))
     tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
-    end_spinner(stop_event, thread)
     
     # %%%% 5.3 Preparing File for Labelling
     """nico!! remember to add a description!"""
@@ -309,7 +275,7 @@ def get_sat(sat_name, sat_number, folder):
     specifies otherwise. This is to make sure that the data is not accidentally 
     overwritten at any point, again, unless the user is sure this is the 
     intended behaviour."""
-    stop_event, thread = start_spinner(message="preparing file for labelling")
+    print("preparing file for labelling")
     while True:
         # file will always exist due to blank_entry_check call
         with open(data_file, "r") as file:
@@ -320,13 +286,12 @@ def get_sat(sat_name, sat_number, folder):
                 current_chunk = int(lines[i].split(",")[0])
                 next_chunk = int(lines[i+1].split(",")[0])
                 if next_chunk - current_chunk != 1:
-                    end_spinner(stop_event, thread)
-                    print(f"Line {i + 2}, expected chunk {current_chunk + 1}")
+                    print(f"error in line {i + 2}, "
+                          f"expected chunk {current_chunk + 1}")
                     raise ValueError("File validity error")
             last_chunk = int(lines[-1].split(",")[0])
             break
         except (ValueError, IndexError) as e:
-            end_spinner(stop_event, thread)
             print(f"error - file with invalid data: {e}")
             print("type 'quit' to exit, or 'new' for a fresh file")
             response_time_start = time.monotonic()
@@ -340,7 +305,6 @@ def get_sat(sat_name, sat_number, folder):
                     file.write(header)
                     file.write("0, 1, 0\n") # dummy file to start up
                 continue
-    end_spinner(stop_event, thread)
     
     i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
     
@@ -355,6 +319,7 @@ def get_sat(sat_name, sat_number, folder):
     essentially fill in the coordinates that should exist in the place where 
     a chunk is supposed to contain some water body."""
     # find chunks with invalid or incomplete reservoir coordinate data
+    print("")
     reservoir_rows = []
     body_rows = []
     invalid_rows = []
@@ -568,8 +533,8 @@ def get_sat(sat_name, sat_number, folder):
     if not high_res:
         print("high resolution setting must be activated for data segmentation")
         print("exiting program")
-        #return indices
-    stop_event, thread = start_spinner(message="coordinate extraction")
+        
+    print("extracting coordinates")
     res_rows = []
     res_coords = []
     
@@ -627,7 +592,6 @@ def get_sat(sat_name, sat_number, folder):
                                                   create_box_flag=True)))
     
     globals()["lines"] = lines
-    end_spinner(stop_event, thread)
     
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
     """nico!! remember to add a description! 0.4*max to bring down the ceiling 
@@ -644,7 +608,7 @@ def get_sat(sat_name, sat_number, folder):
         print("Warning: All NDWI chunks contained only NaN values.")
     
     # %%%%% 7.2.1 Create an image of each water reservoir and save it
-    stop_event, thread = start_spinner(message="reservoir data segmentation")
+    print("segmenting reservoir data")
     had_an_oopsie = False
     for i in range(len(res_coords)):
         chunk_n = (int(res_coords[i][0])-1)
@@ -677,12 +641,11 @@ def get_sat(sat_name, sat_number, folder):
         except:
             had_an_oopsie = True
     
-    end_spinner(stop_event, thread)
     if had_an_oopsie:
         print("error in reservoir data segmentation")
     
     # %%%%% 7.2.2 Create an image of each water body and save it
-    stop_event, thread = start_spinner(message="water body data segmentation")
+    print("segmenting water body data")
     had_an_oopsie = False
     for i in range(len(body_coords)):
         chunk_n = (int(body_coords[i][0])-1)
@@ -715,13 +678,12 @@ def get_sat(sat_name, sat_number, folder):
         except:
             had_an_oopsie = True
     
-    end_spinner(stop_event, thread)
     if had_an_oopsie:
         print("error in water body data segmentation")
     
     # %%%% 7.3 Isolate and Save an Image of Mini-Chunks of Land and Sea
     # %%%%# 7.3.1 Land
-    stop_event, thread = start_spinner(message="land data segmentation")
+    print("segmenting land data")
     had_an_oopsie = False
     for i in range(len(land_coords)):
         chunk_n = (int(land_coords[i][0])-1)
@@ -754,12 +716,11 @@ def get_sat(sat_name, sat_number, folder):
         except:
             had_an_oopsie = True
     
-    end_spinner(stop_event, thread)
     if had_an_oopsie:
         print("error in land data segmentation")
     
     # %%%%# 7.3.2 Sea
-    stop_event, thread = start_spinner(message="sea data segmentation")
+    print("segmenting sea data")
     had_an_oopsie = False
     for i in range(len(sea_coords)):
         chunk_n = (int(sea_coords[i][0])-1)
@@ -792,7 +753,6 @@ def get_sat(sat_name, sat_number, folder):
         except:
             had_an_oopsie = True
     
-    end_spinner(stop_event, thread)
     if had_an_oopsie:
         print("error in sea data segmentation")
     
@@ -809,10 +769,9 @@ NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have
 with the SWIR2 band. 
 """
 s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
-                          folder=("S2C_MSIL2A_20250619T110641_N0511_R137_T30UXD_20250619T151116.SAFE"))
-stop_event, thread = start_spinner(message="splitting indices")
+                          folder=("S2C_MSIL2A_20250301T111031_N0511_R137_"
+                                  "T31UCU_20250301T152054.SAFE"))
 ndwi, mndwi, awei_sh, awei_nsh = s2_indices
-end_spinner(stop_event, thread)
 os.chdir(HOME)
 
 # %% Final
