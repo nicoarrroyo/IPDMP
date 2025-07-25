@@ -47,6 +47,7 @@ import os
 import numpy as np
 import csv
 from PIL import Image
+import sys
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
@@ -56,6 +57,7 @@ from image_handling import image_to_array, mask_sentinel, plot_indices
 from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
+from misc import confirm_continue_or_exit
 
 from user_interfacing import table_print, prompt_roi
 
@@ -77,7 +79,17 @@ try: # personal pc mode - must be changed to own directory
     plot_size = (5, 5) # larger plots increase detail and pixel count
     plot_size_chunks = (6, 6)
 except:
-    print("error: non-existent path")
+    try: # other personal pc mode
+        title_size = 6
+        label_size = 4
+        HOME = os.path.join("C:\\", "Users", "nicol", "Documents", 
+                            "Individual Project", "Downloads")
+        os.chdir(HOME)
+        plot_size = (4, 4) # larger plots increase detail and pixel count
+        plot_size_chunks = (5, 5)
+    except:
+        print("error: non-existent path")
+        sys.exit(1)
 
 # %% General Mega Giga Function
 response_time = 0.0
@@ -132,7 +144,6 @@ def get_sat(sat_name, sat_number, folder):
     if high_res:
         res = "10m"
         path_10 = os.path.join(path, "IMG_DATA", "R10m")
-        path_20 = os.path.join(path, "IMG_DATA", "R20m")
     else:
         res = "60m"
         path_60 = os.path.join(path, "IMG_DATA", "R60m")
@@ -145,12 +156,8 @@ def get_sat(sat_name, sat_number, folder):
     
     for band in bands:
         if high_res:
-            if band == "02" or band == "03" or band == "08":
-                file_paths.append(os.path.join(path_10, 
-                                               f"{prefix}_B{band}_10m.jp2"))
-            else:
-                file_paths.append(os.path.join(path_20, 
-                                               f"{prefix}_B{band}_20m.jp2"))
+            file_paths.append(os.path.join(path_10, 
+                                           f"{prefix}_B{band}_10m.jp2"))
         else:
             file_paths.append(os.path.join(path_60, 
                                                f"{prefix}_B{band}_60m.jp2"))
@@ -189,15 +196,11 @@ def get_sat(sat_name, sat_number, folder):
     # first convert to int... np.uint16 type is bad for algebraic operations!
     for i, image_array in enumerate(image_arrays):
         image_arrays[i] = image_array.astype(np.float32)
-    blue, green, nir, swir1, swir2 = image_arrays
+    green, nir = image_arrays
     
     np.seterr(divide="ignore", invalid="ignore")
     ndwi = ((green - nir) / (green + nir))
-    mndwi = ((green - swir1) / (green + swir1))
-    awei_sh = (green + 2.5 * blue - 1.5 * (nir + swir1) - 0.25 * swir2)
-    awei_nsh = (4 * (green - swir1) - (0.25 * nir + 2.75 * swir2))
-    del blue, green, nir, swir1, swir2
-    indices = [ndwi, mndwi, awei_sh, awei_nsh]
+    del green, nir
     
     time_taken = time.monotonic() - start_time
     print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
@@ -212,7 +215,7 @@ def get_sat(sat_name, sat_number, folder):
         else:
             print("displaying water index images")
         start_time = time.monotonic()
-        plot_indices(indices, sat_number, plot_size, dpi, save_images, res)
+        plot_indices(ndwi, plot_size, dpi, save_images, res)
         time_taken = time.monotonic() - start_time
         print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     else:
@@ -245,14 +248,11 @@ def get_sat(sat_name, sat_number, folder):
     # %%%% 5.2 Creating Chunks from Satellite Imagery
     """nico!! remember to add a description!"""
     print(f"creating {n_chunks} chunks from satellite imagery")
-    index_chunks = []
-    for index in indices:
-        index_chunks.append(split_array(array=index, n_chunks=n_chunks))
+    index_chunks = split_array(array=ndwi, n_chunks=n_chunks)
     tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
     
     # %%%% 5.3 Preparing File for Labelling
     """nico!! remember to add a description!"""
-    index_labels = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
     break_flag = False
     
     labelling_path = os.path.join(path, "training data")
@@ -298,7 +298,8 @@ def get_sat(sat_name, sat_number, folder):
             ans = input("press enter to retry: ").strip().lower()
             response_time += time.monotonic() - response_time_start
             if ans.lower() == 'quit':
-                return indices
+                print("quitting")
+                return ndwi
             elif ans.lower() == 'new':
                 print("creating new file...")
                 with open(data_file, "w") as file:
@@ -385,16 +386,16 @@ def get_sat(sat_name, sat_number, folder):
         # %%%% 6.1 Outputting Images
         print("outputting images...")
         
-        while i < len(index_chunks[0]):
+        while i < len(index_chunks):
             if break_flag:
                 break
-            plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, 
+            plot_chunks(ndwi, index_chunks, plot_size_chunks, i, 
                         title_size, label_size, tci_chunks, tci_60_array)
             max_index = [0, 0]
-            max_index[0] = round(np.nanmax(index_chunks[0][i]), 2)
-            print(f"MAX {index_labels[0]}: {max_index[0]}", end=" | ")
-            max_index[1] = round(np.nanmax(index_chunks[1][i]), 2)
-            print(f"MAX {index_labels[1]}: {max_index[1]}")
+            max_index[0] = round(np.nanmax(index_chunks[i]), 2)
+            print(f"MAX ADJUSTED NDWI: {max_index[0]}", end=" | ")
+            max_index[1] = round(np.nanmax(index_chunks[i]), 2)
+            print(f"MAX NDWI: {max_index[1]}")
             
             # %%%% 6.2 User Labelling
             blank_entry_check(file=data_file)
@@ -533,7 +534,12 @@ def get_sat(sat_name, sat_number, folder):
     if not high_res:
         print("high resolution setting must be activated for data segmentation")
         print("exiting program")
-        
+        return ndwi
+    
+    print("program is about to begin data segmentation")
+    confirm_continue_or_exit()
+    
+    
     print("extracting coordinates")
     res_rows = []
     res_coords = []
@@ -760,7 +766,7 @@ def get_sat(sat_name, sat_number, folder):
     print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 8. Satellite Output
-    return indices
+    return ndwi
 # %% Running Functions
 """
 Sentinel 2 has varying resolution bands, with Blue (2), Green (3), Red (4), and 
@@ -768,10 +774,9 @@ NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have
 20m spatial resolution. There is no MIR band, so MNDWI is calculated correctly 
 with the SWIR2 band. 
 """
-s2_indices = get_sat(sat_name="Sentinel", sat_number=2, 
-                          folder=("S2C_MSIL2A_20250301T111031_N0511_R137_"
-                                  "T31UCU_20250301T152054.SAFE"))
-ndwi, mndwi, awei_sh, awei_nsh = s2_indices
+ndwi = get_sat(sat_name="Sentinel", sat_number=2, 
+                          folder=("S2C_MSIL2A_20250331T110651_N0511_R137_"
+                                  "T31UCU_20250331T143812.SAFE"))
 os.chdir(HOME)
 
 # %% Final
