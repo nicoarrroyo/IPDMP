@@ -4,7 +4,7 @@ import math
 import sys
 
 def get_sentinel_bands(sentinel_n, high_res):
-    """
+    """ OUT OF DATE
     Sentinel 2 has thirteen spectral bands, five of which are of interest for 
     the calculation of water detection indices. The blue, green, and near-
     infrared (NIR) bands can achieve 10 metre spatial resolution, while both 
@@ -40,15 +40,12 @@ def get_sentinel_bands(sentinel_n, high_res):
     
     """
     if sentinel_n == 2:
-        BLUE_BAND = '02'
         GREEN_BAND = '03'
-        SWIR1_BAND = '11'
-        SWIR2_BAND = '12'
         if high_res:
             NIR_BAND = '08'
         else:
             NIR_BAND = '8A'
-        return BLUE_BAND, GREEN_BAND, NIR_BAND, SWIR1_BAND, SWIR2_BAND
+        return GREEN_BAND, NIR_BAND
 
 def split_array(array, n_chunks):
     """
