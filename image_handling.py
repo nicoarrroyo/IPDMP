@@ -89,7 +89,7 @@ def mask_sentinel(path, high_res, image_arrays):
         for SWIR1 and SWIR2. 
     
     """
-    if len(image_arrays) >= 3: # for NALIRA
+    if len(image_arrays) >= 2: # for NALIRA
         if high_res:
             image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
             image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
@@ -142,7 +142,7 @@ def plot_indices(data, size, dpi, save_image, res):
     
     """
     plt.figure(figsize=(size))
-    plt.title("Sentinel 2 NDWI DPI{dpi} R{res}", fontsize=8)
+    plt.title(f"Sentinel 2 NDWI DPI{dpi} R{res}", fontsize=8)
     
     ax = plt.gca()
     plt.imshow(data)
