@@ -112,8 +112,8 @@ def mask_sentinel(path, high_res, image_arrays):
     
     return image_arrays
 
-def plot_indices(data, sat_n, size, dpi, save_image, res):
-    """
+def plot_indices(data, size, dpi, save_image, res):
+    """ OUT OF DATE
     Take a list of indices and plot them for the user's viewing pleasure. 
     Other than being nice pictures to look at, there isn't that much use to 
     the images themselves, but the index arrays are used for labelling. 
@@ -141,48 +141,38 @@ def plot_indices(data, sat_n, size, dpi, save_image, res):
     None.
     
     """
-    indices = ["NDWI", "MNDWI", "AWEI-SH", "AWEI-NSH"]
-    for i, water_index in enumerate(data):
-        plt.figure(figsize=(size))
-        if sat_n != 2:
-            sat_name = "Landsat"
-            sat_letter = "L"
-        else:
-            sat_name = "Sentinel"
-            sat_letter = "S"
-        if i == 0:
-            plt.title(f"{sat_name} {sat_n} {indices[i]} DPI{dpi} R{res}", 
-                      fontsize=8)
-            
-            ax = plt.gca()
-            plt.imshow(water_index)
-            
-            ax.spines["left"].set_visible(False)
-            ax.spines["bottom"].set_visible(False)
-            ax.tick_params(left=False, bottom=False, 
-                           labelleft=False, labelbottom=False)
+    plt.figure(figsize=(size))
+    plt.title("Sentinel 2 NDWI DPI{dpi} R{res}", fontsize=8)
+    
+    ax = plt.gca()
+    plt.imshow(data)
+    
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.tick_params(left=False, bottom=False, 
+                   labelleft=False, labelbottom=False)
+    
+    if save_image:
+        print("saving NDWI image", end="... ")
+        plot_name = f"S2_NDWI_DPI{dpi}_R{res}.png"
         
-        if save_image:
-            print(f"saving {indices[i]} image", end="... ")
-            plot_name = f"{sat_letter}{sat_n}_{indices[i]}_DPI{dpi}_R{res}.png"
-            
-            # check for file name already existing and increment file name
-            base_name, extension = os.path.splitext(plot_name)
-            counter = 1
-            while os.path.exists(plot_name):
-                plot_name = f"{base_name}_{counter}{extension}"
-                counter += 1
-            
-            plt.savefig(plot_name, dpi=dpi, bbox_inches="tight")
-            print(f"complete! saved as {plot_name}")
+        # check for file name already existing and increment file name
+        base_name, extension = os.path.splitext(plot_name)
+        counter = 1
+        while os.path.exists(plot_name):
+            plot_name = f"{base_name}_{counter}{extension}"
+            counter += 1
         
-        print(f"displaying {indices[i]} image", end="... ")
-        plt.show()
-        print(f"{indices[i]} image display complete!")
+        plt.savefig(plot_name, dpi=dpi, bbox_inches="tight")
+        print(f"complete! saved as {plot_name}")
+    
+    print("displaying NDWI image", end="... ")
+    plt.show()
+    print("NDWI image display complete!")
 
-def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size, 
+def plot_chunks(ndwi, index_chunks, plot_size_chunks, i, title_size, 
                 label_size, tci_chunks, tci_60_array):
-    """
+    """ OUT OF DATE
     Plots image chunks of calculated indices (NDWI and MNDWI) and True Color 
     Images (TCI).
     
@@ -227,21 +217,21 @@ def plot_chunks(ndwi, mndwi, index_chunks, plot_size_chunks, i, title_size,
         not return any values.
     
     """
-    index_labels = ["NDWI", "MNDWI"]
+    index_labels = ["ADJ. NDWI", "NDWI"]
     norm_ndwi = colors.Normalize(vmin=np.nanmin(ndwi), 
-                                 vmax=np.nanmax(ndwi)*0.8)
-    norm_mndwi = colors.Normalize(vmin=np.nanmin(mndwi), 
-                                 vmax=np.nanmax(mndwi)*0.8)
+                                 vmax=np.nanmax(ndwi)*0.5)
+    base_ndwi = colors.Normalize(vmin=np.nanmin(ndwi), 
+                                 vmax=np.nanmax(ndwi))
     
     fig, axes = plt.subplots(2, 2, figsize=plot_size_chunks)
     # plot 1, top left: NDWI chunk (full resolution)
-    axes[0][0].imshow(index_chunks[0][i], norm=norm_ndwi)
+    axes[0][0].imshow(index_chunks[i], norm=norm_ndwi)
     axes[0][0].set_title(f"{index_labels[0]} Chunk {i}", 
                          fontsize=title_size)
     axes[0][0].tick_params(axis="both", labelsize=label_size)
     
     # plot 2, top right: MNDWI chunk (merged resolution)
-    axes[0][1].imshow(index_chunks[1][i], norm=norm_mndwi)
+    axes[0][1].imshow(index_chunks[i], norm=base_ndwi)
     axes[0][1].set_title(f"{index_labels[1]} Chunk {i}", 
                          fontsize=title_size)
     axes[0][1].tick_params(axis="both", labelsize=label_size)
