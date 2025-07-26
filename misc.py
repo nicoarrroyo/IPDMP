@@ -40,12 +40,13 @@ def get_sentinel_bands(sentinel_n, high_res):
     
     """
     if sentinel_n == 2:
+        RED_BAND = "04"
         GREEN_BAND = '03'
         if high_res:
             NIR_BAND = '08'
         else:
             NIR_BAND = '8A'
-        return GREEN_BAND, NIR_BAND
+        return GREEN_BAND, NIR_BAND, RED_BAND
 
 def split_array(array, n_chunks):
     """
