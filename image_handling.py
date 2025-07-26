@@ -89,10 +89,8 @@ def mask_sentinel(path, high_res, image_arrays):
         for SWIR1 and SWIR2. 
     
     """
-    if len(image_arrays) >= 2: # for NALIRA
+    if len(image_arrays) >= 3: # for NALIRA
         if high_res:
-            image_arrays[-1] = upscale_image_array(image_arrays[-1], factor=2)
-            image_arrays[-2] = upscale_image_array(image_arrays[-2], factor=2)
             path = os.path.join(path, "MSK_CLDPRB_20m.jp2")
             clouds_array = image_to_array(path)
             clouds_array = upscale_image_array(clouds_array, factor=2)
