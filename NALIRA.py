@@ -48,12 +48,13 @@ import numpy as np
 import csv
 from PIL import Image
 import sys
+from omnicloudmask import predict_from_array
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
 from data_handling import extract_coords, change_to_folder
 
-from image_handling import image_to_array, mask_sentinel, plot_indices
+from image_handling import image_to_array, plot_indices
 from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
@@ -65,9 +66,9 @@ from user_interfacing import table_print, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 high_res = True # use finer 10m spatial resolution (slower)
-show_index_plots = False
+show_index_plots = True
 save_images = False
-label_data = True
+label_data = False
 data_file = "responses_" + str(n_chunks) + "_chunks.csv"
 
 try: # personal pc mode - must be changed to own directory
@@ -180,8 +181,41 @@ def get_sat(sat_name, sat_number, folder):
     print("masking clouds")
     start_time = time.monotonic()
     
-    path = os.path.join(path, "QI_DATA")
-    image_arrays = mask_sentinel(path, high_res, image_arrays)
+    # path = os.path.join(path, "QI_DATA")
+    # image_arrays = mask_sentinel(path, high_res, image_arrays)
+    input_array = np.stack((
+        image_arrays[2], 
+        image_arrays[0], 
+        image_arrays[1]
+        ))
+    globals()["input_array"] = input_array
+    
+    pred_mask = predict_from_array(input_array)
+    globals()["prediction_mask"] = pred_mask
+    
+    cloud_thick_positions = np.argwhere(pred_mask[0] == 1)
+    cloud_thin_positions = np.argwhere(pred_mask[0] == 2)
+    cloud_shadows_positions = np.argwhere(pred_mask[0] == 3)
+    cloud_positions = [
+        cloud_thick_positions, 
+        cloud_thin_positions, 
+        cloud_shadows_positions
+        ]
+# =============================================================================
+#     cloud_positions = np.argwhere(pred_mask == 1 or # thick cloud
+#                                   pred_mask == 2 or # thin cloud
+#                                   pred_mask == 3)   # cloud shadow
+# =============================================================================
+    globals()["cloud_pos"] = cloud_positions
+    for i, image_array in enumerate(image_arrays):
+        image_array[cloud_positions[i][:, 0], cloud_positions[i][:, 1]] = 0
+    
+# =============================================================================
+#     for image_array in image_arrays: # HOW DOES THIS WORK????
+#         image_array[cloud_thick_positions[:, 0], cloud_thick_positions[:, 1]] = float("NaN")
+#         image_array[cloud_thin_positions[:, 0], cloud_thin_positions[:, 1]] = float("NaN")
+#         image_array[cloud_shadows_positions[:, 0], cloud_shadows_positions[:, 1]] = float("NaN")
+# =============================================================================
     
     time_taken = time.monotonic() - start_time
     print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
@@ -196,7 +230,7 @@ def get_sat(sat_name, sat_number, folder):
     # first convert to int... np.uint16 type is bad for algebraic operations!
     for i, image_array in enumerate(image_arrays):
         image_arrays[i] = image_array.astype(np.float32)
-    green, nir = image_arrays
+    green, nir, red = image_arrays
     
     np.seterr(divide="ignore", invalid="ignore")
     ndwi = ((green - nir) / (green + nir))
@@ -539,7 +573,6 @@ def get_sat(sat_name, sat_number, folder):
     print("program is about to begin data segmentation")
     confirm_continue_or_exit()
     
-    
     print("extracting coordinates")
     res_rows = []
     res_coords = []
@@ -775,8 +808,8 @@ NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have
 with the SWIR2 band. 
 """
 ndwi = get_sat(sat_name="Sentinel", sat_number=2, 
-                          folder=("S2C_MSIL2A_20250331T110651_N0511_R137_"
-                                  "T31UCU_20250331T143812.SAFE"))
+                          folder=("S2C_MSIL2A_20250301T111031_N0511_R137_"
+                                  "T31UCU_20250301T152054.SAFE"))
 os.chdir(HOME)
 
 # %% Final
