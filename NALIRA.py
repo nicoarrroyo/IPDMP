@@ -65,32 +65,20 @@ from user_interfacing import table_print, prompt_roi
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = True # use finer 10m spatial resolution (slower)
-show_index_plots = True
+high_res = False # use finer 10m spatial resolution (slower)
+cloud_masking = True
+show_index_plots = False
 save_images = False
 label_data = False
-data_file = "responses_" + str(n_chunks) + "_chunks.csv"
+data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 
-try: # personal pc mode - must be changed to own directory
-    title_size = 8
-    label_size = 4
-    HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
-                        "Individual Project", "Downloads")
-    os.chdir(HOME)
-    plot_size = (5, 5) # larger plots increase detail and pixel count
-    plot_size_chunks = (6, 6)
-except:
-    try: # other personal pc mode
-        title_size = 6
-        label_size = 4
-        HOME = os.path.join("C:\\", "Users", "nicol", "Documents", 
-                            "Individual Project", "Downloads")
-        os.chdir(HOME)
-        plot_size = (4, 4) # larger plots increase detail and pixel count
-        plot_size_chunks = (5, 5)
-    except:
-        print("error: non-existent path")
-        sys.exit(1)
+title_size = 8
+label_size = 4
+plot_size = (5, 5) # larger plots increase detail and pixel count
+plot_size_chunks = (6, 6)
+
+# cwd is at individual project folder (in ssh session)
+HOME = os.getcwd() # no need to go up a level in the directory tree
 
 # %% General Mega Giga Function
 response_time = 0.0
@@ -101,7 +89,7 @@ def get_sat(sat_name, sat_number, folder):
     print("====================")
     table_print(n_chunks=n_chunks, high_res=high_res, 
                 show_plots=show_index_plots, save_images=save_images, 
-                labelling=label_data)
+                labelling=label_data, cloud_masking=cloud_masking)
     
     # %%% 1. Opening Images and Creating Image Arrays
     print("==========")
@@ -116,9 +104,9 @@ def get_sat(sat_name, sat_number, folder):
     the folder. This information can be used to easily navigate through the 
     folder's contents."""
     file_paths = []
+    file_paths_clouds = []
     satellite = f"{sat_name} {sat_number}"
-    path = os.path.join(HOME, satellite, folder)
-    os.chdir(path)
+    folder_path = os.path.join(HOME, "Downloads", satellite, folder)
     
     # %%%%% 1.1.1 Subfolder naming convention edge case
     """This folder has a strange naming convention that doesn't quite apply to 
@@ -127,11 +115,11 @@ def get_sat(sat_name, sat_number, folder):
     searching for any available directories in the GRANULE folder, and if 
     there is more than one, then alert the user and exit, otherwise go into 
     that one directory because it will be the one we're looking for."""
-    path = os.path.join(path, "GRANULE")
-    subdirs = [d for d in os.listdir(path) 
-               if os.path.isdir(os.path.join(path, d))]
+    images_path = os.path.join(folder_path, "GRANULE")
+    subdirs = [d for d in os.listdir(images_path) 
+               if os.path.isdir(os.path.join(images_path, d))]
     if len(subdirs) == 1:
-        path = os.path.join(path, subdirs[0])
+        images_path = os.path.join(images_path, subdirs[0])
     else:
         print("Too many subdirectories in 'GRANULE':", len(subdirs))
         return
@@ -144,10 +132,11 @@ def get_sat(sat_name, sat_number, folder):
     finalised in this section."""
     if high_res:
         res = "10m"
-        path_10 = os.path.join(path, "IMG_DATA", "R10m")
+        path_10 = os.path.join(images_path, "IMG_DATA", "R10m")
+        path_20 = os.path.join(images_path, "IMG_DATA", "R20m") # for cloud masking
     else:
         res = "60m"
-        path_60 = os.path.join(path, "IMG_DATA", "R60m")
+        path_60 = os.path.join(images_path, "IMG_DATA", "R60m")
     
     (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
      processing_baseline_number, relative_orbit_number, tile_number_field, 
@@ -159,9 +148,13 @@ def get_sat(sat_name, sat_number, folder):
         if high_res:
             file_paths.append(os.path.join(path_10, 
                                            f"{prefix}_B{band}_10m.jp2"))
+            file_paths_clouds.append(os.path.join(path_20, 
+                                    f"{prefix}_B{band}_20m.jp2"))
         else:
             file_paths.append(os.path.join(path_60, 
                                                f"{prefix}_B{band}_60m.jp2"))
+            file_paths_clouds.append(os.path.join(path_60, 
+                                    f"{prefix}_B{band}_60m.jp2"))
     
     # %%%% 1.2 Opening and Converting Images
     """This is the long operation. It is very costly to open the large images, 
@@ -170,6 +163,8 @@ def get_sat(sat_name, sat_number, folder):
     just use the 60m resolution images. However, when doing any actual data 
     generation, the 60m resolution images are not sufficient."""
     image_arrays = image_to_array(file_paths)
+    if cloud_masking:
+        image_arrays_clouds = image_to_array(file_paths_clouds)
     
     time_taken = time.monotonic() - start_time
     print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
@@ -178,47 +173,35 @@ def get_sat(sat_name, sat_number, folder):
     print("==========")
     print("| STEP 2 |")
     print("==========")
-    print("masking clouds")
-    start_time = time.monotonic()
-    
-    # path = os.path.join(path, "QI_DATA")
-    # image_arrays = mask_sentinel(path, high_res, image_arrays)
-    input_array = np.stack((
-        image_arrays[2], 
-        image_arrays[0], 
-        image_arrays[1]
-        ))
-    globals()["input_array"] = input_array
-    
-    pred_mask = predict_from_array(input_array)
-    globals()["prediction_mask"] = pred_mask
-    
-    cloud_thick_positions = np.argwhere(pred_mask[0] == 1)
-    cloud_thin_positions = np.argwhere(pred_mask[0] == 2)
-    cloud_shadows_positions = np.argwhere(pred_mask[0] == 3)
-    cloud_positions = [
-        cloud_thick_positions, 
-        cloud_thin_positions, 
-        cloud_shadows_positions
-        ]
-# =============================================================================
-#     cloud_positions = np.argwhere(pred_mask == 1 or # thick cloud
-#                                   pred_mask == 2 or # thin cloud
-#                                   pred_mask == 3)   # cloud shadow
-# =============================================================================
-    globals()["cloud_pos"] = cloud_positions
-    for i, image_array in enumerate(image_arrays):
-        image_array[cloud_positions[i][:, 0], cloud_positions[i][:, 1]] = 0
-    
-# =============================================================================
-#     for image_array in image_arrays: # HOW DOES THIS WORK????
-#         image_array[cloud_thick_positions[:, 0], cloud_thick_positions[:, 1]] = float("NaN")
-#         image_array[cloud_thin_positions[:, 0], cloud_thin_positions[:, 1]] = float("NaN")
-#         image_array[cloud_shadows_positions[:, 0], cloud_shadows_positions[:, 1]] = float("NaN")
-# =============================================================================
-    
-    time_taken = time.monotonic() - start_time
-    print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
+    if cloud_masking:
+        print("masking clouds")
+        start_time = time.monotonic()
+
+        input_array = np.stack((
+            image_arrays_clouds[2], 
+            image_arrays_clouds[0], 
+            image_arrays_clouds[1]
+            ))
+        
+        pred_mask = predict_from_array(input_array)
+        
+        cloud_thick_positions = np.argwhere(pred_mask[0] == 1)
+        cloud_thin_positions = np.argwhere(pred_mask[0] == 2)
+        cloud_shadows_positions = np.argwhere(pred_mask[0] == 3)
+        cloud_positions = [
+            cloud_thick_positions, 
+            cloud_thin_positions, 
+            cloud_shadows_positions
+            ]
+        
+        for i, image_array in enumerate(image_arrays_clouds):
+            image_array[cloud_positions[i][:, 0], 
+            cloud_positions[i][:, 1]] = np.nan # better than setting it to 0
+
+        time_taken = time.monotonic() - start_time
+        print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
+    else:
+        print("skipping cloud masking")
     
     # %%% 3. Calculating Water Indices
     print("==========")
@@ -266,13 +249,12 @@ def get_sat(sat_name, sat_number, folder):
     # %%%% 5.1 Searching for, Opening, and Converting RGB Image
     """nico!! remember to add a description!"""
     print(f"opening {res} resolution true colour image")
-    path = os.path.join(HOME, satellite, folder)
     
-    tci_path = os.path.join(path, "GRANULE", subdirs[0], "IMG_DATA", f"R{res}")
+    tci_path = os.path.join(images_path, "IMG_DATA", f"R{res}")
     tci_file_name = prefix + f"_TCI_{res}.jp2"
     tci_array = image_to_array(os.path.join(tci_path, tci_file_name))
     
-    tci_60_path = os.path.join(path, "GRANULE", subdirs[0], 
+    tci_60_path = os.path.join(folder_path, "GRANULE", subdirs[0], 
                                "IMG_DATA", "R60m")
     tci_60_file_name = prefix + "_TCI_60m.jp2"
     with Image.open(os.path.join(tci_60_path, tci_60_file_name)) as img:
@@ -289,12 +271,12 @@ def get_sat(sat_name, sat_number, folder):
     """nico!! remember to add a description!"""
     break_flag = False
     
-    labelling_path = os.path.join(path, "training data")
-    change_to_folder(labelling_path)
+    labelling_path = os.path.join(folder_path, "training data")
     
     lines = []
     header = ("chunk,reservoirs,water bodies,reservoir "
     "coordinates,,,,,water body coordinates\n")
+    data_file = os.path.join(labelling_path, data_file_name)
     blank_entry_check(file=data_file) # remove all blank entries
     
     # %%%%% 5.3.1 File validity check
@@ -654,7 +636,7 @@ def get_sat(sat_name, sat_number, folder):
         
         # NDWI data
         res_ndwi_path = os.path.join(
-            path, "training data", "ndwi", "reservoirs"
+            labelling_path, "ndwi", "reservoirs"
             )
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} reservoir {i+1}.png"
@@ -667,7 +649,7 @@ def get_sat(sat_name, sat_number, folder):
                             dupe_check=True)
             # TCI data
             res_tci_path = os.path.join(
-                path, "training data", "tci", "reservoirs"
+                labelling_path, "tci", "reservoirs"
                 )
             change_to_folder(res_tci_path)
             image_name = f"tci chunk {chunk_n} reservoir {i+1}.png"
@@ -691,7 +673,7 @@ def get_sat(sat_name, sat_number, folder):
         
         # NDWI data
         body_ndwi_path = os.path.join(
-            path, "training data", "ndwi", "water bodies"
+            labelling_path, "ndwi", "water bodies"
             )
         change_to_folder(body_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} water body {i+1}.png"
@@ -704,7 +686,7 @@ def get_sat(sat_name, sat_number, folder):
                             dupe_check=True)
             # TCI data
             body_tci_path = os.path.join(
-                path, "training data", "tci", "water bodies"
+                labelling_path, "tci", "water bodies"
                 )
             change_to_folder(body_tci_path)
             image_name = f"tci chunk {chunk_n} water body {i+1}.png"
@@ -729,7 +711,7 @@ def get_sat(sat_name, sat_number, folder):
         
         # NDWI data
         land_ndwi_path = os.path.join(
-            path, "training data", "ndwi", "land"
+            labelling_path, "ndwi", "land"
             )
         change_to_folder(land_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} land {i+1}.png"
@@ -742,7 +724,7 @@ def get_sat(sat_name, sat_number, folder):
                             dupe_check=True)
             # TCI data
             land_tci_path = os.path.join(
-                path, "training data", "tci", "land"
+                labelling_path, "tci", "land"
                 )
             change_to_folder(land_tci_path)
             image_name = f"tci chunk {chunk_n} land {i+1}.png"
@@ -766,7 +748,7 @@ def get_sat(sat_name, sat_number, folder):
         
         # NDWI data
         sea_ndwi_path = os.path.join(
-            path, "training data", "ndwi", "sea"
+            labelling_path, "ndwi", "sea"
             )
         change_to_folder(sea_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} sea {i+1}.png"
@@ -779,7 +761,7 @@ def get_sat(sat_name, sat_number, folder):
                             dupe_check=True)
             # TCI data
             sea_tci_path = os.path.join(
-                path, "training data", "tci", "sea"
+                labelling_path, "tci", "sea"
                 )
             change_to_folder(sea_tci_path)
             image_name = f"tci chunk {chunk_n} sea {i+1}.png"
@@ -810,7 +792,6 @@ with the SWIR2 band.
 ndwi = get_sat(sat_name="Sentinel", sat_number=2, 
                           folder=("S2C_MSIL2A_20250301T111031_N0511_R137_"
                                   "T31UCU_20250301T152054.SAFE"))
-os.chdir(HOME)
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
