@@ -182,8 +182,10 @@ def get_sat(sat_name, sat_number, folder):
             image_arrays_clouds[0], 
             image_arrays_clouds[1]
             ))
-        
-        pred_mask = predict_from_array(input_array)
+        try:
+            pred_mask = predict_from_array(input_array, mosaic_device='cuda')
+        except:
+            pred_mask = predict_from_array(input_array)
         
         cloud_thick_positions = np.argwhere(pred_mask[0] == 1)
         cloud_thin_positions = np.argwhere(pred_mask[0] == 2)
@@ -796,3 +798,4 @@ ndwi = get_sat(sat_name="Sentinel", sat_number=2,
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
+
