@@ -47,7 +47,6 @@ import os
 import numpy as np
 import csv
 from PIL import Image
-import sys
 from omnicloudmask import predict_from_array
 
 # %%% Internal Function Imports
@@ -67,9 +66,9 @@ dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 high_res = False # use finer 10m spatial resolution (slower)
 cloud_masking = True
-show_index_plots = False
+show_index_plots = True
 save_images = False
-label_data = False
+label_data = True
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 
 title_size = 8
@@ -77,8 +76,10 @@ label_size = 4
 plot_size = (5, 5) # larger plots increase detail and pixel count
 plot_size_chunks = (6, 6)
 
-# cwd is at individual project folder (in ssh session)
-HOME = os.getcwd() # no need to go up a level in the directory tree
+HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
+
+# for the case where the current directory is considered differently
+# HOME = os.getcwd() # for example, in the google cloud virtual machine
 
 # %% General Mega Giga Function
 response_time = 0.0
@@ -182,10 +183,12 @@ def get_sat(sat_name, sat_number, folder):
             image_arrays_clouds[0], 
             image_arrays_clouds[1]
             ))
-        try:
-            pred_mask = predict_from_array(input_array, mosaic_device='cuda')
-        except:
-            pred_mask = predict_from_array(input_array)
+        
+        # for nvidia case
+        # pred_mask = predict_from_array(input_array, mosaic_device="cuda")
+        
+        # for no nvidia case (inference on cpu)
+        pred_mask = predict_from_array(input_array, mosaic_device="cpu")
         
         cloud_thick_positions = np.argwhere(pred_mask[0] == 1)
         cloud_thin_positions = np.argwhere(pred_mask[0] == 2)
@@ -198,7 +201,7 @@ def get_sat(sat_name, sat_number, folder):
         
         for i, image_array in enumerate(image_arrays_clouds):
             image_array[cloud_positions[i][:, 0], 
-            cloud_positions[i][:, 1]] = np.nan # better than setting it to 0
+            cloud_positions[i][:, 1]] = 0 # better than setting it to 0
 
         time_taken = time.monotonic() - start_time
         print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
@@ -798,4 +801,3 @@ ndwi = get_sat(sat_name="Sentinel", sat_number=2,
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
 print(f"total processing time: {round(TOTAL_TIME, 2)} seconds", flush=True)
-
