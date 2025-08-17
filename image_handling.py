@@ -3,6 +3,11 @@ import os
 from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib import colors
+
+import geopandas as gpd
+import rasterio
+from rasterio import features
+
 from data_handling import check_duplicate_name
 
 def image_to_array(file_path_s):
@@ -35,6 +40,26 @@ def image_to_array(file_path_s):
             with Image.open(file_path) as img:
                 image_arrays.append(np.array(img))
         return image_arrays
+
+def mask_sea(image_array, image_metadata, sea_shapefile_path):
+    land_gdf = gpd.read_file(sea_shapefile_path) # vector outline of land
+    
+    land_gdf = land_gdf.to_crs(image_metadata["crs"]) # ensures shapefile and 
+    # raster are using the same coordinate system
+
+    land_mask = features.rasterize(
+        geometries=land_gdf.geometry, 
+        out_shape=image_array.shape, 
+        transform=image_metadata["transform"], 
+        fill=0, 
+        default_value=1, 
+        dtype=np.uint8
+        )
+    sea_mask = land_mask == 0 # sea = where land is not
+
+    image_array[sea_mask] = 0
+
+    return image_array
 
 def upscale_image_array(img_array, factor=2):
     """
