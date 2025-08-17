@@ -11,28 +11,33 @@ Workflow:
 1. Data Ingestion:
     - Reads Sentinel 2 image folders and locates necessary image bands.
 
-2. Preprocessing:
-    - Upscales lower-resolution bands if needed.
-    - Applies cloud masking using Sentinel 2 cloud probability data.
+2. Known Feature Masking:
+    - Sea, rivers and streams, large reservoirs, urban areas, areas with 
+    large slopes. 
 
-3. Index Computation:
-    - Calculates water indices (NDWI, MNDWI, AWEI-SH, AWEI-NSH).
+3. Cloud Masking: 
+    - OmniCloudMask, using red and green Sentinel 2 bands
 
-4. Visualization (Optional):
-    - Displays calculated water index images.
-    - Offers image saving.
+4. Compositing:
+    - Compute necessary spectral indices
+        - Normalized Difference Water Index (NDWI)
+        - Normalized Difference Vegetation Index (NDVI)
+        - Enhanced Vegetation Index (EVI)
+    - A set of Spectral-Temporal Metrics (STMs) computed for all pixels. 
+        - These metrics are based on the temporal median, and 25th and 75th 
+        percentiles of NDWI, NDVI, and/or EVI. 
+        - The NDVI and/or EVI can be used to differentiate vegetation water 
+        content from surface water bodies. 
+    - Optional data visualization at this stage. 
 
-5. Data Preparation:
-    - 
-
-6. Labelling:
+5. Training Data Polygons:
+    - Preliminary data preparation steps, including ensuring file content 
+    validity and presence, as well as locating and opening the necessary True 
+    Colour Image (TCI) for data labelling. 
     - Provides a Tkinter GUI for manual region of interest (ROI)  labelling via 
     rectangle selection.
     - Uses chunk-based processing; saves the quantity of water reservoirs and 
-    water bodies, labelled ROI coordinates, and chunk numbers to a CSV file.
-
-7. Segmentation:
-    - 
+    water bodies, labelled ROI coordinates, and chunk numbers to a CSV file. 
 
 Outputs:
     - Labelled data in CSV format, with chunk IDs, counts of water bodies, and 
@@ -65,10 +70,10 @@ from user_interfacing import table_print, prompt_roi
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 high_res = False # use finer 10m spatial resolution (slower)
-cloud_masking = True
-show_index_plots = True
+cloud_masking = False
+show_index_plots = False
 save_images = False
-label_data = True
+label_data = False
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 
 title_size = 8
@@ -198,6 +203,9 @@ def get_sat(sat_name, sat_number, folder):
             cloud_thin_positions, 
             cloud_shadows_positions
             ]
+
+        # CHANGE RECOMMENDATION: CALCULATE CLOUD POSITIONS HERE BUT THEN MASK 
+        # OUT THE PIXELS AFTER INDEX CALCULATION
         
         for i, image_array in enumerate(image_arrays_clouds):
             image_array[cloud_positions[i][:, 0], 
