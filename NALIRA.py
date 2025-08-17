@@ -12,8 +12,11 @@ Workflow:
     - Reads Sentinel 2 image folders and locates necessary image bands.
 
 2. Known Feature Masking:
-    - Sea, rivers and streams, large reservoirs, urban areas, areas with 
-    large slopes. 
+    - Sea: Can use region shapefile boundaries
+    - Rivers and streams: Uses dedicated river shapefile with 100m buffer
+    - Large reservoirs: Uses Northing and Easting information in CSV file
+    - Urban areas: 
+    - Areas with large slopes: 
 
 3. Cloud Masking: 
     - OmniCloudMask, using red and green Sentinel 2 bands
@@ -53,12 +56,13 @@ import numpy as np
 import csv
 from PIL import Image
 from omnicloudmask import predict_from_array
+import rasterio
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
 from data_handling import extract_coords, change_to_folder
 
-from image_handling import image_to_array, plot_indices
+from image_handling import image_to_array, mask_sea, plot_indices
 from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
@@ -168,6 +172,13 @@ def get_sat(sat_name, sat_number, folder):
     trying out the program, it is easier and much faster (about 20x faster) to 
     just use the 60m resolution images. However, when doing any actual data 
     generation, the 60m resolution images are not sufficient."""
+    try:
+        with rasterio.open(file_paths[0]) as src:
+            image_metadata = src.meta.copy()
+    except:
+        print("failed raster metadata pull")
+        pass
+
     image_arrays = image_to_array(file_paths)
     if cloud_masking:
         image_arrays_clouds = image_to_array(file_paths_clouds)
