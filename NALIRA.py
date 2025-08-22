@@ -73,11 +73,11 @@ from user_interfacing import table_print, prompt_roi
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = False # use finer 10m spatial resolution (slower)
-cloud_masking = False
-show_index_plots = False
+high_res = True # use finer 10m spatial resolution (slower)
+cloud_masking = True
+show_index_plots = True
 save_images = False
-label_data = False
+label_data = True
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 
 title_size = 8
@@ -143,7 +143,7 @@ def get_sat(sat_name, sat_number, folder):
     if high_res:
         res = "10m"
         path_10 = os.path.join(images_path, "IMG_DATA", "R10m")
-        path_20 = os.path.join(images_path, "IMG_DATA", "R20m") # for cloud masking
+        #path_20 = os.path.join(images_path, "IMG_DATA", "R20m") # for cloud masking
     else:
         res = "60m"
         path_60 = os.path.join(images_path, "IMG_DATA", "R60m")
@@ -158,8 +158,8 @@ def get_sat(sat_name, sat_number, folder):
         if high_res:
             file_paths.append(os.path.join(path_10, 
                                            f"{prefix}_B{band}_10m.jp2"))
-            file_paths_clouds.append(os.path.join(path_20, 
-                                    f"{prefix}_B{band}_20m.jp2"))
+            #file_paths_clouds.append(os.path.join(path_20, 
+                                    #f"{prefix}_B{band}_20m.jp2"))
         else:
             file_paths.append(os.path.join(path_60, 
                                                f"{prefix}_B{band}_60m.jp2"))
@@ -182,6 +182,7 @@ def get_sat(sat_name, sat_number, folder):
     image_arrays = image_to_array(file_paths)
     if cloud_masking:
         image_arrays_clouds = image_to_array(file_paths_clouds)
+        image_arrays_clouds = image_arrays
     
     time_taken = time.monotonic() - start_time
     print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
@@ -204,7 +205,11 @@ def get_sat(sat_name, sat_number, folder):
         # pred_mask = predict_from_array(input_array, mosaic_device="cuda")
         
         # for no nvidia case (inference on cpu)
-        pred_mask = predict_from_array(input_array, mosaic_device="cpu")
+        try:
+            pred_mask = predict_from_array(input_array, mosaic_device="cuda")
+        except:
+            print("WARNING: CUDA implementation failed, using CPU")
+            pred_mask = predict_from_array(input_array, mosaic_device="cpu")
         
         cloud_thick_positions = np.argwhere(pred_mask[0] == 1)
         cloud_thin_positions = np.argwhere(pred_mask[0] == 2)
