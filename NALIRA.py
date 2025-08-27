@@ -174,7 +174,6 @@ def get_sat(sat_name, sat_number, folder):
             image_metadata = src.meta.copy()
     except:
         print("failed raster metadata pull")
-        pass
     
     image_arrays = image_to_array(file_paths)
     if cloud_masking:
@@ -191,13 +190,35 @@ def get_sat(sat_name, sat_number, folder):
     print("masking out known features")
     start_time = time.monotonic()
     
-    rivers_shapefile = os.path.join(HOME, "Downloads", "Masking", "rivers", 
-                                    "WatercourseLink.shp")
+    rivers_shapefile = os.path.join(
+        HOME, 
+        "Downloads", 
+        "Masking", 
+        "rivers", 
+        "data", 
+        "WatercourseLink.shp"
+        )
+    
+    boundaries_shapefile = os.path.join(
+        HOME, 
+        "Downloads", 
+        "Masking", 
+        "boundaries", 
+        "Regions_December_2024_Boundaries_EN_BSC_-6948965129330885393.geojson"
+        )
     
     for i in range(len(image_arrays)):
         image_arrays[i] = shapefile_mask(image_arrays[i], 
-                                   image_metadata, 
-                                   rivers_shapefile)
+                                         image_metadata, 
+                                         rivers_shapefile, 
+                                         feature_type="rivers")
+        image_arrays[i] = shapefile_mask(image_arrays[i], 
+                                         image_metadata, 
+                                         boundaries_shapefile, 
+                                         feature_type="sea")
+    
+    time_taken = time.monotonic() - start_time
+    print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
     
     
     # %%% 2. Masking Clouds
@@ -233,8 +254,8 @@ def get_sat(sat_name, sat_number, folder):
         
         for i, image_array in enumerate(image_arrays_clouds):
             image_array[cloud_positions[i][:, 0], 
-            cloud_positions[i][:, 1]] = 0 # better than setting it to 0
-
+            cloud_positions[i][:, 1]] = 0
+        
         time_taken = time.monotonic() - start_time
         print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
     else:
@@ -269,7 +290,7 @@ def get_sat(sat_name, sat_number, folder):
         else:
             print("displaying water index images")
         start_time = time.monotonic()
-        plot_indices(ndwi, plot_size, dpi, save_images, res)
+        plot_indices(ndwi, plot_size, dpi, save_images, folder_path, res)
         time_taken = time.monotonic() - start_time
         print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     else:
@@ -684,18 +705,6 @@ def get_sat(sat_name, sat_number, folder):
                             coordinates=res_coords[i][1], 
                             g_min=global_min, g_max=global_max, 
                             dupe_check=True)
-            # TCI data
-            res_tci_path = os.path.join(
-                labelling_path, "tci", "reservoirs"
-                )
-            change_to_folder(res_tci_path)
-            image_name = f"tci chunk {chunk_n} reservoir {i+1}.png"
-            save_image_file(data=tci_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=False, 
-                            coordinates=res_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
         except:
             had_an_oopsie = True
     
@@ -718,18 +727,6 @@ def get_sat(sat_name, sat_number, folder):
             save_image_file(data=ndwi_chunks[chunk_n], 
                             image_name=image_name, 
                             normalise=True, 
-                            coordinates=body_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
-            # TCI data
-            body_tci_path = os.path.join(
-                labelling_path, "tci", "water bodies"
-                )
-            change_to_folder(body_tci_path)
-            image_name = f"tci chunk {chunk_n} water body {i+1}.png"
-            save_image_file(data=tci_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=False, 
                             coordinates=body_coords[i][1], 
                             g_min=global_min, g_max=global_max, 
                             dupe_check=True)
@@ -759,18 +756,6 @@ def get_sat(sat_name, sat_number, folder):
                             coordinates=land_coords[i][1], 
                             g_min=global_min, g_max=global_max, 
                             dupe_check=True)
-            # TCI data
-            land_tci_path = os.path.join(
-                labelling_path, "tci", "land"
-                )
-            change_to_folder(land_tci_path)
-            image_name = f"tci chunk {chunk_n} land {i+1}.png"
-            save_image_file(data=tci_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=False, 
-                            coordinates=land_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
         except:
             had_an_oopsie = True
     
@@ -793,18 +778,6 @@ def get_sat(sat_name, sat_number, folder):
             save_image_file(data=ndwi_chunks[chunk_n], 
                             image_name=image_name, 
                             normalise=True, 
-                            coordinates=sea_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
-            # TCI data
-            sea_tci_path = os.path.join(
-                labelling_path, "tci", "sea"
-                )
-            change_to_folder(sea_tci_path)
-            image_name = f"tci chunk {chunk_n} sea {i+1}.png"
-            save_image_file(data=tci_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=False, 
                             coordinates=sea_coords[i][1], 
                             g_min=global_min, g_max=global_max, 
                             dupe_check=True)
