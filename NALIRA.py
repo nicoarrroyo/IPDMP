@@ -62,7 +62,7 @@ import rasterio
 from data_handling import rewrite, blank_entry_check, check_file_permission
 from data_handling import extract_coords, change_to_folder
 
-from image_handling import image_to_array, mask_sea, plot_indices
+from image_handling import image_to_array, shapefile_mask, plot_indices
 from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
@@ -73,11 +73,11 @@ from user_interfacing import table_print, prompt_roi
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = True # use finer 10m spatial resolution (slower)
-cloud_masking = True
+high_res = False # use finer 10m spatial resolution (slower)
+cloud_masking = False
 show_index_plots = True
 save_images = False
-label_data = True
+label_data = False
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 
 title_size = 8
@@ -86,9 +86,6 @@ plot_size = (5, 5) # larger plots increase detail and pixel count
 plot_size_chunks = (6, 6)
 
 HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
-
-# for the case where the current directory is considered differently
-# HOME = os.getcwd() # for example, in the google cloud virtual machine
 
 # %% General Mega Giga Function
 response_time = 0.0
@@ -178,7 +175,7 @@ def get_sat(sat_name, sat_number, folder):
     except:
         print("failed raster metadata pull")
         pass
-
+    
     image_arrays = image_to_array(file_paths)
     if cloud_masking:
         image_arrays_clouds = image_to_array(file_paths_clouds)
@@ -186,6 +183,22 @@ def get_sat(sat_name, sat_number, folder):
     
     time_taken = time.monotonic() - start_time
     print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
+    
+    # %%% 2. Known Feature Masking
+    print("==========")
+    print("| STEP 2 |")
+    print("==========")
+    print("masking out known features")
+    start_time = time.monotonic()
+    
+    rivers_shapefile = os.path.join(HOME, "Downloads", "Masking", "rivers", 
+                                    "WatercourseLink.shp")
+    
+    for i in range(len(image_arrays)):
+        image_arrays[i] = shapefile_mask(image_arrays[i], 
+                                   image_metadata, 
+                                   rivers_shapefile)
+    
     
     # %%% 2. Masking Clouds
     print("==========")
@@ -200,11 +213,6 @@ def get_sat(sat_name, sat_number, folder):
             image_arrays_clouds[0], 
             image_arrays_clouds[1]
             ))
-        
-        # for nvidia case
-        # pred_mask = predict_from_array(input_array, mosaic_device="cuda")
-        
-        # for no nvidia case (inference on cpu)
         try:
             pred_mask = predict_from_array(input_array, mosaic_device="cuda")
         except:
