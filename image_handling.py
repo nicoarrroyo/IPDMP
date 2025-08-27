@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 from matplotlib import colors
 
 import geopandas as gpd
-import rasterio
 from rasterio import features
 
 from data_handling import check_duplicate_name
@@ -41,8 +40,8 @@ def image_to_array(file_path_s):
                 image_arrays.append(np.array(img))
         return image_arrays
 
-def mask_sea(image_array, image_metadata, sea_shapefile_path):
-    land_gdf = gpd.read_file(sea_shapefile_path) # vector outline of land
+def shapefile_mask(image_array, image_metadata, shapefile_path):
+    land_gdf = gpd.read_file(shapefile_path) # vector outline of land
     
     land_gdf = land_gdf.to_crs(image_metadata["crs"]) # ensures shapefile and 
     # raster are using the same coordinate system
@@ -83,7 +82,7 @@ def upscale_image_array(img_array, factor=2):
     """
     return np.repeat(np.repeat(img_array, factor, axis=0), factor, axis=1)
 
-def mask_sentinel(path, high_res, image_arrays):
+def mask_clouds(path, high_res, image_arrays):
     """
     Start by opening the cloud probability file from Sentinel 2 imagery data 
     and converting this image into an array. Turn every pixel that is more 
