@@ -40,24 +40,38 @@ def image_to_array(file_path_s):
                 image_arrays.append(np.array(img))
         return image_arrays
 
-def shapefile_mask(image_array, image_metadata, shapefile_path):
-    land_gdf = gpd.read_file(shapefile_path) # vector outline of land
+def shapefile_mask(image_array, image_metadata, shapefile_path, feature_type):
+    # gdf means geospatial data fusion
+    feature_gdf = gpd.read_file(shapefile_path) # vector outline of feature
     
-    land_gdf = land_gdf.to_crs(image_metadata["crs"]) # ensures shapefile and 
-    # raster are using the same coordinate system
-
-    land_mask = features.rasterize(
-        geometries=land_gdf.geometry, 
+    feature_gdf = feature_gdf.to_crs(image_metadata["crs"]) # step to ensure 
+    # shapefile and raster are using the same coordinate system
+    
+    feature_gdf["geometry"] = feature_gdf.geometry.buffer(50) # expands the 
+    # lines in shapefile to areas (50 metres)
+    # this step takes a long time, so consider not using the buffer for 
+    # certain masks where it is not necessary
+    
+    feature_mask_layer = features.rasterize(
+        shapes=feature_gdf.geometry, 
         out_shape=image_array.shape, 
+        fill=0,  
         transform=image_metadata["transform"], 
-        fill=0, 
         default_value=1, 
         dtype=np.uint8
         )
-    sea_mask = land_mask == 0 # sea = where land is not
-
-    image_array[sea_mask] = 0
-
+    
+    if feature_type == "sea":
+        feature_mask = feature_mask_layer == 0 # this has to be done because 
+        # the feature mask here is actually a shapefile of regional boundaries 
+        # in the UK, so the mask layer contains the land. to get around this, 
+        # we set the feature mask to everything that the layer is not which 
+        # effectively masks out the sea instead of the land
+    else:
+        feature_mask = feature_mask_layer == 1
+    
+    image_array[feature_mask] = 0
+    
     return image_array
 
 def upscale_image_array(img_array, factor=2):
@@ -134,7 +148,7 @@ def mask_clouds(path, high_res, image_arrays):
     
     return image_arrays
 
-def plot_indices(data, size, dpi, save_image, res):
+def plot_indices(data, size, dpi, save_image, folder_path, res):
     """ OUT OF DATE
     Take a list of indices and plot them for the user's viewing pleasure. 
     Other than being nice pictures to look at, there isn't that much use to 
@@ -181,7 +195,7 @@ def plot_indices(data, size, dpi, save_image, res):
         # check for file name already existing and increment file name
         base_name, extension = os.path.splitext(plot_name)
         counter = 1
-        while os.path.exists(plot_name):
+        while os.path.exists(os.path.join(folder_path, plot_name)):
             plot_name = f"{base_name}_{counter}{extension}"
             counter += 1
         
