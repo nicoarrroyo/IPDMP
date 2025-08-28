@@ -73,9 +73,9 @@ from user_interfacing import table_print, prompt_roi
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = False # use finer 10m spatial resolution (slower)
-cloud_masking = False
-show_index_plots = True
+high_res = True # use finer 10m spatial resolution (slower)
+cloud_masking = True
+show_index_plots = False
 save_images = False
 label_data = False
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
@@ -95,8 +95,8 @@ def get_sat(sat_name, sat_number, folder):
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
     table_print(n_chunks=n_chunks, high_res=high_res, 
-                show_plots=show_index_plots, save_images=save_images, 
-                labelling=label_data, cloud_masking=cloud_masking)
+                cloud_masking=cloud_masking, show_plots=show_index_plots, 
+                save_images=save_images, labelling=label_data)
     
     # %%% 1. Opening Images and Creating Image Arrays
     print("==========")
@@ -111,7 +111,6 @@ def get_sat(sat_name, sat_number, folder):
     the folder. This information can be used to easily navigate through the 
     folder's contents."""
     file_paths = []
-    file_paths_clouds = []
     satellite = f"{sat_name} {sat_number}"
     folder_path = os.path.join(HOME, "Downloads", satellite, folder)
     
@@ -140,7 +139,6 @@ def get_sat(sat_name, sat_number, folder):
     if high_res:
         res = "10m"
         path_10 = os.path.join(images_path, "IMG_DATA", "R10m")
-        #path_20 = os.path.join(images_path, "IMG_DATA", "R20m") # for cloud masking
     else:
         res = "60m"
         path_60 = os.path.join(images_path, "IMG_DATA", "R60m")
@@ -155,13 +153,9 @@ def get_sat(sat_name, sat_number, folder):
         if high_res:
             file_paths.append(os.path.join(path_10, 
                                            f"{prefix}_B{band}_10m.jp2"))
-            #file_paths_clouds.append(os.path.join(path_20, 
-                                    #f"{prefix}_B{band}_20m.jp2"))
         else:
             file_paths.append(os.path.join(path_60, 
                                                f"{prefix}_B{band}_60m.jp2"))
-            file_paths_clouds.append(os.path.join(path_60, 
-                                    f"{prefix}_B{band}_60m.jp2"))
     
     # %%%% 1.2 Opening and Converting Images
     """This is the long operation. It is very costly to open the large images, 
@@ -177,7 +171,6 @@ def get_sat(sat_name, sat_number, folder):
     
     image_arrays = image_to_array(file_paths)
     if cloud_masking:
-        image_arrays_clouds = image_to_array(file_paths_clouds)
         image_arrays_clouds = image_arrays
     
     time_taken = time.monotonic() - start_time
@@ -226,35 +219,40 @@ def get_sat(sat_name, sat_number, folder):
     print("| STEP 2 |")
     print("==========")
     if cloud_masking:
+        if not high_res:
+            print(("WARNING: high-resolution setting is disabled. cloud "
+                   "masking may not be accurate"))
+            confirm_continue_or_exit()
+        
         print("masking clouds")
         start_time = time.monotonic()
 
         input_array = np.stack((
-            image_arrays_clouds[2], 
-            image_arrays_clouds[0], 
-            image_arrays_clouds[1]
+            image_arrays_clouds[2], # red
+            image_arrays_clouds[0], # green
+            image_arrays_clouds[1] # nir
             ))
+        
         try:
-            pred_mask = predict_from_array(input_array, mosaic_device="cuda")
+            pred_mask_2d = predict_from_array(input_array, 
+                                              mosaic_device="cuda")[0]
         except:
             print("WARNING: CUDA implementation failed, using CPU")
-            pred_mask = predict_from_array(input_array, mosaic_device="cpu")
+            pred_mask_2d = predict_from_array(input_array, 
+                                              mosaic_device="cpu")[0]
         
-        cloud_thick_positions = np.argwhere(pred_mask[0] == 1)
-        cloud_thin_positions = np.argwhere(pred_mask[0] == 2)
-        cloud_shadows_positions = np.argwhere(pred_mask[0] == 3)
-        cloud_positions = [
-            cloud_thick_positions, 
-            cloud_thin_positions, 
-            cloud_shadows_positions
-            ]
-
+        combined_mask = (
+            (pred_mask_2d == 1) | 
+            (pred_mask_2d == 2) | 
+            (pred_mask_2d == 3)
+            )
+        
         # CHANGE RECOMMENDATION: CALCULATE CLOUD POSITIONS HERE BUT THEN MASK 
         # OUT THE PIXELS AFTER INDEX CALCULATION
         
-        for i, image_array in enumerate(image_arrays_clouds):
-            image_array[cloud_positions[i][:, 0], 
-            cloud_positions[i][:, 1]] = 0
+        for i in range(len(image_arrays)):
+            image_arrays[i] = image_arrays[i].astype(np.float32) # supports NaN
+            image_arrays[i][combined_mask] = np.nan
         
         time_taken = time.monotonic() - start_time
         print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
@@ -272,6 +270,7 @@ def get_sat(sat_name, sat_number, folder):
     for i, image_array in enumerate(image_arrays):
         image_arrays[i] = image_array.astype(np.float32)
     green, nir, red = image_arrays
+    globals()["img_arrs"] = image_arrays
     
     np.seterr(divide="ignore", invalid="ignore")
     ndwi = ((green - nir) / (green + nir))
@@ -304,26 +303,28 @@ def get_sat(sat_name, sat_number, folder):
     global response_time
     print("data preparation start")
     
-    # %%%% 5.1 Searching for, Opening, and Converting RGB Image
+    # %%%% 5.1 Preparing True Colour Image
     """nico!! remember to add a description!"""
-    print(f"opening {res} resolution true colour image")
-    
-    tci_path = os.path.join(images_path, "IMG_DATA", f"R{res}")
-    tci_file_name = prefix + f"_TCI_{res}.jp2"
-    tci_array = image_to_array(os.path.join(tci_path, tci_file_name))
-    
-    tci_60_path = os.path.join(folder_path, "GRANULE", subdirs[0], 
-                               "IMG_DATA", "R60m")
-    tci_60_file_name = prefix + "_TCI_60m.jp2"
-    with Image.open(os.path.join(tci_60_path, tci_60_file_name)) as img:
-        size = (img.width//10, img.height//10)
-        tci_60_array = np.array(img.resize(size))
+    if label_data:
+        print(f"opening {res} resolution true colour image")
+        
+        tci_path = os.path.join(images_path, "IMG_DATA", f"R{res}")
+        tci_file_name = prefix + f"_TCI_{res}.jp2"
+        tci_array = image_to_array(os.path.join(tci_path, tci_file_name))
+        
+        tci_60_path = os.path.join(folder_path, "GRANULE", subdirs[0], 
+                                   "IMG_DATA", "R60m")
+        tci_60_file_name = prefix + "_TCI_60m.jp2"
+        with Image.open(os.path.join(tci_60_path, tci_60_file_name)) as img:
+            size = (img.width//10, img.height//10)
+            tci_60_array = np.array(img.resize(size))
     
     # %%%% 5.2 Creating Chunks from Satellite Imagery
     """nico!! remember to add a description!"""
     print(f"creating {n_chunks} chunks from satellite imagery")
     index_chunks = split_array(array=ndwi, n_chunks=n_chunks)
-    tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
+    if label_data:
+        tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
     
     # %%%% 5.3 Preparing File for Labelling
     """nico!! remember to add a description!"""
@@ -394,7 +395,6 @@ def get_sat(sat_name, sat_number, folder):
     essentially fill in the coordinates that should exist in the place where 
     a chunk is supposed to contain some water body."""
     # find chunks with invalid or incomplete reservoir coordinate data
-    print("")
     reservoir_rows = []
     body_rows = []
     invalid_rows = []
@@ -675,6 +675,8 @@ def get_sat(sat_name, sat_number, folder):
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
     """nico!! remember to add a description! 0.4*max to bring down the ceiling 
     of ndwi so that reservoir and water bodies are better highlighted"""
+    globals()["ind_chunks"] = index_chunks
+    globals()["res_coords"] = res_coords
     ndwi_chunks = index_chunks[0]
     valid_chunks = [chunk
                     for chunk in ndwi_chunks
@@ -698,18 +700,28 @@ def get_sat(sat_name, sat_number, folder):
             )
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} reservoir {i+1}.png"
-        try:
-            save_image_file(data=ndwi_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=True, 
-                            coordinates=res_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
-        except:
-            had_an_oopsie = True
+        save_image_file(data=ndwi_chunks[chunk_n], 
+                        image_name=image_name, 
+                        normalise=True, 
+                        coordinates=res_coords[i][1], 
+                        g_min=global_min, g_max=global_max, 
+                        dupe_check=True)
+# =============================================================================
+#         try:
+#             save_image_file(data=ndwi_chunks[chunk_n], 
+#                             image_name=image_name, 
+#                             normalise=True, 
+#                             coordinates=res_coords[i][1], 
+#                             g_min=global_min, g_max=global_max, 
+#                             dupe_check=True)
+#         except Exception as e:
+#             had_an_oopsie = True
+#             exception = e
+# =============================================================================
     
     if had_an_oopsie:
         print("error in reservoir data segmentation")
+        #print(f"failed on chunk {chunk_n}, reservoir {i+1}, error {exception}")
     
     # %%%%% 7.2.2 Create an image of each water body and save it
     print("segmenting water body data")
