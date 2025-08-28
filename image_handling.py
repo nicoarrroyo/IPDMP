@@ -40,17 +40,17 @@ def image_to_array(file_path_s):
                 image_arrays.append(np.array(img))
         return image_arrays
 
-def shapefile_mask(image_array, image_metadata, shapefile_path, feature_type):
+def shapefile_mask(image_array, image_metadata, shapefile_path, 
+                   feature_type, buffer_metres=None):
     # gdf means geospatial data fusion
     feature_gdf = gpd.read_file(shapefile_path) # vector outline of feature
     
     feature_gdf = feature_gdf.to_crs(image_metadata["crs"]) # step to ensure 
     # shapefile and raster are using the same coordinate system
     
-    feature_gdf["geometry"] = feature_gdf.geometry.buffer(50) # expands the 
-    # lines in shapefile to areas (50 metres)
-    # this step takes a long time, so consider not using the buffer for 
-    # certain masks where it is not necessary
+    if buffer_metres is not None and buffer_metres > 0: # expands the lines in 
+    # the shapefile to render them wider than one pixel
+        feature_gdf["geometry"] = feature_gdf.geometry.buffer(buffer_metres)
     
     feature_mask_layer = features.rasterize(
         shapes=feature_gdf.geometry, 
@@ -61,12 +61,10 @@ def shapefile_mask(image_array, image_metadata, shapefile_path, feature_type):
         dtype=np.uint8
         )
     
-    if feature_type == "sea":
-        feature_mask = feature_mask_layer == 0 # this has to be done because 
-        # the feature mask here is actually a shapefile of regional boundaries 
-        # in the UK, so the mask layer contains the land. to get around this, 
-        # we set the feature mask to everything that the layer is not which 
-        # effectively masks out the sea instead of the land
+    if feature_type == "sea": # sea masking logic is inverted because 
+    # the shapefile defines land boundaries
+        feature_mask = feature_mask_layer == 0
+        # masks out where the layer is 0 (outside land polygons)
     else:
         feature_mask = feature_mask_layer == 1
     
@@ -199,7 +197,8 @@ def plot_indices(data, size, dpi, save_image, folder_path, res):
             plot_name = f"{base_name}_{counter}{extension}"
             counter += 1
         
-        plt.savefig(plot_name, dpi=dpi, bbox_inches="tight")
+        plt.savefig(os.path.join(folder_path, plot_name), 
+                    dpi=dpi, bbox_inches="tight")
         print(f"complete! saved as {plot_name}")
     
     print("displaying NDWI image", end="... ")
