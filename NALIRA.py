@@ -62,7 +62,7 @@ import rasterio
 from data_handling import rewrite, blank_entry_check, check_file_permission
 from data_handling import extract_coords, change_to_folder
 
-from image_handling import image_to_array, shapefile_mask, plot_indices
+from image_handling import image_to_array, known_feature_mask, plot_indices
 from image_handling import plot_chunks, save_image_file
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
@@ -75,8 +75,8 @@ dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
 high_res = True # use finer 10m spatial resolution (slower)
 cloud_masking = True
-show_index_plots = False
-save_images = False
+show_index_plots = True
+save_images = True
 label_data = False
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 
@@ -183,7 +183,7 @@ def get_sat(sat_name, sat_number, folder):
     print("masking out known features")
     start_time = time.monotonic()
     
-    rivers_shapefile = os.path.join(
+    rivers_data = os.path.join(
         HOME, 
         "Downloads", 
         "Masking", 
@@ -192,7 +192,7 @@ def get_sat(sat_name, sat_number, folder):
         "WatercourseLink.shp"
         )
     
-    boundaries_shapefile = os.path.join(
+    boundaries_data = os.path.join( # for masking the sea
         HOME, 
         "Downloads", 
         "Masking", 
@@ -200,15 +200,31 @@ def get_sat(sat_name, sat_number, folder):
         "Regions_December_2024_Boundaries_EN_BSC_-6948965129330885393.geojson"
         )
     
+    known_reservois_data = os.path.join( # for masking the sea
+        HOME, 
+        "Downloads", 
+        "Masking", 
+        "known reservoirs", 
+        "LRR _EW_202307_v1", 
+        "SHP", 
+        "LRR_ENG_20230601_WGS84.shp" # WGS84 is more accurate than OSGB35
+        )
+    
     for i in range(len(image_arrays)):
-        image_arrays[i] = shapefile_mask(image_arrays[i], 
-                                         image_metadata, 
-                                         rivers_shapefile, 
-                                         feature_type="rivers")
-        image_arrays[i] = shapefile_mask(image_arrays[i], 
-                                         image_metadata, 
-                                         boundaries_shapefile, 
-                                         feature_type="sea")
+        image_arrays[i] = known_feature_mask(image_arrays[i], 
+                                             image_metadata, 
+                                             rivers_data, 
+                                             feature_type="rivers", 
+                                             buffer_metres=50)
+        image_arrays[i] = known_feature_mask(image_arrays[i], 
+                                             image_metadata, 
+                                             boundaries_data, 
+                                             feature_type="sea")
+        image_arrays[i] = known_feature_mask(image_arrays[i], 
+                                             image_metadata, 
+                                             known_reservois_data, 
+                                             feature_type="known reservoirs", 
+                                             buffer_metres=50)
     
     time_taken = time.monotonic() - start_time
     print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
@@ -675,8 +691,6 @@ def get_sat(sat_name, sat_number, folder):
     # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
     """nico!! remember to add a description! 0.4*max to bring down the ceiling 
     of ndwi so that reservoir and water bodies are better highlighted"""
-    globals()["ind_chunks"] = index_chunks
-    globals()["res_coords"] = res_coords
     ndwi_chunks = index_chunks
     valid_chunks = [chunk
                     for chunk in ndwi_chunks
@@ -707,13 +721,13 @@ def get_sat(sat_name, sat_number, folder):
                             coordinates=res_coords[i][1], 
                             g_min=global_min, g_max=global_max, 
                             dupe_check=True)
-        except Exception as e:
+        except:
             had_an_oopsie = True
-            exception = e
     
     if had_an_oopsie:
         print("error in reservoir data segmentation")
-        print(f"failed on chunk {chunk_n}, reservoir {i+1}, error {exception}")
+    else:
+        print("successfully completed reservoir data segmentation")
     
     # %%%%% 7.2.2 Create an image of each water body and save it
     print("segmenting water body data")
@@ -739,6 +753,8 @@ def get_sat(sat_name, sat_number, folder):
     
     if had_an_oopsie:
         print("error in water body data segmentation")
+    else:
+        print("successfully completed water body data segmentation")
     
     # %%%% 7.3 Isolate and Save an Image of Mini-Chunks of Land and Sea
     # %%%%# 7.3.1 Land
@@ -765,6 +781,8 @@ def get_sat(sat_name, sat_number, folder):
     
     if had_an_oopsie:
         print("error in land data segmentation")
+    else:
+        print("successfully completed land data segmentation")
     
     # %%%%# 7.3.2 Sea
     print("segmenting sea data")
@@ -790,6 +808,8 @@ def get_sat(sat_name, sat_number, folder):
     
     if had_an_oopsie:
         print("error in sea data segmentation")
+    else:
+        print("successfully completed sea data segmentation")
     
     time_taken = time.monotonic() - start_time
     print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
