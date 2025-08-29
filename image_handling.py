@@ -40,10 +40,10 @@ def image_to_array(file_path_s):
                 image_arrays.append(np.array(img))
         return image_arrays
 
-def shapefile_mask(image_array, image_metadata, shapefile_path, 
-                   feature_type, buffer_metres=None):
+def known_feature_mask(image_array, image_metadata, data_path, 
+                       feature_type, buffer_metres=None):
     # gdf means geospatial data fusion
-    feature_gdf = gpd.read_file(shapefile_path) # vector outline of feature
+    feature_gdf = gpd.read_file(data_path) # vector outline of feature
     
     feature_gdf = feature_gdf.to_crs(image_metadata["crs"]) # step to ensure 
     # shapefile and raster are using the same coordinate system
