@@ -677,7 +677,7 @@ def get_sat(sat_name, sat_number, folder):
     of ndwi so that reservoir and water bodies are better highlighted"""
     globals()["ind_chunks"] = index_chunks
     globals()["res_coords"] = res_coords
-    ndwi_chunks = index_chunks[0]
+    ndwi_chunks = index_chunks
     valid_chunks = [chunk
                     for chunk in ndwi_chunks
                     if not np.all(np.isnan(chunk))]
@@ -700,28 +700,20 @@ def get_sat(sat_name, sat_number, folder):
             )
         change_to_folder(res_ndwi_path)
         image_name = f"ndwi chunk {chunk_n} reservoir {i+1}.png"
-        save_image_file(data=ndwi_chunks[chunk_n], 
-                        image_name=image_name, 
-                        normalise=True, 
-                        coordinates=res_coords[i][1], 
-                        g_min=global_min, g_max=global_max, 
-                        dupe_check=True)
-# =============================================================================
-#         try:
-#             save_image_file(data=ndwi_chunks[chunk_n], 
-#                             image_name=image_name, 
-#                             normalise=True, 
-#                             coordinates=res_coords[i][1], 
-#                             g_min=global_min, g_max=global_max, 
-#                             dupe_check=True)
-#         except Exception as e:
-#             had_an_oopsie = True
-#             exception = e
-# =============================================================================
+        try:
+            save_image_file(data=ndwi_chunks[chunk_n], 
+                            image_name=image_name, 
+                            normalise=True, 
+                            coordinates=res_coords[i][1], 
+                            g_min=global_min, g_max=global_max, 
+                            dupe_check=True)
+        except Exception as e:
+            had_an_oopsie = True
+            exception = e
     
     if had_an_oopsie:
         print("error in reservoir data segmentation")
-        #print(f"failed on chunk {chunk_n}, reservoir {i+1}, error {exception}")
+        print(f"failed on chunk {chunk_n}, reservoir {i+1}, error {exception}")
     
     # %%%%% 7.2.2 Create an image of each water body and save it
     print("segmenting water body data")
