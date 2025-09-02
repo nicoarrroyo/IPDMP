@@ -229,7 +229,6 @@ def get_sat(sat_name, sat_number, folder):
     time_taken = time.monotonic() - start_time
     print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
     
-    
     # %%% 2. Masking Clouds
     print("==========")
     print("| STEP 2 |")
