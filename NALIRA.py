@@ -52,11 +52,36 @@ Outputs:
 import time
 MAIN_START_TIME = time.monotonic()
 import os
-import numpy as np
-import csv
-from PIL import Image
-from omnicloudmask import predict_from_array
-import rasterio
+import sys
+try:
+    import numpy as np
+except:
+    print("failed numpy import")
+    sys.exit()
+
+try:
+    import csv
+except:
+    print("failed csv import")
+    sys.exit()
+
+try:
+    from PIL import Image
+except:
+    print("failed PIL import")
+    sys.exit()
+
+try:
+    from omnicloudmask import predict_from_array
+except:
+    print("failed omnicloudmask import")
+    sys.exit()
+
+try:
+    import rasterio
+except:
+    print("failed rasterio import")
+    sys.exit()
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
@@ -183,27 +208,23 @@ def get_sat(sat_name, sat_number, folder):
     print("masking out known features")
     start_time = time.monotonic()
     
+    masking_path = os.path.join(HOME, "Downloads", "Masking")
+    
     rivers_data = os.path.join(
-        HOME, 
-        "Downloads", 
-        "Masking", 
+        masking_path, 
         "rivers", 
         "data", 
         "WatercourseLink.shp"
         )
     
     boundaries_data = os.path.join( # for masking the sea
-        HOME, 
-        "Downloads", 
-        "Masking", 
+        masking_path, 
         "boundaries", 
         "Regions_December_2024_Boundaries_EN_BSC_-6948965129330885393.geojson"
         )
     
-    known_reservois_data = os.path.join( # for masking the sea
-        HOME, 
-        "Downloads", 
-        "Masking", 
+    known_reservois_data = os.path.join(
+        masking_path, 
         "known reservoirs", 
         "LRR _EW_202307_v1", 
         "SHP", 
@@ -229,9 +250,9 @@ def get_sat(sat_name, sat_number, folder):
     time_taken = time.monotonic() - start_time
     print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% 2. Masking Clouds
+    # %%% 3. Masking Clouds
     print("==========")
-    print("| STEP 2 |")
+    print("| STEP 3 |")
     print("==========")
     if cloud_masking:
         if not high_res:
@@ -252,7 +273,8 @@ def get_sat(sat_name, sat_number, folder):
             pred_mask_2d = predict_from_array(input_array, 
                                               mosaic_device="cuda")[0]
         except:
-            print("WARNING: CUDA implementation failed, using CPU")
+            print("WARNING: CUDA call failed, using CPU")
+            confirm_continue_or_exit()
             pred_mask_2d = predict_from_array(input_array, 
                                               mosaic_device="cpu")[0]
         
@@ -262,24 +284,24 @@ def get_sat(sat_name, sat_number, folder):
             (pred_mask_2d == 3)
             )
         
-        # CHANGE RECOMMENDATION: CALCULATE CLOUD POSITIONS HERE BUT THEN MASK 
-        # OUT THE PIXELS AFTER INDEX CALCULATION
-        
         for i in range(len(image_arrays)):
             image_arrays[i] = image_arrays[i].astype(np.float32) # supports NaN
             image_arrays[i][combined_mask] = np.nan
         
         time_taken = time.monotonic() - start_time
-        print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
     else:
         print("skipping cloud masking")
     
-    # %%% 3. Calculating Water Indices
+    # %%% 4. Image Compositing
     print("==========")
-    print("| STEP 3 |")
+    print("| STEP 4 |")
     print("==========")
-    print("populating water index arrays")
     start_time = time.monotonic()
+    print("image compositing start")
+    
+    # %%%% 4.1 Calculating Water Index
+    print("populating water index arrays")
     
     # first convert to int... np.uint16 type is bad for algebraic operations!
     for i, image_array in enumerate(image_arrays):
@@ -289,15 +311,14 @@ def get_sat(sat_name, sat_number, folder):
     
     np.seterr(divide="ignore", invalid="ignore")
     ndwi = ((green - nir) / (green + nir))
+    # ndvi = 
+    # evi = 
     del green, nir
     
     time_taken = time.monotonic() - start_time
-    print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% 4. Showing Indices
-    print("==========")
-    print("| STEP 4 |")
-    print("==========")
+    # %%%% 4.2 Displaying Index 
     if show_index_plots:
         if save_images:
             print("saving and displaying water index images")
@@ -309,6 +330,9 @@ def get_sat(sat_name, sat_number, folder):
         print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     else:
         print("not displaying water index images")
+    
+    # %%%% 4.3 Creating Image Composites
+    # print("compositing scenes together")
     
     # %%% 5. Data Preparation
     print("==========")
