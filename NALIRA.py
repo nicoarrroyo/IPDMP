@@ -104,6 +104,7 @@ show_index_plots = True
 save_images = True
 label_data = False
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
+response_time = 0.0
 
 title_size = 8
 label_size = 4
@@ -113,8 +114,6 @@ plot_size_chunks = (6, 6)
 HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
 
 # %% General Mega Giga Function
-response_time = 0.0
-
 def get_sat(sat_name, sat_number, folder):
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
@@ -193,6 +192,7 @@ def get_sat(sat_name, sat_number, folder):
             image_metadata = src.meta.copy()
     except:
         print("failed raster metadata pull")
+        confirm_continue_or_exit()
     
     image_arrays = image_to_array(file_paths)
     if cloud_masking:
@@ -311,8 +311,12 @@ def get_sat(sat_name, sat_number, folder):
     
     np.seterr(divide="ignore", invalid="ignore")
     ndwi = ((green - nir) / (green + nir))
-    # ndvi = 
-    # evi = 
+    ndvi = ((nir - red) / (nir + red))
+    # evi_num = g * (nir - red)
+    # evi_den = (nir + (c1 * red) - (c2 * blue) + l)
+    # evi = evi_num / evi_den
+    # gain factor g, aerosol resistance coefficient c1 & c2
+    # evi2 = 2.4 * (nir - red) / (nir + red + 1) # 2-band evi can be useful
     del green, nir
     
     time_taken = time.monotonic() - start_time
