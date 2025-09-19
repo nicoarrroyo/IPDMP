@@ -21,11 +21,13 @@ Workflow:
 3. Cloud Masking: 
     - OmniCloudMask, using red and green Sentinel 2 bands
 
-4. Compositing:
+4. Index Calculation:
     - Compute necessary spectral indices
         - Normalized Difference Water Index (NDWI)
         - Normalized Difference Vegetation Index (NDVI)
         - Enhanced Vegetation Index (EVI)
+
+5. Compositing:
     - A set of Spectral-Temporal Metrics (STMs) computed for all pixels. 
         - These metrics are based on the temporal median, and 25th and 75th 
         percentiles of NDWI, NDVI, and/or EVI. 
@@ -33,7 +35,7 @@ Workflow:
         content from surface water bodies. 
     - Optional data visualization at this stage. 
 
-5. Training Data Polygons:
+7. Training Data Polygons:
     - Preliminary data preparation steps, including ensuring file content 
     validity and presence, as well as locating and opening the necessary True 
     Colour Image (TCI) for data labelling. 
@@ -114,7 +116,7 @@ plot_size_chunks = (6, 6)
 HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
 
 # %% General Mega Giga Function
-def get_sat(sat_name, sat_number, folder):
+def get_sat(sat_name, sat_number, folders):
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
@@ -134,220 +136,260 @@ def get_sat(sat_name, sat_number, folder):
     follow naming conventions that use information contained in the title of 
     the folder. This information can be used to easily navigate through the 
     folder's contents."""
-    file_paths = []
+    ndwi_arrays_list = []
+    # ndvi_arrays_list = []
+    # evi_arrays_list = []
+    # evi2_arrays_list = []
     satellite = f"{sat_name} {sat_number}"
-    folder_path = os.path.join(HOME, "Downloads", satellite, folder)
-    
-    # %%%%% 1.1.1 Subfolder naming convention edge case
-    """This folder has a strange naming convention that doesn't quite apply to 
-    the other folders, so it's difficult to find a rule that would work for 
-    any Sentinel 2 image. The easier way of finding this folder is by 
-    searching for any available directories in the GRANULE folder, and if 
-    there is more than one, then alert the user and exit, otherwise go into 
-    that one directory because it will be the one we're looking for."""
-    images_path = os.path.join(folder_path, "GRANULE")
-    subdirs = [d for d in os.listdir(images_path) 
-               if os.path.isdir(os.path.join(images_path, d))]
-    if len(subdirs) == 1:
-        images_path = os.path.join(images_path, subdirs[0])
-    else:
-        print("Too many subdirectories in 'GRANULE':", len(subdirs))
-        return
-    
-    # %%%%% 1.1.2 Resolution selection and file name deconstruction
-    """Low resolution is beneficial for faster processing times, but is not 
-    good for rigorous data generation. High resolution combines some 10m and 
-    20m bands for the highest fidelity images, but processing these images is 
-    much slower. The file paths pointing to the band image files are also 
-    finalised in this section."""
-    if high_res:
-        res = "10m"
-        path_10 = os.path.join(images_path, "IMG_DATA", "R10m")
-    else:
-        res = "60m"
-        path_60 = os.path.join(images_path, "IMG_DATA", "R60m")
-    
-    (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
-     processing_baseline_number, relative_orbit_number, tile_number_field, 
-     product_discriminator_and_format) = folder.split("_")
-    prefix = (f"{tile_number_field}_{datatake_start_sensing_time}")
-    bands = get_sentinel_bands(sat_number, high_res)
-    
-    for band in bands:
-        if high_res:
-            file_paths.append(os.path.join(path_10, 
-                                           f"{prefix}_B{band}_10m.jp2"))
+    for folder in folders:
+        file_paths = []
+        folder_path = os.path.join(HOME, "Downloads", satellite, folder)
+        images_path = os.path.join(folder_path, "GRANULE")
+        
+        # %%%%% 1.1.1 Subfolder iterative search
+        """This folder has a strange naming convention that doesn't quite apply 
+        to the other folders, so it's difficult to find a rule that would work 
+        for any Sentinel 2 image. The easier way of finding this folder is by 
+        searching for any available directories in the GRANULE folder, and if 
+        there is more than one, then alert the user and exit, otherwise go into 
+        that one directory because it will be the one we're looking for."""
+        subdirs = [d for d in os.listdir(images_path) 
+                   if os.path.isdir(os.path.join(images_path, d))]
+        if len(subdirs) == 1:
+            images_path = os.path.join(images_path, subdirs[0])
         else:
-            file_paths.append(os.path.join(path_60, 
-                                               f"{prefix}_B{band}_60m.jp2"))
-    
-    # %%%% 1.2 Opening and Converting Images
-    """This is the long operation. It is very costly to open the large images, 
-    which is why the high-res option exists. When troubleshooting or just 
-    trying out the program, it is easier and much faster (about 20x faster) to 
-    just use the 60m resolution images. However, when doing any actual data 
-    generation, the 60m resolution images are not sufficient."""
-    try:
-        with rasterio.open(file_paths[0]) as src:
-            image_metadata = src.meta.copy()
-    except:
-        print("failed raster metadata pull")
-        confirm_continue_or_exit()
-    
-    image_arrays = image_to_array(file_paths)
-    if cloud_masking:
-        image_arrays_clouds = image_arrays
-    
-    time_taken = time.monotonic() - start_time
-    print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
-    
-    # %%% 2. Known Feature Masking
-    print("==========")
-    print("| STEP 2 |")
-    print("==========")
-    print("masking out known features")
-    start_time = time.monotonic()
-    
-    masking_path = os.path.join(HOME, "Downloads", "Masking")
-    
-    rivers_data = os.path.join(
-        masking_path, 
-        "rivers", 
-        "data", 
-        "WatercourseLink.shp"
-        )
-    
-    boundaries_data = os.path.join( # for masking the sea
-        masking_path, 
-        "boundaries", 
-        "Regions_December_2024_Boundaries_EN_BSC_-6948965129330885393.geojson"
-        )
-    
-    known_reservois_data = os.path.join(
-        masking_path, 
-        "known reservoirs", 
-        "LRR _EW_202307_v1", 
-        "SHP", 
-        "LRR_ENG_20230601_WGS84.shp" # WGS84 is more accurate than OSGB35
-        )
-    
-    for i in range(len(image_arrays)):
-        image_arrays[i] = known_feature_mask(image_arrays[i], 
-                                             image_metadata, 
-                                             rivers_data, 
-                                             feature_type="rivers", 
-                                             buffer_metres=50)
-        image_arrays[i] = known_feature_mask(image_arrays[i], 
-                                             image_metadata, 
-                                             boundaries_data, 
-                                             feature_type="sea")
-        image_arrays[i] = known_feature_mask(image_arrays[i], 
-                                             image_metadata, 
-                                             known_reservois_data, 
-                                             feature_type="known reservoirs", 
-                                             buffer_metres=50)
-    
-    time_taken = time.monotonic() - start_time
-    print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
-    
-    # %%% 3. Masking Clouds
-    print("==========")
-    print("| STEP 3 |")
-    print("==========")
-    if cloud_masking:
-        if not high_res:
-            print(("WARNING: high-resolution setting is disabled. cloud "
-                   "masking may not be accurate"))
+            print("Too many subdirectories in 'GRANULE':", len(subdirs))
             confirm_continue_or_exit()
+            continue
         
-        print("masking clouds")
-        start_time = time.monotonic()
-
-        input_array = np.stack((
-            image_arrays_clouds[2], # red
-            image_arrays_clouds[0], # green
-            image_arrays_clouds[1] # nir
-            ))
+        # %%%%% 1.1.2 Resolution selection and file name deconstruction
+        """Low resolution should only be used for troubleshooting as it does 
+        not produce usable training data. High resolution uses the 10m spatial 
+        resolution images but processing time is significantly longer."""
+        if high_res:
+            res = "10m"
+            path_10 = os.path.join(images_path, "IMG_DATA", "R10m")
+        else:
+            res = "60m"
+            path_60 = os.path.join(images_path, "IMG_DATA", "R60m")
         
+        (sentinel_name, instrument_and_product_level, 
+        datatake_start_sensing_time, processing_baseline_number, 
+        relative_orbit_number, tile_number_field, 
+        product_discriminator_and_format) = folder.split("_")
+        
+        prefix = (f"{tile_number_field}_{datatake_start_sensing_time}")
+        bands = get_sentinel_bands(sat_number, high_res)
+        
+        for band in bands:
+            if high_res:
+                file_paths.append(
+                os.path.join(path_10, f"{prefix}_B{band}_10m.jp2")
+                )
+            else:
+                file_paths.append(
+                os.path.join(path_60, f"{prefix}_B{band}_60m.jp2")
+                )
+        
+        # %%%% 1.2 Opening and Converting Images
+        """This operation takes a long time because the image files are so big. 
+        The difference in duration for this operation between using and not 
+        using high_res is a factor of about 20, but, again, not using high_res 
+        results in unusable images."""
         try:
-            pred_mask_2d = predict_from_array(input_array, 
-                                              mosaic_device="cuda")[0]
+            with rasterio.open(file_paths[0]) as src:
+                image_metadata = src.meta.copy()
         except:
-            print("WARNING: CUDA call failed, using CPU")
+            print("failed raster metadata pull")
             confirm_continue_or_exit()
-            pred_mask_2d = predict_from_array(input_array, 
-                                              mosaic_device="cpu")[0]
         
-        combined_mask = (
-            (pred_mask_2d == 1) | 
-            (pred_mask_2d == 2) | 
-            (pred_mask_2d == 3)
+        image_arrays = image_to_array(file_paths)
+        
+        if cloud_masking:
+            image_arrays_clouds = image_arrays
+        
+        time_taken = time.monotonic() - start_time
+        print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
+        
+        # %%% 2. Known Feature Masking
+        print("==========")
+        print("| STEP 2 |")
+        print("==========")
+        print("masking out known features")
+        start_time = time.monotonic()
+        
+        masking_path = os.path.join(HOME, "Downloads", "Masking")
+        
+        rivers_data = os.path.join(
+            masking_path, 
+            "rivers", 
+            "data", 
+            "WatercourseLink.shp"
+            )
+        
+        boundaries_data = os.path.join( # for masking the sea
+            masking_path, 
+            "boundaries", 
+            ("Regions_December_2024_Boundaries_EN_BSC_"
+            "-6948965129330885393.geojson")
+            )
+        
+        known_reservoirs_data = os.path.join(
+            masking_path, 
+            "known reservoirs", 
+            "LRR _EW_202307_v1", 
+            "SHP", 
+            "LRR_ENG_20230601_WGS84.shp" # WGS84 is more accurate than OSGB35
             )
         
         for i in range(len(image_arrays)):
-            image_arrays[i] = image_arrays[i].astype(np.float32) # supports NaN
-            image_arrays[i][combined_mask] = np.nan
+            image_arrays[i] = known_feature_mask(
+            image_arrays[i], 
+            image_metadata, 
+            rivers_data, 
+            feature_type="rivers", 
+            buffer_metres=50
+            )
+            image_arrays[i] = known_feature_mask(
+            image_arrays[i], 
+            image_metadata, 
+            boundaries_data, 
+            feature_type="sea"
+            )
+            image_arrays[i] = known_feature_mask(
+            image_arrays[i], 
+            image_metadata, 
+            known_reservoirs_data, 
+            feature_type="known reservoirs", 
+            buffer_metres=50
+            )
         
         time_taken = time.monotonic() - start_time
-        print(f"step 3 complete! time taken: {round(time_taken, 2)} seconds")
-    else:
-        print("skipping cloud masking")
+        print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% 4. Image Compositing
-    print("==========")
-    print("| STEP 4 |")
-    print("==========")
-    start_time = time.monotonic()
-    print("image compositing start")
-    
-    # %%%% 4.1 Calculating Water Index
-    print("populating water index arrays")
-    
-    # first convert to int... np.uint16 type is bad for algebraic operations!
-    for i, image_array in enumerate(image_arrays):
-        image_arrays[i] = image_array.astype(np.float32)
-    green, nir, red = image_arrays
-    globals()["img_arrs"] = image_arrays
-    
-    np.seterr(divide="ignore", invalid="ignore")
-    ndwi = ((green - nir) / (green + nir))
-    ndvi = ((nir - red) / (nir + red))
-    # evi_num = g * (nir - red)
-    # evi_den = (nir + (c1 * red) - (c2 * blue) + l)
-    # evi = evi_num / evi_den
-    # gain factor g, aerosol resistance coefficient c1 & c2
-    # evi2 = 2.4 * (nir - red) / (nir + red + 1) # 2-band evi can be useful
-    del green, nir
-    
+        # %%% 3. Masking Clouds
+        print("==========")
+        print("| STEP 3 |")
+        print("==========")
+        if cloud_masking:
+            if not high_res:
+                print(("WARNING: high-resolution setting is disabled. "
+                "cloud masking may not be accurate"))
+                confirm_continue_or_exit()
+            
+            print("masking clouds")
+            start_time = time.monotonic()
+
+            input_array = np.stack((
+                image_arrays_clouds[2], # red
+                image_arrays_clouds[0], # green
+                image_arrays_clouds[1] # nir
+                ))
+            
+            try:
+                pred_mask_2d = predict_from_array(input_array, 
+                                                  mosaic_device="cuda")[0]
+            except:
+                print("WARNING: CUDA call failed, using CPU")
+                confirm_continue_or_exit()
+                pred_mask_2d = predict_from_array(input_array, 
+                                                  mosaic_device="cpu")[0]
+            
+            combined_mask = (
+                (pred_mask_2d == 1) | 
+                (pred_mask_2d == 2) | 
+                (pred_mask_2d == 3)
+                )
+            
+            for i in range(len(image_arrays)):
+                # float is used as it supports NaN
+                image_arrays[i] = image_arrays[i].astype(np.float32)
+                image_arrays[i][combined_mask] = np.nan
+            
+            time_taken = time.monotonic() - start_time
+            print("step 3 complete! time taken: "
+            f"{round(time_taken, 2)} seconds")
+        else:
+            print("skipping cloud masking")
+        
+        # %%% 4. Index Calculation
+        print("==========")
+        print("| STEP 4 |")
+        print("==========")
+        start_time = time.monotonic()
+        print("index calculation start")
+        
+        # %%%% 4.1 Image Array Type Conversion
+        print("converting image array types")
+        # first convert to int
+        # np.uint16 type is bad for algebraic operations!
+        for i, image_array in enumerate(image_arrays):
+            image_arrays[i] = image_array.astype(np.float32)
+        green, nir, red = image_arrays
+        
+        # %%%% 4.2 Calculating Indices
+        print("populating index arrays")
+        np.seterr(divide="ignore", invalid="ignore")
+        ndwi = ((green - nir) / (green + nir))
+        print("ndwi done")
+        ndvi = ((nir - red) / (nir + red))
+        print("ndvi done")
+        # evi_num = g * (nir - red)
+        # evi_den = (nir + (c1 * red) - (c2 * blue) + l)
+        # evi = evi_num / evi_den
+        # print("main evi done")
+        # gain factor g, aerosol resistance coefficient c1 & c2
+        # evi2 = 2.4 * (nir - red) / (nir + red + 1) # 2-band evi can be useful
+        # print("two-band evi done")
+        
+        ndwi_arrays_list.append(ndwi)
+        # ndvi_arrays_list.append(ndvi)
+        # evi_arrays_list.append(evi)
+        # evi2_arrays_list.append(evi2)
+        
     time_taken = time.monotonic() - start_time
     print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%%% 4.2 Displaying Index 
+    # %%% 5. Spectral Temporal Metrics
+    print("==========")
+    print("| STEP 5 |")
+    print("==========")
+    start_time = time.monotonic()
+    print("temporal image compositing start")
+    
+    # %%%% 5.1 Preparation for Compositing
+    ndwi_stack = np.stack(ndwi_arrays_list, axis=-1)
+    ndwi_mean = np.nanmean(ndwi_stack, axis=-1)
+    ndwi_sd = np.nanstd(ndwi_stack, axis=-1)
+    
+    # %%%% 5.2 Compositing Scenes Together
+    ndwi_composite = np.stack([ndwi_mean, ndwi_sd], axis=-1)
+    
+    # %%%% 5.3 Displaying Index
     if show_index_plots:
         if save_images:
             print("saving and displaying water index images")
         else:
             print("displaying water index images")
         start_time = time.monotonic()
-        plot_indices(ndwi, plot_size, dpi, save_images, folder_path, res)
+        plot_indices(ndwi_composite, plot_size, dpi, save_images, 
+        folder_path, res)
         time_taken = time.monotonic() - start_time
-        print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
     else:
         print("not displaying water index images")
     
-    # %%%% 4.3 Creating Image Composites
-    # print("compositing scenes together")
-    
-    # %%% 5. Data Preparation
+    # %%% 6. Data Preparation
     print("==========")
-    print("| STEP 5 |")
+    print("| STEP 6 |")
     print("==========")
     start_time = time.monotonic()
     global response_time
     print("data preparation start")
     
-    # %%%% 5.1 Preparing True Colour Image
-    """nico!! remember to add a description!"""
+    # %%%% 6.1 Preparing True Colour Image
+    """Load the TCI file at selected resolution, convert to array, resize for 
+    GUI labelling."""
     if label_data:
         print(f"opening {res} resolution true colour image")
         
@@ -362,15 +404,17 @@ def get_sat(sat_name, sat_number, folder):
             size = (img.width//10, img.height//10)
             tci_60_array = np.array(img.resize(size))
     
-    # %%%% 5.2 Creating Chunks from Satellite Imagery
-    """nico!! remember to add a description!"""
+    # %%%% 6.2 Creating Chunks from Satellite Imagery
+    """Split the NDWI array into n_chunks equal segments for batch ROI 
+    labelling and parallel processing."""
     print(f"creating {n_chunks} chunks from satellite imagery")
-    index_chunks = split_array(array=ndwi, n_chunks=n_chunks)
+    index_chunks = split_array(array=ndwi_composite, n_chunks=n_chunks)
     if label_data:
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
     
-    # %%%% 5.3 Preparing File for Labelling
-    """nico!! remember to add a description!"""
+    # %%%% 6.3 Preparing File for Labelling
+    """Initialise or validate the CSV file by enforcing a header, removing 
+    blank lines, and ensuring sequential chunk indices"""
     break_flag = False
     
     labelling_path = os.path.join(folder_path, "training data")
@@ -381,7 +425,7 @@ def get_sat(sat_name, sat_number, folder):
     data_file = os.path.join(labelling_path, data_file_name)
     blank_entry_check(file=data_file) # remove all blank entries
     
-    # %%%%% 5.3.1 File validity check
+    # %%%%% 6.3.1 File validity check
     """This section is about checking that the contents of the file are sound. 
     This means checking that, for example, the file exists, or that the entry 
     for chunk 241 is after the entry for chunk 240, or any other problem that 
@@ -427,9 +471,9 @@ def get_sat(sat_name, sat_number, folder):
     
     i = last_chunk + 1 # from this point on, "i" is off-limits as a counter
     
-    # %%%%% 5.3.2 Data completion check
+    # %%%%% 6.3.2 Data completion check
     """Once file validity has been verified, this step is for ensuring that 
-    the data in the file is complete. While the previous step (5.3.1) was 
+    the data in the file is complete. While the previous step (6.3.1) was 
     mostly intended for checking that the chunks are in the correct order, 
     this step additionally checks that the chunks that are supposed to have 
     data, i.e. a chunk is noted as containing a reservoir, that there are 
@@ -488,11 +532,11 @@ def get_sat(sat_name, sat_number, folder):
         i = invalid_rows[0]
         invalid_rows_index = 0
     time_taken = time.monotonic() - start_time - response_time
-    print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% 6. Data Labelling
+    # %%% 7. Data Labelling
     print("==========")
-    print("| STEP 6 |")
+    print("| STEP 7 |")
     print("==========")
     start_time = time.monotonic()
     if not label_data:
@@ -500,7 +544,7 @@ def get_sat(sat_name, sat_number, folder):
     else:
         print("data labelling start")
         
-        # %%%% 6.1 Outputting Images
+        # %%%% 7.1 Outputting Images
         print("outputting images...")
         
         while i < len(index_chunks):
@@ -514,7 +558,7 @@ def get_sat(sat_name, sat_number, folder):
             max_index[1] = round(np.nanmax(index_chunks[i]), 2)
             print(f"MAX NDWI: {max_index[1]}")
             
-            # %%%% 6.2 User Labelling
+            # %%%% 7.2 User Labelling
             blank_entry_check(file=data_file)
             response_time_start = time.monotonic()
             if data_correction:
@@ -533,8 +577,10 @@ def get_sat(sat_name, sat_number, folder):
                 blank_entry_check(file=data_file)
                 back_flag = False
                 try:
-                    # %%%%% 6.2.1 Regular integer response
-                    """nico!! remember to add a description!"""
+                    # %%%%% 7.2.1 Regular integer response
+                    """Parse integer input for reservoirs and bodies, enfore 
+                    maximum limits, and prompt ROI drawing and collect 
+                    coordinates."""
                     # handle number of reservoirs entry
                     n_reservoirs = int(n_reservoirs)
                     entry_list = [i,n_reservoirs,""]
@@ -572,14 +618,14 @@ def get_sat(sat_name, sat_number, folder):
                     n_reservoirs = str(n_reservoirs)
                     n_bodies = str(n_bodies)
                     if "break" in n_bodies or "break" in n_reservoirs:
-                        # %%%%% 6.2.2 Non-integer response: "break"
+                        # %%%%% 7.2.2 Non-integer response: "break"
                         """nico!! remember to add a description!"""
                         print("taking a break")
                         response_time += time.monotonic() - response_time_start
                         break_flag = True
                         break
                     elif "back" in n_bodies or "back" in n_reservoirs:
-                        # %%%%% 6.2.3 Non-integer response: "back"
+                        # %%%%% 7.2.3 Non-integer response: "back"
                         """nico!! remember to add a description!"""
                         back_flag = True
                         if data_correction:
@@ -599,7 +645,7 @@ def get_sat(sat_name, sat_number, folder):
                             rewrite(write_file=wr, rows=rows)
                         break
                     else:
-                        # %%%%% 6.2.4 Non-integer response: error
+                        # %%%%% 7.2.4 Non-integer response: error
                         """nico!! remember to add a description!"""
                         print("error: non-integer response."
                               "\ntype 'break' to save and quit"
@@ -607,7 +653,7 @@ def get_sat(sat_name, sat_number, folder):
                         n_reservoirs = input("how many "
                                              "reservoirs? ").strip().lower()
             
-            # %%%% 6.3 Saving Results
+            # %%%% 7.3 Saving Results
             """nico!! remember to add a description!"""
             if break_flag:
                 break
@@ -638,15 +684,15 @@ def get_sat(sat_name, sat_number, folder):
                         ap.write(f"\n{csv_entry}")
         print(f"responding time: {round(response_time, 2)} seconds")            
         time_taken = time.monotonic() - start_time - response_time
-        print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
     
-    # %%% 7. Data Segmentation
+    # %%% 8. Data Segmentation
     print("==========")
-    print("| STEP 7 |")
+    print("| STEP 8 |")
     print("==========")
     start_time = time.monotonic()
     
-    # %%%% 7.1 Extract Reservoir and Water Body Coordinates
+    # %%%% 8.1 Extract Reservoir and Water Body Coordinates
     """nico!! remember to add a description!"""
     if not high_res:
         print("high resolution setting must be activated for data segmentation")
@@ -715,7 +761,7 @@ def get_sat(sat_name, sat_number, folder):
     
     globals()["lines"] = lines
     
-    # %%%% 7.2 Isolate and Save an Image of Each Reservoir and Water Body
+    # %%%% 8.2 Isolate and Save an Image of Each Reservoir and Water Body
     """nico!! remember to add a description! 0.4*max to bring down the ceiling 
     of ndwi so that reservoir and water bodies are better highlighted"""
     ndwi_chunks = index_chunks
@@ -729,7 +775,7 @@ def get_sat(sat_name, sat_number, folder):
         global_min = np.nan
         print("Warning: All NDWI chunks contained only NaN values.")
     
-    # %%%%% 7.2.1 Create an image of each water reservoir and save it
+    # %%%%% 8.2.1 Create an image of each water reservoir and save it
     print("segmenting reservoir data")
     had_an_oopsie = False
     for i in range(len(res_coords)):
@@ -756,7 +802,7 @@ def get_sat(sat_name, sat_number, folder):
     else:
         print("successfully completed reservoir data segmentation")
     
-    # %%%%% 7.2.2 Create an image of each water body and save it
+    # %%%%% 8.2.2 Create an image of each water body and save it
     print("segmenting water body data")
     had_an_oopsie = False
     for i in range(len(body_coords)):
@@ -783,8 +829,8 @@ def get_sat(sat_name, sat_number, folder):
     else:
         print("successfully completed water body data segmentation")
     
-    # %%%% 7.3 Isolate and Save an Image of Mini-Chunks of Land and Sea
-    # %%%%# 7.3.1 Land
+    # %%%% 8.3 Isolate and Save an Image of Mini-Chunks of Land and Sea
+    # %%%%# 8.3.1 Land
     print("segmenting land data")
     had_an_oopsie = False
     for i in range(len(land_coords)):
@@ -811,7 +857,7 @@ def get_sat(sat_name, sat_number, folder):
     else:
         print("successfully completed land data segmentation")
     
-    # %%%%# 7.3.2 Sea
+    # %%%%# 8.3.2 Sea
     print("segmenting sea data")
     had_an_oopsie = False
     for i in range(len(sea_coords)):
@@ -847,12 +893,16 @@ def get_sat(sat_name, sat_number, folder):
 """
 Sentinel 2 has varying resolution bands, with Blue (2), Green (3), Red (4), and 
 NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have 
-20m spatial resolution. There is no MIR band, so MNDWI is calculated correctly 
-with the SWIR2 band. 
+20m spatial resolution.
 """
 ndwi = get_sat(sat_name="Sentinel", sat_number=2, 
-                          folder=("S2C_MSIL2A_20250301T111031_N0511_R137_"
-                                  "T31UCU_20250301T152054.SAFE"))
+                          folders = [
+    ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE"), 
+    ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE"), 
+    ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE"), 
+    ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE"), 
+    ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
+]) # TEMPORARY FILES - DO NOT STACK DIFFERENT TILES TOGETHER
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
