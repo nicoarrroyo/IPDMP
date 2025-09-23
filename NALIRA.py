@@ -55,35 +55,20 @@ import time
 MAIN_START_TIME = time.monotonic()
 import os
 import sys
-try:
-    import numpy as np
-except:
-    print("failed numpy import")
-    sys.exit()
 
-try:
-    import csv
-except:
-    print("failed csv import")
-    sys.exit()
-
-try:
-    from PIL import Image
-except:
-    print("failed PIL import")
-    sys.exit()
-
-try:
-    from omnicloudmask import predict_from_array
-except:
-    print("failed omnicloudmask import")
-    sys.exit()
-
-try:
-    import rasterio
-except:
-    print("failed rasterio import")
-    sys.exit()
+imports = {
+    "numpy": "import numpy as np",
+    "csv": "import csv",
+    "PIL": "from PIL import Image",
+    "omnicloudmask": "from omnicloudmask import predict_from_array",
+    "rasterio": "import rasterio"
+}
+for name, statement in imports.items():
+    try:
+        exec(statement)
+    except ImportError:
+        print(f"failed {name} import")
+        sys.exit()
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
@@ -100,7 +85,7 @@ from user_interfacing import table_print, prompt_roi
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution
 cloud_masking = True
 show_index_plots = True
 save_images = True
