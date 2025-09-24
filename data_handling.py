@@ -82,7 +82,8 @@ def check_file_permission(file_name):
             with open(file_name, mode="a"):
                 break
         except IOError:
-            print("could not open file - please close the responses file")
+            print("could not open file - clashing permissions or missing file")
+            print("please close the responses file or create one")
             input("press enter to retry")
 
 def create_box(coords):
