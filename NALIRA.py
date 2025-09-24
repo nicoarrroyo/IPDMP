@@ -55,20 +55,35 @@ import time
 MAIN_START_TIME = time.monotonic()
 import os
 import sys
+try:
+    import numpy as np
+except:
+    print("failed numpy import")
+    sys.exit()
 
-imports = {
-    "numpy": "import numpy as np",
-    "csv": "import csv",
-    "PIL": "from PIL import Image",
-    "omnicloudmask": "from omnicloudmask import predict_from_array",
-    "rasterio": "import rasterio"
-}
-for name, statement in imports.items():
-    try:
-        exec(statement)
-    except ImportError:
-        print(f"failed {name} import")
-        sys.exit()
+try:
+    import csv
+except:
+    print("failed csv import")
+    sys.exit()
+
+try:
+    from PIL import Image
+except:
+    print("failed PIL import")
+    sys.exit()
+
+try:
+    from omnicloudmask import predict_from_array
+except:
+    print("failed omnicloudmask import")
+    sys.exit()
+
+try:
+    import rasterio
+except:
+    print("failed rasterio import")
+    sys.exit()
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
@@ -85,13 +100,19 @@ from user_interfacing import table_print, prompt_roi
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = True # use finer 10m spatial resolution
+high_res = True # use finer 10m spatial resolution (slower)
 cloud_masking = True
 show_index_plots = True
-save_images = True
+save_images = False
 label_data = False
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 response_time = 0.0
+
+folders = [
+    ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE"), 
+    ("S2A_MSIL2A_20250330T105651_N0511_R094_T31UCU_20250330T161414.SAFE"), 
+    ("S2C_MSIL2A_20250331T110651_N0511_R137_T31UCU_20250331T143812.SAFE")
+]
 
 title_size = 8
 label_size = 4
@@ -109,24 +130,26 @@ def get_sat(sat_name, sat_number, folders):
                 cloud_masking=cloud_masking, show_plots=show_index_plots, 
                 save_images=save_images, labelling=label_data)
     
-    # %%% 1. Opening Images and Creating Image Arrays
-    print("==========")
-    print("| STEP 1 |")
-    print("==========")
-    print("opening images and creating image arrays")
-    start_time = time.monotonic()
-    
-    # %%%% 1.1 Establishing Paths
-    """Most Sentinel 2 files that come packaged in a satellite image folder 
-    follow naming conventions that use information contained in the title of 
-    the folder. This information can be used to easily navigate through the 
-    folder's contents."""
     ndwi_arrays_list = []
     # ndvi_arrays_list = []
     # evi_arrays_list = []
     # evi2_arrays_list = []
     satellite = f"{sat_name} {sat_number}"
+    global response_time
+    
+    # %%% 1. Opening Images and Creating Image Arrays
     for folder in folders:
+        print("==========")
+        print("| STEP 1 |")
+        print("==========")
+        print("opening images and creating image arrays")
+        start_time = time.monotonic()
+        
+        # %%%% 1.1 Establishing Paths
+        """Most Sentinel 2 files that come packaged in a satellite image 
+        folder follow naming conventions that use information contained in the 
+        title of the folder. This information can be used to easily navigate 
+        through the folder's contents."""
         file_paths = []
         folder_path = os.path.join(HOME, "Downloads", satellite, folder)
         images_path = os.path.join(folder_path, "GRANULE")
@@ -144,7 +167,9 @@ def get_sat(sat_name, sat_number, folders):
             images_path = os.path.join(images_path, subdirs[0])
         else:
             print("Too many subdirectories in 'GRANULE':", len(subdirs))
+            response_time_start = time.monotonic()
             confirm_continue_or_exit()
+            response_time += time.monotonic() - response_time_start
             continue
         
         # %%%%% 1.1.2 Resolution selection and file name deconstruction
@@ -186,7 +211,9 @@ def get_sat(sat_name, sat_number, folders):
                 image_metadata = src.meta.copy()
         except:
             print("failed raster metadata pull")
+            response_time_start = time.monotonic()
             confirm_continue_or_exit()
+            response_time += time.monotonic() - response_time_start
         
         image_arrays = image_to_array(file_paths)
         
@@ -227,6 +254,13 @@ def get_sat(sat_name, sat_number, folders):
             "LRR_ENG_20230601_WGS84.shp" # WGS84 is more accurate than OSGB35
             )
         
+# =============================================================================
+#         urban_areas = os.path.join( # REMEMBER TO CITE SOURCE FROM README
+#             masking_path, 
+#             "urban areas", 
+#             )
+# =============================================================================
+        
         for i in range(len(image_arrays)):
             image_arrays[i] = known_feature_mask(
             image_arrays[i], 
@@ -260,7 +294,9 @@ def get_sat(sat_name, sat_number, folders):
             if not high_res:
                 print(("WARNING: high-resolution setting is disabled. "
                 "cloud masking may not be accurate"))
+                response_time_start = time.monotonic()
                 confirm_continue_or_exit()
+                response_time += time.monotonic() - response_time_start
             
             print("masking clouds")
             start_time = time.monotonic()
@@ -276,7 +312,9 @@ def get_sat(sat_name, sat_number, folders):
                                                   mosaic_device="cuda")[0]
             except:
                 print("WARNING: CUDA call failed, using CPU")
+                response_time_start = time.monotonic()
                 confirm_continue_or_exit()
+                response_time += time.monotonic() - response_time_start
                 pred_mask_2d = predict_from_array(input_array, 
                                                   mosaic_device="cpu")[0]
             
@@ -316,24 +354,22 @@ def get_sat(sat_name, sat_number, folders):
         print("populating index arrays")
         np.seterr(divide="ignore", invalid="ignore")
         ndwi = ((green - nir) / (green + nir))
-        print("ndwi done")
-        ndvi = ((nir - red) / (nir + red))
-        print("ndvi done")
+        ndwi_arrays_list.append(ndwi)
+        
+        # ndvi = ((nir - red) / (nir + red))
+        # ndvi_arrays_list.append(ndvi)
+        
+        # gain factor g, aerosol resistance coefficient c1 & c2
         # evi_num = g * (nir - red)
         # evi_den = (nir + (c1 * red) - (c2 * blue) + l)
         # evi = evi_num / evi_den
-        # print("main evi done")
-        # gain factor g, aerosol resistance coefficient c1 & c2
-        # evi2 = 2.4 * (nir - red) / (nir + red + 1) # 2-band evi can be useful
-        # print("two-band evi done")
-        
-        ndwi_arrays_list.append(ndwi)
-        # ndvi_arrays_list.append(ndvi)
         # evi_arrays_list.append(evi)
+        
+        # evi2 = 2.4 * (nir - red) / (nir + red + 1) # 2-band evi can be useful
         # evi2_arrays_list.append(evi2)
         
-    time_taken = time.monotonic() - start_time
-    print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
+        time_taken = time.monotonic() - start_time
+        print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 5. Spectral Temporal Metrics
     print("==========")
@@ -343,12 +379,14 @@ def get_sat(sat_name, sat_number, folders):
     print("temporal image compositing start")
     
     # %%%% 5.1 Preparation for Compositing
-    ndwi_stack = np.stack(ndwi_arrays_list, axis=-1)
-    ndwi_mean = np.nanmean(ndwi_stack, axis=-1)
-    ndwi_sd = np.nanstd(ndwi_stack, axis=-1)
+    ndwi_stack = np.stack(ndwi_arrays_list)
+    ndwi_mean = np.nanmean(ndwi_stack, axis=0)
+    globals()["ndwi_mean"] = ndwi_mean
+    #ndwi_sd = np.nanstd(ndwi_stack, axis=0)
     
     # %%%% 5.2 Compositing Scenes Together
-    ndwi_composite = np.stack([ndwi_mean, ndwi_sd], axis=-1)
+    #ndwi_composite = np.stack([ndwi_mean, ndwi_sd], axis=-1)
+    #globals()["ndwi_comp"] = ndwi_composite
     
     # %%%% 5.3 Displaying Index
     if show_index_plots:
@@ -357,7 +395,7 @@ def get_sat(sat_name, sat_number, folders):
         else:
             print("displaying water index images")
         start_time = time.monotonic()
-        plot_indices(ndwi_composite, plot_size, dpi, save_images, 
+        plot_indices(ndwi_mean, plot_size, dpi, save_images, 
         folder_path, res)
         time_taken = time.monotonic() - start_time
         print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
@@ -369,7 +407,6 @@ def get_sat(sat_name, sat_number, folders):
     print("| STEP 6 |")
     print("==========")
     start_time = time.monotonic()
-    global response_time
     print("data preparation start")
     
     # %%%% 6.1 Preparing True Colour Image
@@ -393,7 +430,7 @@ def get_sat(sat_name, sat_number, folders):
     """Split the NDWI array into n_chunks equal segments for batch ROI 
     labelling and parallel processing."""
     print(f"creating {n_chunks} chunks from satellite imagery")
-    index_chunks = split_array(array=ndwi_composite, n_chunks=n_chunks)
+    index_chunks = split_array(array=ndwi_mean, n_chunks=n_chunks)
     if label_data:
         tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
     
@@ -402,7 +439,21 @@ def get_sat(sat_name, sat_number, folders):
     blank lines, and ensuring sequential chunk indices"""
     break_flag = False
     
-    labelling_path = os.path.join(folder_path, "training data")
+    # check for a responses folder
+    data_folder_found = False
+    for folder in folders:
+        if data_folder_found:
+            continue
+        
+        folder_path = os.path.join(HOME, "Downloads", satellite, folder)
+        if os.path.exists(os.path.join(folder_path, "training data")):
+            data_folder_found = True
+            labelling_path = os.path.join(folder_path, "training data")
+    
+    if not data_folder_found:
+        labelling_path = os.path.join(folder_path, "training data")
+        change_to_folder(labelling_path) # create the folder
+        os.chdir(HOME) # always go back to initial home folder
     
     lines = []
     header = ("chunk,reservoirs,water bodies,reservoir "
@@ -685,7 +736,9 @@ def get_sat(sat_name, sat_number, folders):
         return ndwi
     
     print("program is about to begin data segmentation")
+    response_time_start = time.monotonic()
     confirm_continue_or_exit()
+    response_time += time.monotonic() - response_time_start
     
     print("extracting coordinates")
     res_rows = []
@@ -869,7 +922,8 @@ def get_sat(sat_name, sat_number, folders):
     else:
         print("successfully completed sea data segmentation")
     
-    time_taken = time.monotonic() - start_time
+    os.chdir(HOME)
+    time_taken = time.monotonic() - start_time - response_time
     print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 8. Satellite Output
@@ -881,13 +935,8 @@ NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have
 20m spatial resolution.
 """
 ndwi = get_sat(sat_name="Sentinel", sat_number=2, 
-                          folders = [
-    ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE"), 
-    ("S2C_MSIL2A_20250318T105821_N0511_R094_T30UYC_20250318T151218.SAFE"), 
-    ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE"), 
-    ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE"), 
-    ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
-]) # TEMPORARY FILES - DO NOT STACK DIFFERENT TILES TOGETHER
+                          folders = folders
+                          ) # TEMPORARY FILES - DO NOT STACK DIFFERENT TILES TOGETHER
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
