@@ -572,7 +572,7 @@ def get_sat(sat_name, sat_number):
                "incomplete, missing, or incorrect coordinate data")
         i = invalid_rows[0]
         invalid_rows_index = 0
-    time_taken = time.monotonic() - start_time - response_time
+    time_taken = time.monotonic() - start_time
     print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 7. Data Labelling
@@ -724,7 +724,7 @@ def get_sat(sat_name, sat_number):
                     with open(data_file, mode="a") as ap: # append
                         ap.write(f"\n{csv_entry}")
         print(f"responding time: {round(response_time, 2)} seconds")            
-        time_taken = time.monotonic() - start_time - response_time
+        time_taken = time.monotonic() - start_time
         print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 8. Data Segmentation
@@ -928,8 +928,8 @@ def get_sat(sat_name, sat_number):
         print("successfully completed sea data segmentation")
     
     os.chdir(HOME)
-    time_taken = time.monotonic() - start_time - response_time
-    print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
+    time_taken = time.monotonic() - start_time
+    print(f"step 8 complete! time taken: {round(time_taken, 2)} seconds")
     
     # %%% 8. Satellite Output
     return ndwi
