@@ -275,7 +275,7 @@ def get_sat(sat_name, sat_number):
             buffer_metres=50
             )
         
-        # different approach for urban areas because no raster mask option
+        # different approach for urban areas because .tif file
         urban_areas_data = os.path.join( # REMEMBER TO CITE SOURCE FROM README
             masking_path, 
             "urban areas", 
@@ -284,9 +284,6 @@ def get_sat(sat_name, sat_number):
             "4dd9df19-8df5-41a0-9829-8f6114e28db1", 
             "gblcm2024_10m.tif"
             )
-        east_bounds = (xmin, ymin, xmax, ymax)
-        with rasterio.open(urban_areas_data) as src:
-            window = from_bounds(*east_bounds, transform=src.transform)
         
         time_taken = time.monotonic() - start_time
         print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
