@@ -5,7 +5,10 @@ from matplotlib import pyplot as plt
 from matplotlib import colors
 
 import geopandas as gpd
+import rasterio
 from rasterio import features
+from rasterio.windows import from_bounds
+from rasterio.warp import reproject, Resampling
 
 from data_handling import check_duplicate_name
 
@@ -42,8 +45,21 @@ def image_to_array(file_path_s):
 
 def known_feature_mask(image_array, image_metadata, data_path, 
                        feature_type, buffer_metres=None):
+    s2_bounds = rasterio.windows.bounds(
+        rasterio.windows.Window
+        (
+            0, 0, 
+            image_metadata["width"], image_metadata["height"]
+            ), 
+        image_metadata["transform"])
+    
     # gdf means geospatial data fusion
-    feature_gdf = gpd.read_file(data_path) # vector outline of feature
+    feature_gdf = gpd.read_file(data_path, bbox=s2_bounds)
+    # vector outline of feature (clipped to relevant bounds)
+    
+    if feature_gdf.empty:
+        print(f"no {feature_type} found in this image")
+        return image_array
     
     feature_gdf = feature_gdf.to_crs(image_metadata["crs"]) # step to ensure 
     # shapefile and raster are using the same coordinate system
@@ -70,6 +86,47 @@ def known_feature_mask(image_array, image_metadata, data_path,
     
     image_array[feature_mask] = 0
     
+    return image_array
+
+def mask_urban_areas2(image_array, image_metadata, urban_data_path):
+    with rasterio.open(urban_data_path) as urban_src:
+        s2_bounds = image_metadata["width"] * image_metadata["transform"][0], \
+            (image_metadata["height"] * image_metadata["transform"][4] + 
+             image_metadata["transform"][5]), \
+            (image_metadata["width"] * image_metadata["transform"][0] + 
+             image_metadata["transform"][2]), \
+            image_metadata["height"] * image_metadata["transform"][4]
+        # s2_crs = image_metadata["crs"]
+        
+        window = from_bounds(*s2_bounds, transform=urban_src.transform)
+        urban_data = urban_src.read(1, window=window)
+        
+        # urban and suburban classes (20, 21, respectively)
+        urban_mask = (urban_data == 20) | (urban_data == 21)
+        
+        image_array[urban_mask] = 0
+    return image_array
+
+def mask_urban_areas(image_array, image_metadata, urban_data_path):
+    with rasterio.open(urban_data_path) as urban_src:
+        reprojected_urban_data = np.zeros(image_array.shape, dtype=np.uint8)
+        
+        reproject(
+            source=rasterio.band(urban_src, 1),
+            destination=reprojected_urban_data,
+            src_transform=urban_src.transform,
+            src_crs=urban_src.crs,
+            dst_transform=image_metadata["transform"],
+            dst_crs=image_metadata["crs"],
+            resampling=Resampling.nearest
+            )
+        
+        # Now, reprojected_urban_data is perfectly aligned with image_array
+        # Create a mask for urban and suburban areas (classes 20 and 21)
+        urban_mask = (reprojected_urban_data == 20) | (reprojected_urban_data == 21)
+
+        # Apply the mask
+        image_array[urban_mask] = np.nan
     return image_array
 
 def upscale_image_array(img_array, factor=2):
