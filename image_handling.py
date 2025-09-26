@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from matplotlib import colors
 
 import geopandas as gpd
+import fiona
 import rasterio
 from rasterio import features
 from rasterio.windows import from_bounds
@@ -60,8 +61,21 @@ def known_feature_mask(image_array, image_metadata, data_path,
     s2_bounds_tuple = get_image_bounds(image_metadata)
     s2_crs = image_metadata["crs"]
     
+    with fiona.open(data_path, "r") as collection:
+        feature_crs = collection.crs
+    
+    if s2_crs != feature_crs:
+        from shapely.geometry import box
+        bbox_gdf = gpd.GeoDataFrame(
+            {"geometry": [box(*s2_bounds_tuple)]}, 
+            crs=s2_crs)
+        
+        bbox_reprojected = bbox_gdf.to_crs(feature_crs)
+        bounds_for_filtering = tuple(bbox_reprojected.total_bounds)
+    else:
+        bounds_for_filtering = s2_bounds_tuple
     # gdf means geospatial data fusion
-    feature_gdf = gpd.read_file(data_path, bbox=s2_bounds_tuple)
+    feature_gdf = gpd.read_file(data_path, bbox=bounds_for_filtering)
     # vector outline of feature (clipped to relevant bounds)
     
     if feature_gdf.empty:
