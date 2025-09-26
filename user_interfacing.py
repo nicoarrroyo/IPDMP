@@ -4,6 +4,8 @@ import threading
 from PIL import Image, ImageTk
 import tkinter as tk
 import numpy as np
+import os
+from collections import defaultdict
 
 def table_print(**kwargs):
     """
@@ -279,3 +281,40 @@ def prompt_roi(image_array, n):
     root.mainloop()
     rois_converted = np.array(rois) * len(image_array) / width
     return rois_converted
+
+def list_folders(folders_path):
+    folders = []
+    possible_years = []
+    possible_tiles = []
+    possible_months = []
+    
+    folders = os.listdir(folders_path)
+    
+    if len(folders) == 0:
+        print("found 0 folders in searched directory")
+        sys.exit(1)
+    
+    for folder in folders:
+        if ".SAFE" not in folder[5:]:
+            folders.remove(folder)
+    
+    image_info = defaultdict(list)
+    for folder in folders:
+        parts = folder.split("_")
+        if len(parts) == 7:
+            sentinel_name = parts[0]
+            datatake_start_sensing_time = parts[2]
+            tile_number_field = parts[5]
+            year = datatake_start_sensing_time[:4]
+            month = datatake_start_sensing_time[4:6]
+            image_info[year].append((sentinel_name, tile_number_field, month))
+    
+    for year in sorted(image_info.keys()):
+        print("\n",year)
+        possible_years.append(year)
+        for satellite, tile, month in image_info[year]:
+            possible_tiles.append(tile)
+            possible_months.append(month)
+            print(f"satellite {satellite}, tile {tile}, month {month}")
+    
+    return folders
