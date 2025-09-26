@@ -81,6 +81,7 @@ except:
 
 try:
     import rasterio
+    from rasterio.windows import from_bounds
 except:
     print("failed rasterio import")
     sys.exit()
@@ -95,7 +96,7 @@ from image_handling import plot_chunks, save_image_file
 from misc import get_sentinel_bands, split_array, combine_sort_unique
 from misc import confirm_continue_or_exit
 
-from user_interfacing import table_print, prompt_roi
+from user_interfacing import table_print, prompt_roi, list_folders
 
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
@@ -103,16 +104,10 @@ n_chunks = 5000 # number of chunks into which images are split
 high_res = True # use finer 10m spatial resolution (slower)
 cloud_masking = True
 show_index_plots = True
-save_images = False
-label_data = False
+save_images = True
+label_data = True
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 response_time = 0.0
-
-folders = [
-    ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE"), 
-    ("S2A_MSIL2A_20250330T105651_N0511_R094_T31UCU_20250330T161414.SAFE"), 
-    ("S2C_MSIL2A_20250331T110651_N0511_R137_T31UCU_20250331T143812.SAFE")
-]
 
 title_size = 8
 label_size = 4
@@ -122,7 +117,7 @@ plot_size_chunks = (6, 6)
 HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
 
 # %% General Mega Giga Function
-def get_sat(sat_name, sat_number, folders):
+def get_sat(sat_name, sat_number):
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
@@ -134,8 +129,12 @@ def get_sat(sat_name, sat_number, folders):
     # ndvi_arrays_list = []
     # evi_arrays_list = []
     # evi2_arrays_list = []
-    satellite = f"{sat_name} {sat_number}"
     global response_time
+    
+    # %%% i. Find the Relevant Folders
+    satellite = f"{sat_name} {sat_number}"
+    folders_path = os.path.join(HOME, "Downloads", satellite)
+    folders = list_folders(folders_path)
     
     # %%% 1. Opening Images and Creating Image Arrays
     for folder in folders:
@@ -151,7 +150,7 @@ def get_sat(sat_name, sat_number, folders):
         title of the folder. This information can be used to easily navigate 
         through the folder's contents."""
         file_paths = []
-        folder_path = os.path.join(HOME, "Downloads", satellite, folder)
+        folder_path = os.path.join(folders_path, folder)
         images_path = os.path.join(folder_path, "GRANULE")
         
         # %%%%% 1.1.1 Subfolder iterative search
@@ -254,13 +253,6 @@ def get_sat(sat_name, sat_number, folders):
             "LRR_ENG_20230601_WGS84.shp" # WGS84 is more accurate than OSGB35
             )
         
-# =============================================================================
-#         urban_areas = os.path.join( # REMEMBER TO CITE SOURCE FROM README
-#             masking_path, 
-#             "urban areas", 
-#             )
-# =============================================================================
-        
         for i in range(len(image_arrays)):
             image_arrays[i] = known_feature_mask(
             image_arrays[i], 
@@ -282,6 +274,19 @@ def get_sat(sat_name, sat_number, folders):
             feature_type="known reservoirs", 
             buffer_metres=50
             )
+        
+        # different approach for urban areas because no raster mask option
+        urban_areas_data = os.path.join( # REMEMBER TO CITE SOURCE FROM README
+            masking_path, 
+            "urban areas", 
+            "CEH_GBLandCover_2024_10m", 
+            "data", 
+            "4dd9df19-8df5-41a0-9829-8f6114e28db1", 
+            "gblcm2024_10m.tif"
+            )
+        east_bounds = (xmin, ymin, xmax, ymax)
+        with rasterio.open(urban_areas_data) as src:
+            window = from_bounds(*east_bounds, transform=src.transform)
         
         time_taken = time.monotonic() - start_time
         print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
@@ -443,7 +448,7 @@ def get_sat(sat_name, sat_number, folders):
     data_folder_found = False
     for folder in folders:
         if data_folder_found:
-            continue
+            break
         
         folder_path = os.path.join(HOME, "Downloads", satellite, folder)
         if os.path.exists(os.path.join(folder_path, "training data")):
@@ -586,7 +591,7 @@ def get_sat(sat_name, sat_number, folders):
         while i < len(index_chunks):
             if break_flag:
                 break
-            plot_chunks(ndwi, index_chunks, plot_size_chunks, i, 
+            plot_chunks(ndwi_mean, index_chunks, plot_size_chunks, i, 
                         title_size, label_size, tci_chunks, tci_60_array)
             max_index = [0, 0]
             max_index[0] = round(np.nanmax(index_chunks[i]), 2)
@@ -934,9 +939,7 @@ Sentinel 2 has varying resolution bands, with Blue (2), Green (3), Red (4), and
 NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have 
 20m spatial resolution.
 """
-ndwi = get_sat(sat_name="Sentinel", sat_number=2, 
-                          folders = folders
-                          ) # TEMPORARY FILES - DO NOT STACK DIFFERENT TILES TOGETHER
+ndwi = get_sat(sat_name="Sentinel", sat_number=2)
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
