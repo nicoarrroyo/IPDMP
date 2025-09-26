@@ -310,7 +310,7 @@ def list_folders(folders_path):
             image_info[year].append((sentinel_name, tile_number_field, month))
     
     for year in sorted(image_info.keys()):
-        print("\n",year)
+        print(f"\n{year}")
         possible_years.append(year)
         for satellite, tile, month in image_info[year]:
             possible_tiles.append(tile)
