@@ -81,7 +81,6 @@ except:
 
 try:
     import rasterio
-    from rasterio.windows import from_bounds
 except:
     print("failed rasterio import")
     sys.exit()
@@ -91,7 +90,7 @@ from data_handling import rewrite, blank_entry_check, check_file_permission
 from data_handling import extract_coords, change_to_folder
 
 from image_handling import image_to_array, known_feature_mask, plot_indices
-from image_handling import plot_chunks, save_image_file
+from image_handling import plot_chunks, save_image_file, mask_urban_areas
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
 from misc import confirm_continue_or_exit
@@ -253,29 +252,6 @@ def get_sat(sat_name, sat_number):
             "LRR_ENG_20230601_WGS84.shp" # WGS84 is more accurate than OSGB35
             )
         
-        for i in range(len(image_arrays)):
-            image_arrays[i] = known_feature_mask(
-            image_arrays[i], 
-            image_metadata, 
-            rivers_data, 
-            feature_type="rivers", 
-            buffer_metres=50
-            )
-            image_arrays[i] = known_feature_mask(
-            image_arrays[i], 
-            image_metadata, 
-            boundaries_data, 
-            feature_type="sea"
-            )
-            image_arrays[i] = known_feature_mask(
-            image_arrays[i], 
-            image_metadata, 
-            known_reservoirs_data, 
-            feature_type="known reservoirs", 
-            buffer_metres=50
-            )
-        
-        # different approach for urban areas because .tif file
         urban_areas_data = os.path.join( # REMEMBER TO CITE SOURCE FROM README
             masking_path, 
             "urban areas", 
@@ -284,6 +260,33 @@ def get_sat(sat_name, sat_number):
             "4dd9df19-8df5-41a0-9829-8f6114e28db1", 
             "gblcm2024_10m.tif"
             )
+        
+        for i in range(len(image_arrays)):
+            image_arrays[i] = known_feature_mask(
+                image_arrays[i], 
+                image_metadata, 
+                rivers_data, 
+                feature_type="rivers", 
+                buffer_metres=50
+                )
+            image_arrays[i] = known_feature_mask(
+                image_arrays[i], 
+                image_metadata, 
+                boundaries_data, 
+                feature_type="sea"
+                )
+            image_arrays[i] = known_feature_mask(
+                image_arrays[i], 
+                image_metadata, 
+                known_reservoirs_data, 
+                feature_type="known reservoirs", 
+                buffer_metres=50
+                )
+            image_arrays[i] = mask_urban_areas( # different process (.tif)
+                image_arrays[i], 
+                image_metadata, 
+                urban_areas_data
+                )
         
         time_taken = time.monotonic() - start_time
         print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
