@@ -20,18 +20,11 @@ from KRISP import run_model
 from data_handling import check_file_permission, blank_entry_check
 from data_handling import deduplicate_by_max_confidence
 from image_handling import image_to_array
-from misc import convert_seconds_to_hms, confirm_continue_or_exit
-from user_interfacing import start_spinner, end_spinner
+from misc import convert_seconds_to_hms
+from user_interfacing import start_spinner, end_spinner, confirm_continue_or_exit
 
 # %%% iii. Directory Management
-try: # personal pc mode - must be changed to own directory
-    HOME = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
-                        "Individual Project", "Downloads")
-    os.chdir(HOME)
-except: # uni mode
-    HOME = os.path.join("C:\\", "Users", "c55626na", "OneDrive - "
-                        "The University of Manchester", "Individual Project")
-    os.chdir(HOME)
+HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
 
 n_chunks = 5000 # do not change!!
 confidence_threshold = 40 # do not change!! these are calculated
@@ -54,7 +47,10 @@ stop_event, thread = start_spinner(message="pre-run preparation")
 ####folder = ("S2A_MSIL2A_20250320T105751_N0511_R094_T31UCT_20250320T151414.SAFE")
 ####folder = ("S2A_MSIL2A_20250330T105651_N0511_R094_T30UYC_20250330T161414.SAFE")
 ####folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T30UXC_20250331T143812.SAFE")
-folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T31UCU_20250331T143812.SAFE")
+#folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T31UCU_20250331T143812.SAFE")
+
+folder = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_20250301T152054.SAFE")
+folder_path = os.path.join(HOME, "Downloads", "Sentinel 2", folder)
 
 (sentinel_name, instrument_and_product_level, datatake_start_sensing_time, 
  processing_baseline_number, relative_orbit_number, tile_number_field, 
@@ -62,13 +58,13 @@ folder = ("S2C_MSIL2A_20250331T110651_N0511_R137_T31UCU_20250331T143812.SAFE")
 
 real_n_chunks = math.floor(math.sqrt(n_chunks)) ** 2 - 1
 model_epochs = 150 # 150 for ndwi, 151 for tci
-n_chunk_preds = 2000 # can be bigger than n_chunks
+n_chunk_preds = 5000 # can be bigger than n_chunks
 if model_epochs == 151:
     model_name=f"tci model epochs-{model_epochs}.keras"
 else:
     model_name=f"ndwi model epochs-{model_epochs}.keras"
-save_map = False
-res = 60 # options: 10, 20, 60
+save_map = True
+res = 10 # options: 10, 20, 60
 
 # file format: P_(chunks)_(minichunks)_(epochs)_(tile number)
 # P for predictions
@@ -77,13 +73,14 @@ predictions_file = f"P_{n_chunks}_{model_epochs}_{tile_number_field}.csv"
 minichunk_header = ",minichunks,"
 chunk_header = "chunk," + ",".join(map(str, range(25)))
 
-os.chdir(os.path.join(HOME, "Sentinel 2", folder))
+#os.chdir(os.path.join(HOME, "Sentinel 2", folder))
+predictions_file_path = os.path.join(folder_path, predictions_file)
 
 # %% find biggest chunk
-check_file_permission(predictions_file)
-blank_entry_check(predictions_file)
+check_file_permission(predictions_file_path)
+blank_entry_check(predictions_file_path)
 
-with open(predictions_file, mode="r") as file:
+with open(predictions_file_path, mode="r") as file:
     lines = file.readlines()
 
 biggest_chunk = 0
@@ -102,7 +99,7 @@ if n_chunk_preds == 0:
     end_spinner(stop_event, thread)
     print("this image is complete! commencing data processing")
     # %% data processing
-    with open (f"P_5000_{model_epochs}_{tile_number_field}.csv", mode="r") as file:
+    with open (predictions_file_path, mode="r") as file:
         predictions = file.readlines()
     
     # %%% collecting and printing prediction results
@@ -160,11 +157,13 @@ if n_chunk_preds == 0:
     deduplicated_sorted_sea = deduplicate_by_max_confidence(sorted_sea)
     
     # %%% creating the reservoir map
-    path = os.path.join(os.getcwd(), "GRANULE")
-    subdirs = [d for d in os.listdir(path) 
-               if os.path.isdir(os.path.join(path, d))]
+    granule_path = os.path.join(folder_path, "GRANULE")
+    subdirs = [d for d in os.listdir(granule_path) 
+               if os.path.isdir(os.path.join(granule_path, d))]
     prefix = (f"{tile_number_field}_{datatake_start_sensing_time}")
-    map_image = image_to_array(os.path.join(os.getcwd(), "GRANULE", 
+    
+    
+    map_image = image_to_array(os.path.join(granule_path, 
                                             subdirs[0], "IMG_DATA", 
                                             f"R{res}m", 
                                             f"{prefix}_TCI_{res}m.jp2"))
@@ -212,7 +211,8 @@ if n_chunk_preds == 0:
         while os.path.exists(plot_name):
             counter += 1
             plot_name = f"{plot_name_base}_{counter}.jpg"
-        plt.savefig(plot_name, dpi=3000, bbox_inches="tight")
+        plot_save_location = os.path.join(folder_path, plot_name)
+        plt.savefig(plot_save_location, dpi=3000, bbox_inches="tight")
         end_spinner(stop_event, thread)
         print(f"map saved as {plot_name}")
     
@@ -293,7 +293,8 @@ if n_chunk_preds == 0:
         while os.path.exists(plot_name):
             counter += 1
             plot_name = f"{plot_name_base}_{counter}.jpg"
-        plt.savefig(plot_name, dpi=3000, bbox_inches="tight")
+        plot_save_location = os.path.join(folder_path, plot_name)
+        plt.savefig(plot_save_location, dpi=3000, bbox_inches="tight")
         end_spinner(stop_event, thread)
         print(f"map saved as {plot_name}")
     end_spinner(stop_event, thread)
@@ -312,7 +313,7 @@ est_duration = datetime.timedelta(
     seconds=s)
 
 time_format = "%H:%M:%S %B %d %Y"
-start_time_obj = datetime.datetime.now(zf.ZoneInfo("Europe/London"))
+start_time_obj = datetime.datetime.now(zf.ZoneInfo("Europe/Rome"))
 est_end_time = start_time_obj + est_duration
 
 start_str = start_time_obj.strftime(time_format)
@@ -359,16 +360,16 @@ print("=== KRISP RUN COMPLETE ===\n")
 
 # %% write the results
 stop_event, thread = start_spinner(message="aftercare")
-os.chdir(os.path.join(HOME, "Sentinel 2", folder))
-check_file_permission(predictions_file)
-blank_entry_check(predictions_file)
+# os.chdir(os.path.join(HOME, "Sentinel 2", folder))
+check_file_permission(predictions_file_path)
+blank_entry_check(predictions_file_path)
 
 if biggest_chunk < 1:
-    with open(predictions_file, mode="a") as ap:
+    with open(predictions_file_path, mode="a") as ap:
         ap.write(minichunk_header)
         ap.write(f"\n{chunk_header}")
 
-with open(predictions_file, mode="a") as ap:
+with open(predictions_file_path, mode="a") as ap:
     for result in the_results:
         chunk_num, minichunk_num, label, confidence = result
         base_entry = f"{label} {str(confidence)},"
@@ -377,8 +378,8 @@ with open(predictions_file, mode="a") as ap:
         else:
             ap.write(f"{base_entry}")
 
-check_file_permission(predictions_file)
-blank_entry_check(predictions_file)
+check_file_permission(predictions_file_path)
+blank_entry_check(predictions_file_path)
 
 # %% post-run update
 # note: these numbers are estimates for reference only
