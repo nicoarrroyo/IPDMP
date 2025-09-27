@@ -29,8 +29,10 @@ print("=== 1. Configuring Parameters ===")
 # --- Core Settings ---
 MODEL_TYPE = "ndwi" # Options: "ndwi", "tci"
 # - must be changed to own directory
-BASE_PROJECT_DIR = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM", 
-                                "YEAR 3", "Individual Project", "Downloads")
+
+HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
+BASE_PROJECT_DIR = os.path.join(HOME, "Downloads")
+
 SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                    "20250301T152054.SAFE")
 DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2", 
@@ -58,7 +60,7 @@ TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
 # --- Dataset Parameters ---
 IMG_HEIGHT = int(157/5) # must adjust this for the actual image size!!!!
 IMG_WIDTH = int(157/5)
-BATCH_SIZE = 128
+BATCH_SIZE = 1024
 VALIDATION_SPLIT = 0.2
 RANDOM_SEED = 123 # For reproducibility of splits
 print(f"Image size: ({IMG_HEIGHT}, {IMG_WIDTH})")
