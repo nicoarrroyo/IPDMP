@@ -15,7 +15,7 @@ Workflow:
     - Sea: Can use region shapefile boundaries
     - Rivers and streams: Uses dedicated river shapefile with 100m buffer
     - Large reservoirs: Uses Northing and Easting information in CSV file
-    - Urban areas: 
+    - Urban areas: Uses .tif rasterized for masking
     - Areas with large slopes: 
 
 3. Cloud Masking: 
@@ -93,18 +93,18 @@ from image_handling import image_to_array, known_feature_mask, plot_indices
 from image_handling import plot_chunks, save_image_file, mask_urban_areas
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
-from misc import confirm_continue_or_exit
 
 from user_interfacing import table_print, prompt_roi, list_folders
+from user_interfacing import confirm_continue_or_exit
 
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = True # use finer 10m spatial resolution (slower)
+high_res = False # use finer 10m spatial resolution (slower)
 cloud_masking = True
 show_index_plots = True
-save_images = True
-label_data = True
+save_images = False
+label_data = False
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 response_time = 0.0
 
@@ -219,7 +219,7 @@ def get_sat(sat_name, sat_number):
             image_arrays_clouds = image_arrays
         
         time_taken = time.monotonic() - start_time
-        print(f"step 1 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 1 complete! time taken: {time_taken:.2f} seconds")
         
         # %%% 2. Known Feature Masking
         print("==========")
@@ -289,7 +289,7 @@ def get_sat(sat_name, sat_number):
                 )
         
         time_taken = time.monotonic() - start_time
-        print(f"step 2 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 2 complete! time taken: {time_taken:.2f} seconds")
     
         # %%% 3. Masking Clouds
         print("==========")
@@ -336,7 +336,7 @@ def get_sat(sat_name, sat_number):
             
             time_taken = time.monotonic() - start_time
             print("step 3 complete! time taken: "
-            f"{round(time_taken, 2)} seconds")
+            f"{time_taken:.2f} seconds")
         else:
             print("skipping cloud masking")
         
@@ -374,7 +374,7 @@ def get_sat(sat_name, sat_number):
         # evi2_arrays_list.append(evi2)
         
         time_taken = time.monotonic() - start_time
-        print(f"step 4 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 4 complete! time taken: {time_taken:.2f} seconds")
     
     # %%% 5. Spectral Temporal Metrics
     print("==========")
@@ -403,7 +403,7 @@ def get_sat(sat_name, sat_number):
         plot_indices(ndwi_mean, plot_size, dpi, save_images, 
         folder_path, res)
         time_taken = time.monotonic() - start_time
-        print(f"step 5 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 5 complete! time taken: {time_taken:.2f} seconds")
     else:
         print("not displaying water index images")
     
@@ -573,7 +573,7 @@ def get_sat(sat_name, sat_number):
         i = invalid_rows[0]
         invalid_rows_index = 0
     time_taken = time.monotonic() - start_time
-    print(f"step 6 complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 6 complete! time taken: {time_taken:.2f} seconds")
     
     # %%% 7. Data Labelling
     print("==========")
@@ -639,7 +639,7 @@ def get_sat(sat_name, sat_number):
                         entry_list.append("")
                      
                     # handle number of non-reservoir water bodies entry
-                    n_bodies = input("how many ""non-reservoir "
+                    n_bodies = input("how many non-reservoir "
                                      "water bodies? ").strip().lower()
                     n_bodies = int(n_bodies)
                     entry_list[2] = n_bodies
@@ -725,7 +725,7 @@ def get_sat(sat_name, sat_number):
                         ap.write(f"\n{csv_entry}")
         print(f"responding time: {round(response_time, 2)} seconds")            
         time_taken = time.monotonic() - start_time
-        print(f"step 7 complete! time taken: {round(time_taken, 2)} seconds")
+        print(f"step 7 complete! time taken: {time_taken:.2f} seconds")
     
     # %%% 8. Data Segmentation
     print("==========")
@@ -929,7 +929,7 @@ def get_sat(sat_name, sat_number):
     
     os.chdir(HOME)
     time_taken = time.monotonic() - start_time
-    print(f"step 8 complete! time taken: {round(time_taken, 2)} seconds")
+    print(f"step 8 complete! time taken: {time_taken:.2f} seconds")
     
     # %%% 8. Satellite Output
     return ndwi
