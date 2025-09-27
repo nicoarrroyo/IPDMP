@@ -42,6 +42,29 @@ def table_print(**kwargs):
         print(f"| {key.ljust(max_var_length)} | {str(value).ljust(max_value_length)} |")
     print(separator)
 
+def confirm_continue_or_exit():
+    """
+    Asks the user if they want to continue with the program.
+    
+    If the user enters 'y' or 'yes', the function returns and the script 
+    continues. If the user enters 'n' or 'no', the function prints a message 
+    and exits the script. It will keep asking until a valid 
+    input ('y', 'yes', 'n', 'no') is given.
+    """
+    while True: # Loop until valid input is received
+        response = input("Do you want to continue? (y/n): ").strip().lower()
+        
+        if response in ['y', 'yes']:
+            print("off we go - continuing program")
+            return # Exit the function and let the main script proceed
+        
+        elif response in ['n', 'no']:
+            print("will not continue - exiting program")
+            sys.exit() # Stop the script immediately
+        else:
+            # Ask again if the input was invalid
+            print("invalid input. 'y' for yes or 'n' for no.")
+
 def spinner(stop_event, message):
     """
     A simple spinner that runs until stop_event is set.
