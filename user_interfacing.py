@@ -307,6 +307,7 @@ def prompt_roi(image_array, n):
 
 def list_folders(folders_path):
     folders = []
+    filtered_folders = []
     possible_years = []
     possible_tiles = []
     possible_months = []
@@ -318,8 +319,9 @@ def list_folders(folders_path):
         sys.exit(1)
     
     for folder in folders:
-        if ".SAFE" not in folder[5:]:
-            folders.remove(folder)
+        if len(folder) > 10 and ".SAFE" in folder[5:]:
+            filtered_folders.append(folder)
+    folders = filtered_folders
     
     image_info = defaultdict(list)
     for folder in folders:
