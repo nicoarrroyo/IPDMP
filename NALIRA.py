@@ -55,6 +55,7 @@ import time
 MAIN_START_TIME = time.monotonic()
 import os
 import sys
+import tensorflow as tf
 try:
     import numpy as np
 except:
@@ -87,10 +88,10 @@ except:
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
-from data_handling import extract_coords, change_to_folder
+from data_handling import extract_coords, change_to_folder, create_tf_example
 
 from image_handling import image_to_array, known_feature_mask, plot_indices
-from image_handling import plot_chunks, save_image_file, mask_urban_areas
+from image_handling import plot_chunks, get_rgb_data, mask_urban_areas
 
 from misc import get_sentinel_bands, split_array, combine_sort_unique
 
@@ -100,10 +101,11 @@ from user_interfacing import confirm_continue_or_exit
 # %%% General Directory and Plot Properties
 dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 n_chunks = 5000 # number of chunks into which images are split
-high_res = False # use finer 10m spatial resolution (slower)
+high_res = True # use finer 10m spatial resolution (slower)
+known_feature_masking = True
 cloud_masking = True
 show_index_plots = True
-save_images = False
+save_images = True
 label_data = False
 data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
 response_time = 0.0
@@ -121,8 +123,10 @@ def get_sat(sat_name, sat_number):
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
     table_print(n_chunks=n_chunks, high_res=high_res, 
-                cloud_masking=cloud_masking, show_plots=show_index_plots, 
-                save_images=save_images, labelling=label_data)
+                cloud_masking=cloud_masking, 
+                known_feature_masking=known_feature_masking, 
+                show_plots=show_index_plots, save_images=save_images, 
+                labelling=label_data)
     
     ndwi_arrays_list = []
     # ndvi_arrays_list = []
@@ -225,71 +229,74 @@ def get_sat(sat_name, sat_number):
         print("==========")
         print("| STEP 2 |")
         print("==========")
-        print("masking out known features")
-        start_time = time.monotonic()
-        
-        masking_path = os.path.join(HOME, "Downloads", "Masking")
-        
-        rivers_data = os.path.join(
-            masking_path, 
-            "rivers", 
-            "data", 
-            "WatercourseLink.shp"
-            )
-        
-        boundaries_data = os.path.join( # for masking the sea
-            masking_path, 
-            "boundaries", 
-            ("Regions_December_2024_Boundaries_EN_BSC_"
-            "-6948965129330885393.geojson")
-            )
-        
-        known_reservoirs_data = os.path.join(
-            masking_path, 
-            "known reservoirs", 
-            "LRR _EW_202307_v1", 
-            "SHP", 
-            "LRR_ENG_20230601_WGS84.shp" # WGS84 is more accurate than OSGB35
-            )
-        
-        urban_areas_data = os.path.join( # REMEMBER TO CITE SOURCE FROM README
-            masking_path, 
-            "urban areas", 
-            "CEH_GBLandCover_2024_10m", 
-            "data", 
-            "4dd9df19-8df5-41a0-9829-8f6114e28db1", 
-            "gblcm2024_10m.tif"
-            )
-        
-        for i in range(len(image_arrays)):
-            image_arrays[i] = known_feature_mask(
-                image_arrays[i], 
-                image_metadata, 
-                rivers_data, 
-                feature_type="rivers", 
-                buffer_metres=50
+        if known_feature_masking:
+            print("masking out known features")
+            start_time = time.monotonic()
+            
+            masking_path = os.path.join(HOME, "Downloads", "Masking")
+            
+            rivers_data = os.path.join(
+                masking_path, 
+                "rivers", 
+                "data", 
+                "WatercourseLink.shp"
                 )
-            image_arrays[i] = known_feature_mask(
-                image_arrays[i], 
-                image_metadata, 
-                boundaries_data, 
-                feature_type="sea"
+            
+            boundaries_data = os.path.join( # for masking the sea
+                masking_path, 
+                "boundaries", 
+                ("Regions_December_2024_Boundaries_EN_BSC_"
+                "-6948965129330885393.geojson")
                 )
-            image_arrays[i] = known_feature_mask(
-                image_arrays[i], 
-                image_metadata, 
-                known_reservoirs_data, 
-                feature_type="known reservoirs", 
-                buffer_metres=50
+            
+            known_reservoirs_data = os.path.join(
+                masking_path, 
+                "known reservoirs", 
+                "LRR _EW_202307_v1", 
+                "SHP", 
+                "LRR_ENG_20230601_WGS84.shp" # WGS84 is more accurate than OSGB35
                 )
-            image_arrays[i] = mask_urban_areas( # different process (.tif)
-                image_arrays[i], 
-                image_metadata, 
-                urban_areas_data
+            
+            urban_areas_data = os.path.join( # REMEMBER TO CITE SOURCE FROM README
+                masking_path, 
+                "urban areas", 
+                "CEH_GBLandCover_2024_10m", 
+                "data", 
+                "4dd9df19-8df5-41a0-9829-8f6114e28db1", 
+                "gblcm2024_10m.tif"
                 )
-        
-        time_taken = time.monotonic() - start_time
-        print(f"step 2 complete! time taken: {time_taken:.2f} seconds")
+            
+            for i in range(len(image_arrays)):
+                image_arrays[i] = known_feature_mask(
+                    image_arrays[i], 
+                    image_metadata, 
+                    rivers_data, 
+                    feature_type="rivers", 
+                    buffer_metres=50
+                    )
+                image_arrays[i] = known_feature_mask(
+                    image_arrays[i], 
+                    image_metadata, 
+                    boundaries_data, 
+                    feature_type="sea"
+                    )
+                image_arrays[i] = known_feature_mask(
+                    image_arrays[i], 
+                    image_metadata, 
+                    known_reservoirs_data, 
+                    feature_type="known reservoirs", 
+                    buffer_metres=50
+                    )
+                image_arrays[i] = mask_urban_areas( # different process (.tif)
+                    image_arrays[i], 
+                    image_metadata, 
+                    urban_areas_data
+                    )
+            
+            time_taken = time.monotonic() - start_time
+            print(f"step 2 complete! time taken: {time_taken:.2f} seconds")
+        else:
+            print("skipping known feature masking")
     
         # %%% 3. Masking Clouds
         print("==========")
@@ -739,13 +746,8 @@ def get_sat(sat_name, sat_number):
         print("high resolution setting must be activated for data segmentation")
         print("exiting program")
         return ndwi
+    print("data segmentation start")
     
-    print("program is about to begin data segmentation")
-    response_time_start = time.monotonic()
-    confirm_continue_or_exit()
-    response_time += time.monotonic() - response_time_start
-    
-    print("extracting coordinates")
     res_rows = []
     res_coords = []
     
@@ -801,15 +803,12 @@ def get_sat(sat_name, sat_number):
             land_rows.append(lines[i])
             land_coords.append((i, extract_coords(none_coord, 
                                                   create_box_flag=True)))
-    
-    globals()["lines"] = lines
-    
+        
     # %%%% 8.2 Isolate and Save an Image of Each Reservoir and Water Body
     """nico!! remember to add a description! 0.4*max to bring down the ceiling 
     of ndwi so that reservoir and water bodies are better highlighted"""
-    ndwi_chunks = index_chunks
     valid_chunks = [chunk
-                    for chunk in ndwi_chunks
+                    for chunk in index_chunks
                     if not np.all(np.isnan(chunk))]
     if valid_chunks:
         global_min = min(np.nanmin(chunk) for chunk in valid_chunks)
@@ -818,116 +817,48 @@ def get_sat(sat_name, sat_number):
         global_min = np.nan
         print("Warning: All NDWI chunks contained only NaN values.")
     
-    # %%%%% 8.2.1 Create an image of each water reservoir and save it
-    print("segmenting reservoir data")
-    had_an_oopsie = False
-    for i in range(len(res_coords)):
-        chunk_n = (int(res_coords[i][0])-1)
+    # %%%% 8.3 Create a Single TFRecord File to Store Training Data
+    class_names = ["reservoirs", "water bodies", "land", "sea"]
+    class_map = {name: i for i, name in enumerate(class_names)}
+    
+    tfrecord_filename = "training_data.tfrecord"
+    
+    # check for file name already existing and increment file name
+    counter = 1
+    base_name, extension = tfrecord_filename.split(".")
+    while os.path.exists(os.path.join(labelling_path, tfrecord_filename)):
+        print("TF record filename already exists, incrementing by 1")
+        tfrecord_filename = f"{base_name}_{counter}.{extension}"
+        counter += 1
+    tfrecord_file_location = os.path.join(labelling_path, tfrecord_filename)
+    with tf.io.TFRecordWriter(tfrecord_file_location) as tf_writer:
+        all_coords = [(res_coords, "reservoirs"), 
+                      (body_coords, "water bodies"), 
+                      (land_coords, "land"), 
+                      (sea_coords, "sea")]
         
-        # NDWI data
-        res_ndwi_path = os.path.join(
-            labelling_path, "ndwi", "reservoirs"
-            )
-        change_to_folder(res_ndwi_path)
-        image_name = f"ndwi chunk {chunk_n} reservoir {i+1}.png"
-        try:
-            save_image_file(data=ndwi_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=True, 
-                            coordinates=res_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
-        except:
-            had_an_oopsie = True
+        for coords_list, class_name in all_coords:
+            print(f"{len(coords_list)} examples for class {class_name}")
+            class_index = class_map[class_name]
+            
+            for i in range(len(coords_list)):
+                chunk_n = int(coords_list[i][0]) - 1
+                coordinates = coords_list[i][1]
+                
+                rgb_data = get_rgb_data(
+                    data=valid_chunks, 
+                    chunk_n=chunk_n, 
+                    coordinates=coordinates, 
+                    g_min=global_min, g_max=global_max)
+                
+                tf_example = create_tf_example(
+                    image_array=rgb_data, 
+                    class_index=class_index, 
+                    class_name_str=class_name)
+                
+                tf_writer.write(tf_example.SerializeToString())
+    print(f"wrote all available training data to {tfrecord_filename}")
     
-    if had_an_oopsie:
-        print("error in reservoir data segmentation")
-    else:
-        print("successfully completed reservoir data segmentation")
-    
-    # %%%%% 8.2.2 Create an image of each water body and save it
-    print("segmenting water body data")
-    had_an_oopsie = False
-    for i in range(len(body_coords)):
-        chunk_n = (int(body_coords[i][0])-1)
-        
-        # NDWI data
-        body_ndwi_path = os.path.join(
-            labelling_path, "ndwi", "water bodies"
-            )
-        change_to_folder(body_ndwi_path)
-        image_name = f"ndwi chunk {chunk_n} water body {i+1}.png"
-        try:
-            save_image_file(data=ndwi_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=True, 
-                            coordinates=body_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
-        except:
-            had_an_oopsie = True
-    
-    if had_an_oopsie:
-        print("error in water body data segmentation")
-    else:
-        print("successfully completed water body data segmentation")
-    
-    # %%%% 8.3 Isolate and Save an Image of Mini-Chunks of Land and Sea
-    # %%%%# 8.3.1 Land
-    print("segmenting land data")
-    had_an_oopsie = False
-    for i in range(len(land_coords)):
-        chunk_n = (int(land_coords[i][0])-1)
-        
-        # NDWI data
-        land_ndwi_path = os.path.join(
-            labelling_path, "ndwi", "land"
-            )
-        change_to_folder(land_ndwi_path)
-        image_name = f"ndwi chunk {chunk_n} land {i+1}.png"
-        try:
-            save_image_file(data=ndwi_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=True, 
-                            coordinates=land_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
-        except:
-            had_an_oopsie = True
-    
-    if had_an_oopsie:
-        print("error in land data segmentation")
-    else:
-        print("successfully completed land data segmentation")
-    
-    # %%%%# 8.3.2 Sea
-    print("segmenting sea data")
-    had_an_oopsie = False
-    for i in range(len(sea_coords)):
-        chunk_n = (int(sea_coords[i][0])-1)
-        
-        # NDWI data
-        sea_ndwi_path = os.path.join(
-            labelling_path, "ndwi", "sea"
-            )
-        change_to_folder(sea_ndwi_path)
-        image_name = f"ndwi chunk {chunk_n} sea {i+1}.png"
-        try:
-            save_image_file(data=ndwi_chunks[chunk_n], 
-                            image_name=image_name, 
-                            normalise=True, 
-                            coordinates=sea_coords[i][1], 
-                            g_min=global_min, g_max=global_max, 
-                            dupe_check=True)
-        except:
-            had_an_oopsie = True
-    
-    if had_an_oopsie:
-        print("error in sea data segmentation")
-    else:
-        print("successfully completed sea data segmentation")
-    
-    os.chdir(HOME)
     time_taken = time.monotonic() - start_time
     print(f"step 8 complete! time taken: {time_taken:.2f} seconds")
     
