@@ -393,3 +393,47 @@ def deduplicate_by_max_confidence(class_prediction_list):
     # For now, sorting by chunk index after de-duplication.
     return sorted(list(best_predictions_for_chunk.values()), 
                   key=lambda item: item[0])
+
+import tensorflow as tf
+import numpy as np
+"""
+Standard functons that can be used to convert training data into a format 
+that can be serialised by TensorFlow. This can make data read/write speeds 
+dramatically faster and avoids creating tens of thousands of images. 
+"""
+# https://www.tensorflow.org/tutorials/load_data/tfrecord
+def _bytes_feature(value):
+  """Returns a bytes_list from a string / byte."""
+  if isinstance(value, type(tf.constant(0))):
+    value = value.numpy() # Get value from EagerTensor
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _float_feature(value):
+  """Returns a float_list from a float / double."""
+  return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+def _int64_feature(value):
+  """Returns an int64_list from a bool / enum / int / uint."""
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+def create_tf_example(image_array, class_index, class_name_str):
+    """
+    Creates a tf.train.Example message from an image and its labels.
+    """
+    # 1. Encode the image array to a byte string
+    # Using tf.io.encode_png is efficient and standard
+    image_string = tf.io.encode_png(image_array.astype(np.uint8))
+
+    # 2. Create a feature dictionary
+    feature = {
+        'height': _int64_feature(image_array.shape[0]),
+        'width': _int64_feature(image_array.shape[1]),
+        'depth': _int64_feature(image_array.shape[2]),
+        'label': _int64_feature(class_index),
+        'label_text': _bytes_feature(class_name_str.encode('utf-8')),
+        'image_raw': _bytes_feature(image_string),
+    }
+
+    # 3. Create a Features message using the feature dictionary.
+    return tf.train.Example(features=tf.train.Features(feature=feature))
+
