@@ -6,7 +6,6 @@ print("=== Script Start ===")
 # %%% i. Import External Libraries
 import time
 MAIN_START_TIME = time.monotonic()
-import pathlib
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -46,25 +45,21 @@ img_features = { # ensure this matches create_tf_example from data handling
 }
 
 # --- Training Parameters ---
-EPOCHS = 40
+EPOCHS = 500
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
-SAVE_MODEL = False # Set to True to save the trained model
+SAVE_MODEL = True # Set to True to save the trained model
 MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "saved_models")
 MODEL_FILENAME = f"{MODEL_TYPE} model epochs-{EPOCHS}.keras"
 
 # --- Model Parameters ---
 DROPOUT_RATE = 0.2
 
-# --- Test Image ---
-# Ensure this path is relative to DATA_BASE_PATH or provide a full path
-TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
-
 # --- Dataset Parameters ---
 IMG_HEIGHT = int(157/5) # must adjust this for the actual image size!!!!
 IMG_WIDTH = int(157/5)
-BATCH_SIZE = 64
+BATCH_SIZE = 256
 VALIDATION_SPLIT = 0.2
 RANDOM_SEED = 123 # For reproducibility of splits
 CLASS_NAMES = ["land", "reservoirs", "sea", "water bodies"]
@@ -90,9 +85,7 @@ def parse_img(example_proto):
 
 # %% 2. Prepare Paths and Directories
 print("=== 2. Preparing Paths ===")
-data_dir = os.path.join(DATA_BASE_PATH, MODEL_TYPE)
 model_save_path = os.path.join(MODEL_SAVE_DIR, MODEL_FILENAME)
-test_image_path = os.path.join(DATA_BASE_PATH, TEST_IMAGE_NAME)
 
 # Create output directories if they don't exist
 if SAVE_MODEL:
@@ -107,27 +100,6 @@ if not os.path.exists(TRAINING_DATA_PATH):
     sys.exit(1)
 else:
     print("Using nominal data directory.")
-
-if not os.path.exists(test_image_path):
-    print(f"WARNING: Test image not found at {test_image_path}. Prediction "
-           "step will fail or use incorrect data.")
-else:
-    print(f"Using nominal test image: {TEST_IMAGE_NAME}")
-
-data_dir_pathlib = pathlib.Path(TRAINING_DATA_PATH)
-try:
-    image_count = len(list(data_dir_pathlib.glob('*/*.png')))
-    print(f"Found {image_count} images in nominal data directory.")
-    if image_count == 0:
-        print("WARNING: No images found. Check the data directory structure "
-              "and image format.")
-except Exception as e:
-    print(f"Error counting images: {e}")
-    image_count = 0 # Assume zero if listing fails
-
-if image_count < BATCH_SIZE:
-    print(f"WARNING: Total image count ({image_count}) is less than the batch "
-           f"size ({BATCH_SIZE}). This might cause issues during training.")
 
 # %% 3. Prepare the Dataset
 print("=== 3. Loading and Preparing Dataset ===")
@@ -296,7 +268,7 @@ for image_batch, label_batch in val_ds.take(1):
     scores = tf.nn.softmax(predictions)
     
     # Display the first few images, their predicted labels, and true labels
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(7, 7))
     for i in range(9): # Display the first 9 images in the batch
         ax = plt.subplot(3, 3, i + 1)
         
@@ -315,7 +287,7 @@ for image_batch, label_batch in val_ds.take(1):
         plt.title(
             f"Pred: {predicted_class} ({confidence:.1f}%)\nTrue: {true_class}",
             color=title_color,
-            fontsize=8
+            fontsize=6
         )
         plt.axis("off")
         
