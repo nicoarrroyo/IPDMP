@@ -47,7 +47,7 @@ img_features = { # ensure this matches create_tf_example from data handling
 }
 
 # --- Training Parameters ---
-EPOCHS = 150
+EPOCHS = 40
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
@@ -65,7 +65,7 @@ TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
 # --- Dataset Parameters ---
 IMG_HEIGHT = int(157/5) # must adjust this for the actual image size!!!!
 IMG_WIDTH = int(157/5)
-BATCH_SIZE = 32
+BATCH_SIZE = 1024
 VALIDATION_SPLIT = 0.2
 RANDOM_SEED = 123 # For reproducibility of splits
 CLASS_NAMES = ["land", "reservoirs", "sea", "water bodies"]
@@ -138,15 +138,14 @@ raw_img_dataset = tf.data.TFRecordDataset(TRAINING_DATA_PATH)
 dataset_size = sum(1 for _ in raw_img_dataset)
 print(f"found {dataset_size} records in TFRecord file")
 
-val_size = int(dataset_size * VALIDATION_SPLIT)
-val_ds = raw_img_dataset.take(val_size)
-train_ds = raw_img_dataset.skip(val_size)
-
-train_size = dataset_size - val_size
-train_ds = train_ds.shuffle(
-    buffer_size=train_size, 
+shuffled_dataset = raw_img_dataset.shuffle(
+    buffer_size=dataset_size, 
     seed=RANDOM_SEED, 
     reshuffle_each_iteration=True)
+
+val_size = int(dataset_size * VALIDATION_SPLIT)
+val_ds = shuffled_dataset.take(val_size)
+train_ds = shuffled_dataset.skip(val_size)
 
 val_ds = val_ds.map(parse_img, num_parallel_calls=tf.data.AUTOTUNE)
 train_ds = train_ds.map(parse_img, num_parallel_calls=tf.data.AUTOTUNE)
