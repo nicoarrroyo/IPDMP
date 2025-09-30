@@ -19,7 +19,6 @@ from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
 # %%% ii. Import Internal Functions
-from image_handling import image_to_array
 from user_interfacing import start_spinner, end_spinner
 print("Imports complete.")
 
@@ -65,7 +64,7 @@ TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
 # --- Dataset Parameters ---
 IMG_HEIGHT = int(157/5) # must adjust this for the actual image size!!!!
 IMG_WIDTH = int(157/5)
-BATCH_SIZE = 1024
+BATCH_SIZE = 64
 VALIDATION_SPLIT = 0.2
 RANDOM_SEED = 123 # For reproducibility of splits
 CLASS_NAMES = ["land", "reservoirs", "sea", "water bodies"]
@@ -285,71 +284,43 @@ else:
     print("Skipping visualization as training did not complete successfully.")
 
 # %% 7. Predict on New Data
-print("=== 7. Predicting on New Data ===")
+# In KRISP_trainer.py, Step 7: Predict on New Data
+print("=== 7. Predicting on a Batch from the Validation Set ===")
 
-# Check if the test image path exists before proceeding
-if os.path.exists(test_image_path):
-    print(f"Loading test image: {TEST_IMAGE_NAME}")
-
-    # Visualize the test image using the imported function
-    try:
-        test_image_display_array = image_to_array(test_image_path)
-        # Check if the array is suitable for imshow
-        if isinstance(test_image_display_array, 
-                      np.ndarray) and test_image_display_array.ndim == 3:
-             plt.figure(figsize=(4, 4))
-             ax = plt.gca()
-             
-             plt.imshow(test_image_display_array)
-             ax.spines["left"].set_visible(False)
-             ax.spines["bottom"].set_visible(False)
-             ax.tick_params(left=False, bottom=False, labelleft=False, 
-                            labelbottom=False)
-             plt.title("Test Image", fontsize=9)
-             plt.show()
-        else:
-            print("WARNING: Output of image_to_array is not a displayable "
-                  "image array.")
-
-    except Exception as e:
-        print("Error processing or displaying test image with "
-              f"image_to_array: {e}")
-
-    # Prepare image for the model prediction
-    try:
-        img = tf.keras.utils.load_img(
-            test_image_path, target_size=(IMG_HEIGHT, IMG_WIDTH)
-        )
-        img_array = tf.keras.utils.img_to_array(img)
-        img_array = tf.expand_dims(img_array, 0) # Create a batch
-
-        # Make prediction
-        predictions = model.predict(img_array)
-        # Apply softmax to get probabilities because the model outputs logits
-        score = tf.nn.softmax(predictions[0])
-
-        predicted_class_index = np.argmax(score)
-        predicted_class_name = CLASS_NAMES[predicted_class_index]
-        confidence = 100 * np.max(score)
+# Take one batch of images and labels from the validation set
+for image_batch, label_batch in val_ds.take(1):
+    # Make predictions on the entire batch
+    predictions = model.predict(image_batch)
+    
+    # Apply softmax to get probabilities
+    scores = tf.nn.softmax(predictions)
+    
+    # Display the first few images, their predicted labels, and true labels
+    plt.figure(figsize=(10, 10))
+    for i in range(9): # Display the first 9 images in the batch
+        ax = plt.subplot(3, 3, i + 1)
         
-        print(
-            "Prediction: This image most likely belongs to "
-            f"'{predicted_class_name}' "
-            f"with a {confidence:.2f}% confidence."
+        # The image data is already a tensor, convert to numpy for display
+        # The pixel values are already scaled [0,1], no need to divide by 255
+        plt.imshow(image_batch[i].numpy().astype("uint8"))
+        
+        predicted_class_index = np.argmax(scores[i])
+        predicted_class = CLASS_NAMES[predicted_class_index]
+        true_class = CLASS_NAMES[label_batch[i]]
+        confidence = 100 * np.max(scores[i])
+        
+        # Set the title color based on whether the prediction was correct
+        title_color = "blue" if predicted_class == true_class else "red"
+        
+        plt.title(
+            f"Pred: {predicted_class} ({confidence:.1f}%)\nTrue: {true_class}",
+            color=title_color,
+            fontsize=8
         )
-        if "reservoir" in predicted_class_name:
-            print("SUCCESS: model predicted correctly!")
-        else:
-            print("FAILURE: model predicted incorrectly")
-
-    except FileNotFoundError:
-        print(f"Error: Test image file not found at {TEST_IMAGE_NAME}")
-    except Exception as e:
-        print(f"An error occurred during prediction: {e}")
-
-else:
-    print("Skipping prediction because test image was not found at: "
-          f"{TEST_IMAGE_NAME}")
+        plt.axis("off")
+        
+    plt.tight_layout()
+    plt.show()
 
 # %% 8. Save Model (Optional)
 if SAVE_MODEL and history:
