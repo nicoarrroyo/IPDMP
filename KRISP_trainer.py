@@ -5,6 +5,7 @@ Keras Reservoir Identification Sequential Platform Trainer
 print("=== Script Start ===")
 # %%% i. Import External Libraries
 import time
+MAIN_START_TIME = time.monotonic()
 import pathlib
 import os
 import matplotlib.pyplot as plt
@@ -20,25 +21,30 @@ from tensorflow.keras.models import Sequential
 # %%% ii. Import Internal Functions
 from image_handling import image_to_array
 from user_interfacing import start_spinner, end_spinner
-
-MAIN_START_TIME = time.monotonic()
 print("Imports complete.")
 
 # %% 1. Configuration
 print("=== 1. Configuring Parameters ===")
 # --- Core Settings ---
 MODEL_TYPE = "ndwi" # Options: "ndwi", "tci"
-# - must be changed to own directory
 
 HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
 BASE_PROJECT_DIR = os.path.join(HOME, "Downloads")
 
-SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
-                   "20250301T152054.SAFE")
+SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU"
+                   "_20250301T152054.SAFE")
 DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2", 
                               SENTINEL_FOLDER, "training data")
+TRAINING_DATA_PATH = os.path.join(DATA_BASE_PATH, "training_data.tfrecord")
 # contains "reservoirs", "water bodies", "land", and "sea"
-DATA_DIR_NAME = MODEL_TYPE
+img_features = { # ensure this matches create_tf_example from data handling
+    'height': tf.io.FixedLenFeature([], tf.int64),
+    'width': tf.io.FixedLenFeature([], tf.int64),
+    'depth': tf.io.FixedLenFeature([], tf.int64),
+    'label': tf.io.FixedLenFeature([], tf.int64),
+    'label_text': tf.io.FixedLenFeature([], tf.string),
+    'image_raw': tf.io.FixedLenFeature([], tf.string),
+}
 
 # --- Training Parameters ---
 EPOCHS = 150
@@ -54,25 +60,40 @@ DROPOUT_RATE = 0.2
 
 # --- Test Image ---
 # Ensure this path is relative to DATA_BASE_PATH or provide a full path
-TEST_IMAGE_SUBDIR = MODEL_TYPE # Subdirectory within DATA_BASE_PATH
 TEST_IMAGE_NAME = f"{MODEL_TYPE} chunk 1 reservoir 1.png"
 
 # --- Dataset Parameters ---
 IMG_HEIGHT = int(157/5) # must adjust this for the actual image size!!!!
 IMG_WIDTH = int(157/5)
-BATCH_SIZE = 1024
+BATCH_SIZE = 32
 VALIDATION_SPLIT = 0.2
 RANDOM_SEED = 123 # For reproducibility of splits
+CLASS_NAMES = ["land", "reservoirs", "sea", "water bodies"]
+num_classes = len(CLASS_NAMES)
 print(f"Image size: ({IMG_HEIGHT}, {IMG_WIDTH})")
 print(f"Batch size: {BATCH_SIZE}")
 print(f"Validation split: {VALIDATION_SPLIT}")
+print(f"{len(CLASS_NAMES)} classes: {CLASS_NAMES}")
+def parse_img(example_proto):
+    features = tf.io.parse_single_example(
+        example_proto, 
+        img_features)
+    label = features["label"]
+    img = tf.io.decode_png(features["image_raw"], channels=3)
+    
+    height = tf.cast(features["height"], tf.int32)
+    width = tf.cast(features["width"], tf.int32)
+    depth = tf.cast(features["depth"], tf.int32)
+    
+    img = tf.reshape(img, [height, width, depth])
+    img = tf.image.resize(img, [IMG_HEIGHT, IMG_WIDTH])
+    return img, label
 
 # %% 2. Prepare Paths and Directories
 print("=== 2. Preparing Paths ===")
-data_dir = os.path.join(DATA_BASE_PATH, DATA_DIR_NAME)
+data_dir = os.path.join(DATA_BASE_PATH, MODEL_TYPE)
 model_save_path = os.path.join(MODEL_SAVE_DIR, MODEL_FILENAME)
-test_image_path = os.path.join(DATA_BASE_PATH, TEST_IMAGE_SUBDIR, 
-                               TEST_IMAGE_NAME)
+test_image_path = os.path.join(DATA_BASE_PATH, TEST_IMAGE_NAME)
 
 # Create output directories if they don't exist
 if SAVE_MODEL:
@@ -80,10 +101,10 @@ if SAVE_MODEL:
     print("Model will be saved to nominal directory")
 
 # --- Path Validation ---
-if not os.path.isdir(data_dir):
-    print(f"Error: Data directory not found at {data_dir}")
+if not os.path.exists(TRAINING_DATA_PATH):
+    print(f"Error: Data directory not found at {TRAINING_DATA_PATH}")
     print("Please check the configuration for BASE_PROJECT_DIR, "
-          "SENTINEL_FOLDER, and DATA_DIR_NAME.")
+          "SENTINEL_FOLDER, and MODEL_TYPE.")
     sys.exit(1)
 else:
     print("Using nominal data directory.")
@@ -94,7 +115,7 @@ if not os.path.exists(test_image_path):
 else:
     print(f"Using nominal test image: {TEST_IMAGE_NAME}")
 
-data_dir_pathlib = pathlib.Path(data_dir)
+data_dir_pathlib = pathlib.Path(TRAINING_DATA_PATH)
 try:
     image_count = len(list(data_dir_pathlib.glob('*/*.png')))
     print(f"Found {image_count} images in nominal data directory.")
@@ -111,52 +132,31 @@ if image_count < BATCH_SIZE:
 
 # %% 3. Prepare the Dataset
 print("=== 3. Loading and Preparing Dataset ===")
-# Load data using a Keras utility
-try:
-    train_ds = tf.keras.utils.image_dataset_from_directory(
-      data_dir_pathlib,
-      validation_split=VALIDATION_SPLIT,
-      subset="training",
-      seed=RANDOM_SEED,
-      image_size=(IMG_HEIGHT, IMG_WIDTH),
-      batch_size=BATCH_SIZE)
 
-    val_ds = tf.keras.utils.image_dataset_from_directory(
-      data_dir_pathlib,
-      validation_split=VALIDATION_SPLIT,
-      subset="validation",
-      seed=RANDOM_SEED,
-      image_size=(IMG_HEIGHT, IMG_WIDTH),
-      batch_size=BATCH_SIZE)
-except Exception as e:
-    print(f"Error loading dataset: {e}")
-    print("Check if the directory structure matches "
-          "'data_dir/class_a/image.png', 'data_dir/class_b/image.png'.")
-    sys.exit(1)
+raw_img_dataset = tf.data.TFRecordDataset(TRAINING_DATA_PATH)
 
-class_names = train_ds.class_names
-num_classes = len(class_names)
-print(f"Found classes: {class_names}")
+dataset_size = sum(1 for _ in raw_img_dataset)
+print(f"found {dataset_size} records in TFRecord file")
+
+val_size = int(dataset_size * VALIDATION_SPLIT)
+val_ds = raw_img_dataset.take(val_size)
+train_ds = raw_img_dataset.skip(val_size)
+
+train_size = dataset_size - val_size
+train_ds = train_ds.shuffle(
+    buffer_size=train_size, 
+    seed=RANDOM_SEED, 
+    reshuffle_each_iteration=True)
+
+val_ds = val_ds.map(parse_img, num_parallel_calls=tf.data.AUTOTUNE)
+train_ds = train_ds.map(parse_img, num_parallel_calls=tf.data.AUTOTUNE)
+
+val_ds = val_ds.batch(BATCH_SIZE).cache().prefetch(buffer_size=tf.data.AUTOTUNE)
+train_ds = train_ds.batch(BATCH_SIZE).cache().prefetch(buffer_size=tf.data.AUTOTUNE)
+
 if num_classes <= 1:
     print("Error: Need at least two classes for classification.")
     sys.exit(1)
-
-# Configure the dataset for performance
-stop_event, thread = start_spinner(message="Configuring dataset performance")
-AUTOTUNE = tf.data.AUTOTUNE
-
-# Improved caching strategy: Cache *after* shuffling for training data
-# Shuffle buffer size can be dataset-dependent, 1000 is a reasonable default
-SHUFFLE_BUFFER_SIZE = 1000 # Or image_count if < 1000 and fits in memory
-train_ds = train_ds.cache() # Cache data after loading (if it fits in memory)
-train_ds = train_ds.shuffle(buffer_size=SHUFFLE_BUFFER_SIZE, 
-                            seed=RANDOM_SEED) # Shuffle the data
-train_ds = train_ds.prefetch(buffer_size=AUTOTUNE) # Prefetch next batch
-
-val_ds = val_ds.cache() # Cache validation data
-val_ds = val_ds.prefetch(buffer_size=AUTOTUNE) # Prefetch next batch
-
-end_spinner(stop_event, thread)
 
 # %% 4. Improvements (Data Augmentation and Dropout)
 print("=== 4. Defining Data Augmentation and Model ===")
@@ -227,24 +227,18 @@ end_spinner(stop_event, thread)
 
 # %% 5. Train the Model
 print(f"=== 5. Starting Training for {EPOCHS} Epochs ===")
-verbose = 0
-if verbose == 0:
-    stop_event, thread = start_spinner(message=f"training model for "
-                                       f"{EPOCHS} epochs")
 try:
     history = model.fit(
       train_ds,
       validation_data=val_ds,
       epochs=EPOCHS, 
-      verbose=verbose
+      verbose=0
     )
     print("Training complete.")
 except Exception as e:
     print(f"An error occurred during training: {e}")
     # Optionally exit or try to proceed depending on the error
     history = None # Ensure history is None if training failed
-if verbose == 0:
-    end_spinner(stop_event, thread)
 
 # %% 6. Visualize Training Results
 print("=== 6. Visualizing Training Results ===")
@@ -336,7 +330,7 @@ if os.path.exists(test_image_path):
         score = tf.nn.softmax(predictions[0])
 
         predicted_class_index = np.argmax(score)
-        predicted_class_name = class_names[predicted_class_index]
+        predicted_class_name = CLASS_NAMES[predicted_class_index]
         confidence = 100 * np.max(score)
         
         print(
