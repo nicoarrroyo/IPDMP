@@ -1,6 +1,7 @@
 import csv
 import os
 import re
+import hashlib
 
 def rewrite(write_file, rows):
     """
@@ -436,4 +437,14 @@ def create_tf_example(image_array, class_index, class_name_str):
 
     # 3. Create a Features message using the feature dictionary.
     return tf.train.Example(features=tf.train.Features(feature=feature))
+
+"""
+back to normal functions
+"""
+def hash_tfrecord(path):
+    hasher = hashlib.sha256() # Create a SHA-256 hash object
+    with open(path, 'rb') as f: # Open the file in binary mode
+        while chunk := f.read(8192): # Read in chunks (8KB at a time)
+            hasher.update(chunk) # Feed each chunk into the hash
+    return hasher.hexdigest() # Return the final hash as a hex string
 
