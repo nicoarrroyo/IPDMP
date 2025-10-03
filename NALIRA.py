@@ -54,41 +54,17 @@ Outputs:
 import time
 MAIN_START_TIME = time.monotonic()
 import os
-import sys
 import tensorflow as tf
-try:
-    import numpy as np
-except:
-    print("failed numpy import")
-    sys.exit()
-
-try:
-    import csv
-except:
-    print("failed csv import")
-    sys.exit()
-
-try:
-    from PIL import Image
-except:
-    print("failed PIL import")
-    sys.exit()
-
-try:
-    from omnicloudmask import predict_from_array
-except:
-    print("failed omnicloudmask import")
-    sys.exit()
-
-try:
-    import rasterio
-except:
-    print("failed rasterio import")
-    sys.exit()
+import numpy as np
+import csv
+from PIL import Image
+from omnicloudmask import predict_from_array
+import rasterio
 
 # %%% Internal Function Imports
 from data_handling import rewrite, blank_entry_check, check_file_permission
 from data_handling import extract_coords, change_to_folder, create_tf_example
+from data_handling import hash_tfrecord
 
 from image_handling import image_to_array, known_feature_mask, plot_indices
 from image_handling import plot_chunks, get_rgb_data, mask_urban_areas
@@ -99,21 +75,21 @@ from user_interfacing import table_print, prompt_roi, list_folders
 from user_interfacing import confirm_continue_or_exit
 
 # %%% General Directory and Plot Properties
-dpi = 3000 # 3000 for full resolution, below 1000, images become fuzzy
-n_chunks = 5000 # number of chunks into which images are split
-high_res = True # use finer 10m spatial resolution (slower)
-known_feature_masking = True
-cloud_masking = True
-show_index_plots = True
-save_images = True
-label_data = False
-data_file_name = "responses_" + str(n_chunks) + "_chunks.csv"
+DPI = 3000 # 3000 for full resolution, below 1000, images become fuzzy
+N_CHUNKS = 5000 # number of chunks into which images are split
+HIGH_RES = True # use finer 10m spatial resolution (slower)
+KNOWN_FEATURE_MASKING = False
+CLOUD_MASKING = False
+SHOW_INDEX_PLOTS = False
+SAVE_IMAGES = False
+LABEL_DATA = False
+DATA_FILE_NAME = "responses_" + str(N_CHUNKS) + "_chunks.csv"
 response_time = 0.0
 
-title_size = 8
-label_size = 4
+TITLE_SIZE = 8
+LABEL_SIZE = 4
 plot_size = (5, 5) # larger plots increase detail and pixel count
-plot_size_chunks = (6, 6)
+plot_size_chunks = (7, 7)
 
 HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
 
@@ -122,11 +98,11 @@ def get_sat(sat_name, sat_number):
     print("====================")
     print(f"||{sat_name} {sat_number} Start||")
     print("====================")
-    table_print(n_chunks=n_chunks, high_res=high_res, 
-                cloud_masking=cloud_masking, 
-                known_feature_masking=known_feature_masking, 
-                show_plots=show_index_plots, save_images=save_images, 
-                labelling=label_data)
+    table_print(n_chunks=N_CHUNKS, high_res=HIGH_RES, 
+                cloud_masking=CLOUD_MASKING, 
+                known_feature_masking=KNOWN_FEATURE_MASKING, 
+                show_plots=SHOW_INDEX_PLOTS, save_images=SAVE_IMAGES, 
+                labelling=LABEL_DATA)
     
     ndwi_arrays_list = []
     # ndvi_arrays_list = []
@@ -177,24 +153,27 @@ def get_sat(sat_name, sat_number):
         # %%%%% 1.1.2 Resolution selection and file name deconstruction
         """Low resolution should only be used for troubleshooting as it does 
         not produce usable training data. High resolution uses the 10m spatial 
-        resolution images but processing time is significantly longer."""
-        if high_res:
+        resolution images but processing time is significantly longer. To save 
+        some space, when splitting the folder name into its parts, some of the 
+        splitting functions outputs are suppressed. In order, the variables not 
+        assigned are: sentinel number, instrument and product level, 
+        processing baseline number, relative orbit number, and product 
+        discriminator and format."""
+        if HIGH_RES:
             res = "10m"
             path_10 = os.path.join(images_path, "IMG_DATA", "R10m")
         else:
             res = "60m"
             path_60 = os.path.join(images_path, "IMG_DATA", "R60m")
         
-        (sentinel_name, instrument_and_product_level, 
-        datatake_start_sensing_time, processing_baseline_number, 
-        relative_orbit_number, tile_number_field, 
-        product_discriminator_and_format) = folder.split("_")
+        (_, _, datatake_start_sensing_time, _, _, 
+         tile_number_field, _) = folder.split("_")
         
-        prefix = (f"{tile_number_field}_{datatake_start_sensing_time}")
-        bands = get_sentinel_bands(sat_number, high_res)
+        prefix = f"{tile_number_field}_{datatake_start_sensing_time}"
+        bands = get_sentinel_bands(sat_number, HIGH_RES)
         
         for band in bands:
-            if high_res:
+            if HIGH_RES:
                 file_paths.append(
                 os.path.join(path_10, f"{prefix}_B{band}_10m.jp2")
                 )
@@ -206,20 +185,21 @@ def get_sat(sat_name, sat_number):
         # %%%% 1.2 Opening and Converting Images
         """This operation takes a long time because the image files are so big. 
         The difference in duration for this operation between using and not 
-        using high_res is a factor of about 20, but, again, not using high_res 
+        using HIGH_RES is a factor of about 20, but, again, not using HIGH_RES 
         results in unusable images."""
         try:
             with rasterio.open(file_paths[0]) as src:
                 image_metadata = src.meta.copy()
-        except:
+        except Exception as e:
             print("failed raster metadata pull")
+            print("error: ", e)
             response_time_start = time.monotonic()
             confirm_continue_or_exit()
             response_time += time.monotonic() - response_time_start
         
         image_arrays = image_to_array(file_paths)
         
-        if cloud_masking:
+        if CLOUD_MASKING:
             image_arrays_clouds = image_arrays
         
         time_taken = time.monotonic() - start_time
@@ -229,7 +209,7 @@ def get_sat(sat_name, sat_number):
         print("==========")
         print("| STEP 2 |")
         print("==========")
-        if known_feature_masking:
+        if KNOWN_FEATURE_MASKING:
             print("masking out known features")
             start_time = time.monotonic()
             
@@ -272,7 +252,7 @@ def get_sat(sat_name, sat_number):
                     image_metadata, 
                     rivers_data, 
                     feature_type="rivers", 
-                    buffer_metres=50
+                    buffer_metres=20
                     )
                 image_arrays[i] = known_feature_mask(
                     image_arrays[i], 
@@ -302,8 +282,8 @@ def get_sat(sat_name, sat_number):
         print("==========")
         print("| STEP 3 |")
         print("==========")
-        if cloud_masking:
-            if not high_res:
+        if CLOUD_MASKING:
+            if not HIGH_RES:
                 print(("WARNING: high-resolution setting is disabled. "
                 "cloud masking may not be accurate"))
                 response_time_start = time.monotonic()
@@ -322,8 +302,9 @@ def get_sat(sat_name, sat_number):
             try:
                 pred_mask_2d = predict_from_array(input_array, 
                                                   mosaic_device="cuda")[0]
-            except:
+            except Exception as e:
                 print("WARNING: CUDA call failed, using CPU")
+                print("error:", e)
                 response_time_start = time.monotonic()
                 confirm_continue_or_exit()
                 response_time += time.monotonic() - response_time_start
@@ -365,7 +346,7 @@ def get_sat(sat_name, sat_number):
         # %%%% 4.2 Calculating Indices
         print("populating index arrays")
         np.seterr(divide="ignore", invalid="ignore")
-        ndwi = ((green - nir) / (green + nir))
+        ndwi = (green - nir) / (green + nir)
         ndwi_arrays_list.append(ndwi)
         
         # ndvi = ((nir - red) / (nir + red))
@@ -401,13 +382,13 @@ def get_sat(sat_name, sat_number):
     #globals()["ndwi_comp"] = ndwi_composite
     
     # %%%% 5.3 Displaying Index
-    if show_index_plots:
-        if save_images:
+    if SHOW_INDEX_PLOTS:
+        if SAVE_IMAGES:
             print("saving and displaying water index images")
         else:
             print("displaying water index images")
         start_time = time.monotonic()
-        plot_indices(ndwi_mean, plot_size, dpi, save_images, 
+        plot_indices(ndwi_mean, plot_size, DPI, SAVE_IMAGES, 
         folder_path, res)
         time_taken = time.monotonic() - start_time
         print(f"step 5 complete! time taken: {time_taken:.2f} seconds")
@@ -424,7 +405,7 @@ def get_sat(sat_name, sat_number):
     # %%%% 6.1 Preparing True Colour Image
     """Load the TCI file at selected resolution, convert to array, resize for 
     GUI labelling."""
-    if label_data:
+    if LABEL_DATA:
         print(f"opening {res} resolution true colour image")
         
         tci_path = os.path.join(images_path, "IMG_DATA", f"R{res}")
@@ -439,12 +420,15 @@ def get_sat(sat_name, sat_number):
             tci_60_array = np.array(img.resize(size))
     
     # %%%% 6.2 Creating Chunks from Satellite Imagery
-    """Split the NDWI array into n_chunks equal segments for batch ROI 
+    """Split the NDWI array into N_CHUNKS equal segments for batch ROI 
     labelling and parallel processing."""
-    print(f"creating {n_chunks} chunks from satellite imagery")
-    index_chunks = split_array(array=ndwi_mean, n_chunks=n_chunks)
-    if label_data:
-        tci_chunks = split_array(array=tci_array, n_chunks=n_chunks)
+    print(f"creating {N_CHUNKS} chunks from satellite imagery")
+    index_chunks = split_array(array=ndwi_mean, n_chunks=N_CHUNKS)
+    tci_chunks = []
+    tci_60_array = []
+    global_max = 0
+    if LABEL_DATA:
+        tci_chunks = split_array(array=tci_array, n_chunks=N_CHUNKS)
     
     # %%%% 6.3 Preparing File for Labelling
     """Initialise or validate the CSV file by enforcing a header, removing 
@@ -468,9 +452,9 @@ def get_sat(sat_name, sat_number):
         os.chdir(HOME) # always go back to initial home folder
     
     lines = []
-    header = ("chunk,reservoirs,water bodies,reservoir "
-    "coordinates,,,,,water body coordinates\n")
-    data_file = os.path.join(labelling_path, data_file_name)
+    header = ("chunk,reservoirs,water-bodies,reservoir-"
+    "coordinates,,,,,water-body-coordinates\n")
+    data_file = os.path.join(labelling_path, DATA_FILE_NAME)
     blank_entry_check(file=data_file) # remove all blank entries
     
     # %%%%% 6.3.1 File validity check
@@ -509,9 +493,9 @@ def get_sat(sat_name, sat_number):
             response_time += time.monotonic() - response_time_start
             if ans.lower() == 'quit':
                 print("quitting")
-                return ndwi
-            elif ans.lower() == 'new':
-                print("creating new file...")
+                return ndwi_mean
+            if ans.lower() == 'new':
+                print("creating new file")
                 with open(data_file, "w") as file:
                     file.write(header)
                     file.write("0, 1, 0\n") # dummy file to start up
@@ -543,10 +527,7 @@ def get_sat(sat_name, sat_number):
         num_of_reservoirs = int(lines[j].split(",")[1])
         try: # try to access coordinates
             res_coord = lines[j].split(",")[3]
-            if res_coord[0] == "[":
-                res_has_coords = True
-            else:
-                res_has_coords = False
+            res_has_coords = bool(res_coord[0] == "[")
         except: # if unable to access, they do not exist
             res_has_coords = False
         if num_of_reservoirs != 0 and not res_has_coords:
@@ -560,10 +541,7 @@ def get_sat(sat_name, sat_number):
         num_of_bodies = int(lines[j].split(",")[2])
         try: # try to access coordinates
             body_coord = lines[j].split(",")[8]
-            if body_coord[0] == "[":
-                body_has_coords = True
-            else:
-                body_has_coords = False
+            body_has_coords = bool(body_coord[0] == "[")
         except: # if unable to access, they do not exist
             body_has_coords = False
         if num_of_bodies != 0 and not body_has_coords:
@@ -587,7 +565,7 @@ def get_sat(sat_name, sat_number):
     print("| STEP 7 |")
     print("==========")
     start_time = time.monotonic()
-    if not label_data:
+    if not LABEL_DATA:
         print("not labelling data")
     else:
         print("data labelling start")
@@ -599,7 +577,7 @@ def get_sat(sat_name, sat_number):
             if break_flag:
                 break
             plot_chunks(ndwi_mean, index_chunks, plot_size_chunks, i, 
-                        title_size, label_size, tci_chunks, tci_60_array)
+                        TITLE_SIZE, LABEL_SIZE, tci_chunks, tci_60_array)
             max_index = [0, 0]
             max_index[0] = round(np.nanmax(index_chunks[i]), 2)
             print(f"MAX ADJUSTED NDWI: {max_index[0]}", end=" | ")
@@ -672,7 +650,7 @@ def get_sat(sat_name, sat_number):
                         response_time += time.monotonic() - response_time_start
                         break_flag = True
                         break
-                    elif "back" in n_bodies or "back" in n_reservoirs:
+                    if "back" in n_bodies or "back" in n_reservoirs:
                         # %%%%% 7.2.3 Non-integer response: "back"
                         """nico!! remember to add a description!"""
                         back_flag = True
@@ -692,20 +670,19 @@ def get_sat(sat_name, sat_number):
                         with open(data_file, mode="w") as wr: # write
                             rewrite(write_file=wr, rows=rows)
                         break
-                    else:
-                        # %%%%% 7.2.4 Non-integer response: error
-                        """nico!! remember to add a description!"""
-                        print("error: non-integer response."
-                              "\ntype 'break' to save and quit"
-                              "\ntype 'back' to go to previous chunk")
-                        n_reservoirs = input("how many "
-                                             "reservoirs? ").strip().lower()
+                    # %%%%% 7.2.4 Non-integer response: error
+                    """nico!! remember to add a description!"""
+                    print("error: non-integer response."
+                          "\ntype 'break' to save and quit"
+                          "\ntype 'back' to go to previous chunk")
+                    n_reservoirs = input("how many "
+                                         "reservoirs? ").strip().lower()
             
             # %%%% 7.3 Saving Results
             """nico!! remember to add a description!"""
             if break_flag:
                 break
-            elif not break_flag and not back_flag:
+            if not break_flag and not back_flag:
                 check_file_permission(file_name=data_file)
                 csv_entry = ""
                 first_csv_entry = True
@@ -742,10 +719,10 @@ def get_sat(sat_name, sat_number):
     
     # %%%% 8.1 Extract Reservoir and Water Body Coordinates
     """nico!! remember to add a description!"""
-    if not high_res:
+    if not HIGH_RES:
         print("high resolution setting must be activated for data segmentation")
         print("exiting program")
-        return ndwi
+        return ndwi_mean
     print("data segmentation start")
     
     res_rows = []
@@ -827,9 +804,9 @@ def get_sat(sat_name, sat_number):
     counter = 1
     base_name, extension = tfrecord_filename.split(".")
     while os.path.exists(os.path.join(labelling_path, tfrecord_filename)):
-        print("TF record filename already exists, incrementing by 1")
-        tfrecord_filename = f"{base_name}_{counter}.{extension}"
         counter += 1
+        tfrecord_filename = f"{base_name}_{counter}.{extension}"
+    
     tfrecord_file_location = os.path.join(labelling_path, tfrecord_filename)
     with tf.io.TFRecordWriter(tfrecord_file_location) as tf_writer:
         all_coords = [(res_coords, "reservoirs"), 
@@ -857,20 +834,46 @@ def get_sat(sat_name, sat_number):
                     class_name_str=class_name)
                 
                 tf_writer.write(tf_example.SerializeToString())
+    
+    existing_records = []
+    for path in os.listdir(labelling_path):
+        if ".tfrecord" in path:
+            existing_records.append(path)
+    
+    hash1 = hash_tfrecord(tfrecord_file_location)
+    for record in existing_records:
+        hash2 = hash_tfrecord(os.path.join(labelling_path, record))
+        duplicate = bool(hash1 == hash2)
+        if duplicate:
+            print("found duplicate tf record data")
+            try:
+                new_save_location = os.path.join(labelling_path, 
+                                                 f"DUPLICATE_{record}")
+                os.rename(tfrecord_file_location, new_save_location)
+                print(f"tf record file renamed to DUPLICATE_{record}")
+                tfrecord_filename = f"DUPLICATE_{record}"
+                tfrecord_file_location = os.path.join(labelling_path, 
+                                                      tfrecord_filename)
+            except FileNotFoundError:
+                print("tf record file not found")
+            except PermissionError:
+                print("permission denied. unable to rename the tf record file")
+            break
+    
     print(f"wrote all available training data to {tfrecord_filename}")
     
     time_taken = time.monotonic() - start_time
     print(f"step 8 complete! time taken: {time_taken:.2f} seconds")
     
     # %%% 8. Satellite Output
-    return ndwi
+    return ndwi_mean
 # %% Running Functions
 """
 Sentinel 2 has varying resolution bands, with Blue (2), Green (3), Red (4), and 
 NIR (8) having 10m spatial resolution, while SWIR 1 (11) and SWIR 2 (12) have 
 20m spatial resolution.
 """
-ndwi = get_sat(sat_name="Sentinel", sat_number=2)
+mean_ndwi_arr = get_sat(sat_name="Sentinel", sat_number=2)
 
 # %% Final
 TOTAL_TIME = time.monotonic() - MAIN_START_TIME - response_time
