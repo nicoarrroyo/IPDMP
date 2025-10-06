@@ -78,11 +78,11 @@ from user_interfacing import confirm_continue_or_exit
 DPI = 3000 # 3000 for full resolution, below 1000, images become fuzzy
 N_CHUNKS = 5000 # number of chunks into which images are split
 HIGH_RES = True # use finer 10m spatial resolution (slower)
-KNOWN_FEATURE_MASKING = False
-CLOUD_MASKING = False
-SHOW_INDEX_PLOTS = False
+KNOWN_FEATURE_MASKING = True
+CLOUD_MASKING = True
+SHOW_INDEX_PLOTS = True
 SAVE_IMAGES = False
-LABEL_DATA = False
+LABEL_DATA = True
 DATA_FILE_NAME = "responses_" + str(N_CHUNKS) + "_chunks.csv"
 response_time = 0.0
 
@@ -116,7 +116,10 @@ def get_sat(sat_name, sat_number):
     folders = list_folders(folders_path)
     
     # %%% 1. Opening Images and Creating Image Arrays
-    for folder in folders:
+    for i, folder in enumerate(folders):
+        print("===============")
+        print(f"| IMAGE {i+1} / {len(folders)+1} |")
+        print("===============")
         print("==========")
         print("| STEP 1 |")
         print("==========")
@@ -424,8 +427,6 @@ def get_sat(sat_name, sat_number):
     labelling and parallel processing."""
     print(f"creating {N_CHUNKS} chunks from satellite imagery")
     index_chunks = split_array(array=ndwi_mean, n_chunks=N_CHUNKS)
-    tci_chunks = []
-    tci_60_array = []
     global_max = 0
     if LABEL_DATA:
         tci_chunks = split_array(array=tci_array, n_chunks=N_CHUNKS)
