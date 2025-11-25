@@ -63,10 +63,11 @@ To run the entire pipeline, follow these steps sequentially.
 
 * You have downloaded the IPDMP code.
 * You have downloaded a Sentinel-2 satellite image tile in `.SAFE` format.
+* You have downloaded the necessary masking files.
 
 **1. Setup File Structure**
 
-* **Extract Code and Image:** Extract the downloaded code and satellite image to a known location.
+* **Extract Code and Image:** Extract the downloaded code and satellite image to the intended directory (in `data` folder).
 * **Create `training data` Folder:** Inside the extracted image folder, create a new folder named `training data`.
 * **Move `responses` File:** Move the `responses_5000_chunks.csv` file into the newly created `training data` folder.
 
@@ -107,24 +108,35 @@ To run the entire pipeline, follow these steps sequentially.
     * Execute the script: `python KRISPETTE.py`
     * It will calculate and print performance metrics.
 
-## Code Structure
+## Repository Structure
 
-* `NALIRA.py`: Main script for data generation and labeling GUI.
-* `KRISP_trainer.py`: Trains the Keras CNN model.
-* `epoch_pathfinder.py`: Helps determine the optimal number of training epochs.
-* `KRISP-Y.py`: Main script for running predictions on full tiles.
-* `KRISP-Y_auto.py`: Automated version of `KRISP-Y.py` for running predictions with multiple models.
-* `KRISP.py`: Core prediction logic.
-* `KRISPETTE.py`: Testing environment for `KRISP`.
-* `data_handling.py`: Utility functions for data manipulation.
-* `image_handling.py`: Functions for image processing.
-* `user_interfacing.py`: GUI and user interaction functions.
-* `misc.py`: Miscellaneous helper functions.
-* `responses_..._chunks.csv`: (Input/Output) Stores the user-labeled data from NALIRA.
-* `P_..._....csv`: (Output) Stores the model predictions from KRISP-Y.
-* `saved_models/`: (Output Dir) Folder where trained models are saved.
-* `Sentinel 2/<image_folder>/training data/`: (Output Dir) Contains segmented training images.
-* `Sentinel 2/<image_folder>/test data/`: (Output Dir) Contains temporary mini-chunk images for prediction.
+This repository is organized into several key directories:
+
+- `data/`: Contains all the directories in which the user must put their raw and processed data for the project.
+    - `responses_5000_chunks.csv`: (Input/Output) Stores the user-labeled data from NALIRA.
+    - `masks/`: Directory for user to organise masking files.
+        - `boundaries/`: Country boundary masks.
+        - `known_reservoirs/`: Masks for known reservoirs.
+        - `rivers/`: River masks.
+        - `terrain/`: Terrain level / gradient masks.
+        - `urban_areas/`: Urban area (cities, towns, etc.) masks.
+    - `saved_models/`: Stores trained model versions (initially empty).
+    - `sentinel_2/`: Directory for user-downloaded Sentinel-2 satellite imagery.
+
+- `src/`: Houses the source code for the project.
+    - `data_handling.py`: Helper scripts containing functions for loading, preprocessing, and managing data.
+    - `epoch_pathfinder.py`: Helps determine the optimal number of training epochs for `KRISP_trained.py`.
+    - `image_handling.py`: Helper script containing functions for image manipulation and processing.
+    - `KRISP.py`: Large function file used for model deployment. Core prediction logic.
+    - `KRISP-Y.py`: Main script for running predictions on full tiles.
+    - `KRISPETTE.py`: Confusion matrix simulation script. Testing environment for `KRISP` models.
+    - `KRISP_trainer.py`: Model training script.
+    - `misc.py`: A collection of miscellaneous utility functions.
+    - `NALIRA.py`: Main script for data generation and labeling GUI.
+    - `user_interfacing.py`: Helper script containing functions for running user interactions.
+    - `tests/`: Contains unit and integration tests for the project.
+        - `KRISP-Y_auto.py`: Automated version of `KRISP-Y.py` for running predictions with multiple models.
+
 
 ## Contributing
 
