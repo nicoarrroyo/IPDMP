@@ -137,6 +137,9 @@ This repository is organized into several key directories:
     - `tests/`: Contains unit and integration tests for the project.
         - `KRISP-Y_auto.py`: Automated version of `KRISP-Y.py` for running predictions with multiple models.
 
+## License
+
+This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
 
 ## Contributing
 
