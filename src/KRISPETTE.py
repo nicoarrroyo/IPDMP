@@ -55,7 +55,7 @@ def get_confusion_matrix(model_epochs, confidence_threshold):
     os.chdir(
         os.path.join(
             "C:\\", "Users", "nicol", "Documents", "UoM", "YEAR 3", 
-            "Individual Project", "Downloads", "Sentinel 2", 
+            "Individual Project", "data", "Sentinel 2", 
             "S2C_MSIL2A_20250331T110651_N0511_R137_T31UCU_20250331T143812.SAFE"
             )
         )

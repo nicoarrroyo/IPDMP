@@ -1,4 +1,4 @@
-# %% 0.Start
+# %% 0. Start
 """ KRISP Trainer
 Keras Reservoir Identification Sequential Platform Trainer
 """
@@ -27,13 +27,13 @@ print("=== 1. Configuring Parameters ===")
 MODEL_TYPE = "ndwi" # Options: "ndwi", "tci"
 
 HOME = os.path.dirname(os.getcwd()) # HOME path is one level up from the cwd
-BASE_PROJECT_DIR = os.path.join(HOME, "Downloads")
+BASE_PROJECT_DIR = os.path.join(HOME, "data")
 
 SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU"
                    "_20250301T152054.SAFE")
 DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2", 
                               SENTINEL_FOLDER, "training data")
-TRAINING_DATA_PATH = os.path.join(DATA_BASE_PATH, "training_data.tfrecord")
+TRAINING_DATA_PATH = os.path.join(DATA_BASE_PATH, "training_data_1.tfrecord")
 # contains "reservoirs", "water bodies", "land", and "sea"
 img_features = { # ensure this matches create_tf_example from data handling
     'height': tf.io.FixedLenFeature([], tf.int64),
@@ -49,7 +49,7 @@ EPOCHS = 500
 LEARNING_RATE = 0.001 # Adam optimizer default, but can be specified
 
 # --- Output Settings ---
-SAVE_MODEL = True # Set to True to save the trained model
+SAVE_MODEL = False # Set to True to save the trained model
 MODEL_SAVE_DIR = os.path.join(BASE_PROJECT_DIR, "saved_models")
 MODEL_FILENAME = f"{MODEL_TYPE} model epochs-{EPOCHS}.keras"
 

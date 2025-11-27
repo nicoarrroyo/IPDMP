@@ -38,7 +38,7 @@ print("=== 1. Configuring Parameters ===")
 # --- Core Settings ---
 MODEL_TYPE = "ndwi" # Options: "ndwi", "tci" #
 BASE_PROJECT_DIR = os.path.join("C:\\", "Users", "nicol", "Documents", "UoM",
-                                "YEAR 3", "Individual Project", "Downloads") # Adjust if needed
+                                "YEAR 3", "Individual Project", "data") # Adjust if needed
 SENTINEL_FOLDER = ("S2C_MSIL2A_20250301T111031_N0511_R137_T31UCU_"
                    "20250301T152054.SAFE") # Adjust if needed
 DATA_BASE_PATH = os.path.join(BASE_PROJECT_DIR, "Sentinel 2",
