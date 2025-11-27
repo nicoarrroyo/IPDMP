@@ -111,8 +111,7 @@ def get_sat(sat_name, sat_number):
     global response_time
     
     # %%% i. Find the Relevant Folders
-    satellite = f"{sat_name} {sat_number}"
-    folders_path = os.path.join(HOME, "data", satellite)
+    folders_path = os.path.join(HOME, "data", "sentinel_2")
     folders = list_folders(folders_path)
     
     # %%% 1. Opening Images and Creating Image Arrays
@@ -216,7 +215,7 @@ def get_sat(sat_name, sat_number):
             print("masking out known features")
             start_time = time.monotonic()
             
-            masking_path = os.path.join(HOME, "data", "Masking")
+            masking_path = os.path.join(HOME, "data", "masks")
             
             rivers_data = os.path.join(
                 masking_path, 
@@ -442,7 +441,7 @@ def get_sat(sat_name, sat_number):
         if data_folder_found:
             break
         
-        folder_path = os.path.join(HOME, "data", satellite, folder)
+        folder_path = os.path.join(HOME, "data", "sentinel_2", folder)
         if os.path.exists(os.path.join(folder_path, "training data")):
             data_folder_found = True
             labelling_path = os.path.join(folder_path, "training data")
