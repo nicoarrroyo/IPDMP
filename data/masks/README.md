@@ -38,3 +38,6 @@ Implementation of high-slope area masking is planned, but not complete yet.
 
 ## Special Case (Clouds)
 Cloud masking is already implemented in IPDMP, however there is no need for the user to place any specific files in any specific directory. IPDMP uses the [OmniCloudMask](https://github.com/DPIRD-DMA/OmniCloudMask) Python library (can be installed and found hosted on GitHub), which is a deep learning solution to cloud and cloud shadow segmentation.
+
+## Notes
+- The OmniCloudMask, since it is built on deep learning principles, relies heavily on using a discrete Graphics Processing Unit (GPU), specifically NVIDIA GPUs (using the proprietary NVIDIA software for machine learning, CUDA). IPDMP will try to deploy OmniCloudMask using CUDA, but if an NVIDIA GPU is not detected on your system, it will shift to using the CPU, which is significantly slower (modern NVIDIA GPU inference time ~= 30 seconds, modern CPU inference time ~= 1 hour) and therefore not recommended. 
