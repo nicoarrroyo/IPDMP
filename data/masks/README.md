@@ -3,9 +3,9 @@ This directory is built to contain all the masking information requested by NALI
 
 ## Boundaries
 - **File Source**: [UK GOV](https://www.data.gov.uk/dataset/2e17269d-10b9-4e43-b67b-57f9b02bd0f8/countries-december-2021-boundaries-uk-buc)
-- **File Type**: Shapefile (.shp) in a folder
+- **File Type**: Single Geographic JavaScript Objection Notation (.geojson) file
 - **Folder Name**:
-To restrict study to one country, we can This has the significant added benefit of masking out the sea as well. The sea can make up a large part of a satellite image, and since often has clouds over it as well, small parts of the sea can often be confused with reservoirs. 
+To restrict study to one country, we can use a BSC (Boundary, Super-Resolution, Clipped) .geojson file which contains information about the outline of England. This has the significant added benefit of masking out the sea as well. The sea can make up a large part of a satellite image, and since there are often clouds covering parts of the sea as well, small segments can be confused with reservoirs. 
 
 ## Known Reservoirs
 - **File Source**: [UK GOV](https://www.data.gov.uk/dataset/aa1e16e8-eded-4a60-8d1d-0df920c319b6/inventory-of-reservoirs-amounting-to-90-of-total-uk-storage)
