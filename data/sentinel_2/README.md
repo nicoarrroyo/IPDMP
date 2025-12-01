@@ -60,56 +60,32 @@ This folder is contained in the main parent folder from which we were able to ex
 ### Summary and File Tree
 To summarise, the image file is contained in a resolution folder, which is contained in an images folder, which is contained in the intermittent folder, which is contained in the initial folder, which is contained in the main parent folder. To visualise, use the file tree below: 
 
-**`S2C_MSIL2A_20250331T110651_N0511_R137_T31UCU_20250331T143812.SAFE`**
-├── `DATASTRIP`
-|   └── `DS_2CPS_20250331T143812_S20250331T111534`
-|       └── `...`
-├── **`GRANULE`**
-│   └── **`L2A_T31UCU_A002967_20250331T111534`**
-│       ├── **`_DATA`**
-|           ├── **`asf`**
-|               ├──
-├── `HTML`
-│   ├── `UserProduct_index.html`
-│   └── `...`
-├── `rep_info`
-|   ├── `S2_PDI_Level-2A_Datastrip_Metadata.xsd`
-│   └── `...`
-├── `INSPIRE.xml`
-├── `manifest.safe`
-└── `MTD_MSIL2A.xml`
-
-* `DATASTRIP`
-** `DS_2CPS_20250331T143812_S20250331T111534`
-*** `...`
-
-* **`GRANULE`**
-** **`L2A_T31UCU_A002967_20250331T111534`**
-*** `AUX_DATA`
-**** `...`
-*** **`IMG_DATA`**
-**** **`asf`**
-*** `QI_DATA`
-**** `...`
-
-* `HTML`
-** `UserProduct_index.html`
-** `...`
-
-* `rep_info`
-** `S2_PDI_Level-2A_Datastrip_Metadata.xsd`
-** `...`
-
-* `INSPIRE.xml`
-
-* `manifest.safe`
-
-* `MTD_MSIL2A.xml`
+- _`DATASTRIP/`_
+  - _`DS_2CPS_20250331T143812_S20250331T111534/`_
+    - _`...`_
+- **`GRANULE/`**
+  - **`L2A_T31UCU_A002967_20250331T111534/`**
+    - _`AUX_DATA/`_
+      - _`...`_
+    - **`IMG_DATA/`**
+      - **`R10m/`**
+        - **`T31UCU_20250331T110651_B04_10m.jp2`**
+    - _`QI_DATA/`_
+      - _`...`_
+- _`HTML/`_
+  - _`UserProduct_index.html`_
+    - _`...`_
+- _`rep_info/`_
+  - _`S2_PDI_Level-2A_Datastrip_Metadata.xsd`_
+  - _`...`_
+- _`INSPIRE.xml`_
+- _`manifest.safe`_
+- _`MTD_MSIL2A.xml`_
 
 It is also important to note that as you run the different scripts in this project (NALIRA, KRISP-Y, KRISP_trainer, etc.) different images, files, or folders will be generated and placed in the parent folder (starting with **`S2C`**). This is normal and intended behaviour. 
 
 ## Notes
-hi :). no notes here :)
+hi :) no notes here :)
 
 
 
