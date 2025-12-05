@@ -11,7 +11,7 @@ data/
 │   ├── terrain/             # Terrain masks
 │   └── urban_areas/         # Urban area masks
 ├── saved_models/            # Boundary shapefiles for labeling
-├── sentinel_2/              # Preprocessed data (generated)
+└── sentinel_2/              # Preprocessed data (generated)
 ```
 
 ## `masks` (input data)
